@@ -1,0 +1,5 @@
+architecture,iou,precision_omega,noise_ratio,faithfulness,context_precision,context_recall,answer_relevance,latency_ms
+Naive RAG,0.0344,0.0095,0.9653,0.33,0.234,0.124,0.158,468.7634
+Hybrid Multi-Query RAG,0.0102,0.0071,0.9898,0.21,0.11,0.11,0.154,1109.156
+Parent-Child RAG,0.0091,0.0047,0.9909,0.272,0.372,0.116,0.12,489.0546
+CRAG,0.0361,0.0102,0.9633,0.372,0.276,0.19,0.026,958.8404

@@ -1,0 +1,59 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtual environments ──────────────────────────────────────────────────
+.venv/
+.venv-*/
+venv/
+env/
+ENV/
+
+# ── Environment / secrets ─────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ── Data / artifacts (large or sensitive) ─────────────────────────────────
+data/chroma_db/
+data/chroma_db_full/
+data/chroma_db_train/
+data/train_shards/
+data/shard_checkpoints/
+data/_*.jsonl
+data/_*.json
+data/synthetic_dataset.json
+
+# ── Outputs / logs ────────────────────────────────────────────────────────
+outputs/cicd_report.json
+outputs/trulens_monitor.jsonl
+outputs/raw_eval_results.csv
+*.log
+
+# ── IDE / editor ──────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Build / packaging ─────────────────────────────────────────────────────
+build/
+dist/
+*.whl
+
+# ── Jupyter ───────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
