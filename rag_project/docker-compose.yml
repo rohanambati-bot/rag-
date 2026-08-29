@@ -1,0 +1,77 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rag_redis
+    # Bind to localhost only (do not expose Redis to other hosts on the LAN).
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+    cap_add: ["SETGID", "SETUID"]
+
+  api:
+    build: .
+    container_name: rag_api
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - API_KEY=${API_KEY:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8501}
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: false   # app writes to /app/data, /app/outputs
+
+  ui:
+    build: .
+    container_name: rag_ui
+    command: streamlit run app.py --server.address=0.0.0.0 --server.port=8501
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - API_BASE_URL=http://api:8000
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  redis_data:

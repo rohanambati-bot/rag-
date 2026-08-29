@@ -1,0 +1,36 @@
+Let R = set of retrieved tokens (stopwords removed)
+Let A = set of ground truth answer tokens
+Let p = |R ∩ A| / |R|    (token precision ratio)
+
+DEFINITION: PΩ = p²
+
+THEOREM 1 (Boundedness):
+  Since R ∩ A ⊆ R:
+  0 ≤ |R ∩ A| ≤ |R|
+  0 ≤ p ≤ 1
+  0 ≤ p² ≤ 1
+  Therefore 0 ≤ PΩ ≤ 1  □
+
+THEOREM 2 (Noise sensitivity superiority):
+  For any noisy retrieval where p < 1:
+  d(p)/dp = 1         (Precision@K sensitivity — linear)
+  d(p²)/dp = 2p       (PΩ sensitivity — quadratic)
+  
+  At p = 0.5: Precision@K = 0.5, PΩ = 0.25
+  At p = 0.3: Precision@K = 0.3, PΩ = 0.09
+  
+  PΩ penalises noise quadratically.
+  For p < 1, PΩ < Precision@K always.  □
+
+THEOREM 3 (Extreme cases):
+  Perfect retrieval (R = A): p = 1, PΩ = 1  ✓
+  Complete noise (R ∩ A = ∅): p = 0, PΩ = 0  ✓  □
+
+COROLLARY (Retrieval Paradox):
+  Paradox exists when:
+    Hit Rate = 1 (correct document present)
+    AND PΩ < θ (content is mostly noise)
+  From Theorem 2, this occurs when p < √θ
+  For θ = 0.4: paradox when p < 0.632
+  Meaning: even 63% token precision triggers paradox
+  when standard metrics report full success.
