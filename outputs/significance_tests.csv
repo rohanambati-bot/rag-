@@ -1,0 +1,57 @@
+architecture,metric,n_pairs,mean,baseline_mean,mean_diff,t_statistic,p_value,wilcoxon_p,effect_size_dz,identical_to_baseline,p_value_bh,significant_p05_bh
+Hybrid Multi-Query,ndcg_at_10,10,0.444846,0.1,0.344846,3.2018,0.0108,0.027281,1.0125,False,0.15744,False
+Rerank RAG,ndcg_at_10,10,0.5,0.1,0.4,2.7346,0.023049,0.03936,0.8648,False,0.15744,False
+GRACE-Ω,ndcg_at_10,10,0.063093,0.1,-0.036907,-1.0,0.343436,0.317311,-0.3162,False,0.846163,False
+CRAG,ndcg_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+RAG-Fusion,ndcg_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Adaptive RAG,ndcg_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,ndcg_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω + Rerank,ndcg_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Hybrid Multi-Query,mrr_at_10,10,0.391667,0.1,0.291667,2.863,0.018687,0.026857,0.9054,False,0.13558,False
+Rerank RAG,mrr_at_10,10,0.52,0.1,0.42,2.6411,0.026865,0.033895,0.8352,False,0.13558,False
+GRACE-Ω,mrr_at_10,10,0.05,0.1,-0.05,-1.0,0.343436,0.317311,-0.3162,False,0.846163,False
+CRAG,mrr_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+RAG-Fusion,mrr_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Adaptive RAG,mrr_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,mrr_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω + Rerank,mrr_at_10,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Hybrid Multi-Query,recall_at_k,10,0.65,0.1,0.55,3.498,0.006745,0.019631,1.1062,False,0.13558,False
+Rerank RAG,recall_at_k,10,0.55,0.1,0.45,2.862,0.018719,0.033895,0.905,False,0.13558,False
+CRAG,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+RAG-Fusion,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Adaptive RAG,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω + Rerank,recall_at_k,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Hybrid Multi-Query,hit_rate,10,0.7,0.1,0.6,3.6742,0.005121,0.014306,1.1619,False,0.101388,False
+Rerank RAG,hit_rate,10,0.6,0.1,0.5,3.0,0.014956,0.025347,0.9487,False,0.101388,False
+CRAG,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+RAG-Fusion,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Adaptive RAG,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω + Rerank,hit_rate,10,0.1,0.1,0.0,,1.0,1.0,0.0,True,1.0,False
+CRAG,precision_omega,10,0.007061,0.005165,0.001896,1.1432,0.282455,0.079616,0.3615,False,0.309374,False
+RAG-Fusion,precision_omega,10,0.005002,0.005165,-0.000163,-1.0043,0.341455,0.179712,-0.3176,False,0.309374,False
+GRACE-Ω,precision_omega,10,0.00575,0.005165,0.000585,0.8611,0.411536,0.109745,0.2723,False,0.309374,False
+Rerank RAG,precision_omega,10,0.009519,0.005165,0.004354,1.2149,0.255322,0.193359,0.3842,False,0.309374,False
+GRACE-Ω + Rerank,precision_omega,10,0.005143,0.005165,-2.2e-05,-0.0165,0.987216,0.173071,-0.0052,False,0.309374,False
+Hybrid Multi-Query,precision_omega,10,0.01143,0.005165,0.006265,1.955,0.082305,0.322266,0.6182,False,0.429688,False
+Adaptive RAG,precision_omega,10,0.005165,0.005165,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,precision_omega,10,0.005165,0.005165,0.0,,1.0,1.0,0.0,True,1.0,False
+Hybrid Multi-Query,answer_recall,10,0.89697,0.685227,0.211742,2.0501,0.070603,0.046399,0.6483,False,0.271556,False
+GRACE-Ω + Rerank,answer_recall,10,0.630997,0.685227,-0.05423,-2.1017,0.064942,0.067889,-0.6646,False,0.271556,False
+CRAG,answer_recall,10,0.662311,0.685227,-0.022917,-1.3372,0.21396,0.179712,-0.4229,False,0.359424,False
+GRACE-Ω,answer_recall,10,0.663636,0.685227,-0.021591,-1.4772,0.173748,0.179712,-0.4671,False,0.359424,False
+Rerank RAG,answer_recall,10,0.824747,0.685227,0.13952,1.2186,0.253986,0.236724,0.3853,False,0.378758,False
+RAG-Fusion,answer_recall,10,0.676136,0.685227,-0.009091,-1.0,0.343436,0.317311,-0.3162,False,0.423081,False
+Adaptive RAG,answer_recall,10,0.685227,0.685227,0.0,,1.0,1.0,0.0,True,1.0,False
+Parent-Child RAG,answer_recall,10,0.685227,0.685227,0.0,,1.0,1.0,0.0,True,1.0,False
+CRAG,iou,10,0.101756,0.101573,0.000183,0.033,0.974366,0.654721,0.0104,False,1.0,False
+RAG-Fusion,iou,10,0.099709,0.101573,-0.001864,-1.0,0.343436,0.317311,-0.3162,False,1.0,False
+Hybrid Multi-Query,iou,10,0.1097,0.101573,0.008127,0.3392,0.74222,0.753152,0.1073,False,1.0,False
+Adaptive RAG,iou,10,0.101573,0.101573,0.0,,1.0,1.0,0.0,True,1.0,False
+GRACE-Ω,iou,10,0.100692,0.101573,-0.000882,-0.4003,0.698261,0.654721,-0.1266,False,1.0,False
+Parent-Child RAG,iou,10,0.101573,0.101573,0.0,,1.0,1.0,0.0,True,1.0,False
+Rerank RAG,iou,10,0.112506,0.101573,0.010933,0.6893,0.508024,0.345448,0.218,False,1.0,False
+GRACE-Ω + Rerank,iou,10,0.096757,0.101573,-0.004816,-0.7521,0.471223,0.465209,-0.2378,False,1.0,False

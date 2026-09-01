@@ -1,0 +1,48 @@
+# ── VCS ───────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtual environments ──────────────────────────────────────────────────
+.venv/
+.venv-*/
+venv/
+
+# ── Secrets / env ─────────────────────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+
+# ── Data & outputs (mounted at runtime, not baked into image) ─────────────
+data/chroma_db/
+data/chroma_db_full/
+data/chroma_db_train/
+data/train_shards/
+data/shard_checkpoints/
+data/_*.jsonl
+data/_*.json
+data/synthetic_dataset.json
+outputs/cicd_report.json
+outputs/trulens_monitor.jsonl
+outputs/raw_eval_results.csv
+outputs/plots/
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ── Project-local helpers ─────────────────────────────────────────────────
+*.log
+*.bak
+README.dev.md

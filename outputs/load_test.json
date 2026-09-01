@@ -1,0 +1,45 @@
+{
+  "url": "http://127.0.0.1:8091",
+  "scenarios": [
+    {
+      "arch": "naive",
+      "concurrency": 1,
+      "requests": 20,
+      "succeeded": 20,
+      "errors": 0,
+      "error_sample": [],
+      "wall_seconds": 0.43,
+      "throughput_rps": 46.0,
+      "latency_ms": {
+        "p50": 18.0,
+        "p90": 32.0,
+        "p95": 38.5,
+        "p99": 53.4,
+        "max": 57.2,
+        "mean": 21.7
+      },
+      "scenario": "cached (repeated query, cache-hit path)"
+    },
+    {
+      "arch": "naive",
+      "concurrency": 1,
+      "requests": 20,
+      "succeeded": 19,
+      "errors": 1,
+      "error_sample": [
+        504
+      ],
+      "wall_seconds": 215.6,
+      "throughput_rps": 0.1,
+      "latency_ms": {
+        "p50": 6114.6,
+        "p90": 15179.5,
+        "p95": 22468.9,
+        "p99": 24250.3,
+        "max": 24695.6,
+        "mean": 8180.1
+      },
+      "scenario": "cold (unique queries, retrieval path)"
+    }
+  ]
+}
