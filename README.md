@@ -568,9 +568,9 @@ prototype — not a system that has survived production.
 
 ## Team
 
-| Member          | ID            | Role                                                    |
-|-----------------|---------------|---------------------------------------------------------|
-| Manoj R         | PES2UG23CS328 | System Architect — Hybrid search, dynamic chunking      |
-| Lakshay Mittal  | PES2UG23CS300 | Data Engineer — Vector DB, semantic cache               |
-| Keerthan P V    | PES2UG23CS272 | ML Engineer — Prompt engineering, RAGAS scoring          |
-| Rohan A         | PES2UG24CS819 | DevOps / QA — CI/CD, security, monitoring                |
+| Member          | ID            | 
+|-----------------|---------------|
+| Manoj R         | PES2UG23CS328 | 
+| Lakshay Mittal  | PES2UG23CS300 |
+| Keerthan P V    | PES2UG23CS272 | 
+| Rohan A         | PES2UG24CS819 | 
