@@ -5,12 +5,12 @@ Run with:
     streamlit run app.py
 
 Pages:
-  💬 Chat            — talk to any RAG architecture (with conversation memory)
-  🆚 A/B Test        — compare two architectures side-by-side
-  📊 Evaluation      — run RAGAS evaluation and see metrics live
-  📈 Visualizations  — render all 7 plots from current results
-  ⚡ Cache           — semantic cache statistics + manual lookup
-  ⚙️  Settings       — toggle thresholds, view config
+   Chat            — talk to any RAG architecture (with conversation memory)
+   A/B Test        — compare two architectures side-by-side
+   Evaluation      — run RAGAS evaluation and see metrics live
+   Visualizations  — render all 7 plots from current results
+   Cache           — semantic cache statistics + manual lookup
+   Settings       — toggle thresholds, view config
 
 No API key required — extractive fallback works offline.
 """
@@ -54,7 +54,7 @@ from configs.config import (  # noqa: E402
 
 st.set_page_config(
     page_title="RAG Evaluation Framework",
-    page_icon="🧠",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -149,28 +149,28 @@ def _get_cache():
 # ═════════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("### 🧠 RAG Framework")
+    st.markdown("###  RAG Framework")
     page = st.radio(
         "Navigate",
-        ["💬 Chat", "🆚 A/B Test", "🏆 Compare All", "📄 Upload Doc",
-         "📊 Evaluation", "🔍 Failure Analysis",
-         "📈 Visualizations", "⚡ Cache", "⚙️ Settings"],
+        ["Chat", "A/B Test", "Compare All", "Upload Doc",
+         "Evaluation", "Failure Analysis",
+         "Visualizations", "Cache", "Settings"],
         label_visibility="collapsed",
     )
     st.divider()
 
     st.markdown("##### Status")
     if GROQ_API_KEY:
-        api_state = "🟢 Groq (Llama 3.1)"
+        api_state = "Groq (Llama 3.1)"
     elif MISTRAL_API_KEY:
-        api_state = "🟢 Mistral"
+        api_state = "Mistral"
     else:
-        api_state = "🟡 Extractive fallback"
+        api_state = "Extractive fallback"
     st.caption(f"LLM: {api_state}")
-    st.caption(f"Vector Store: {'🟢 Ready' if Path(VECTOR_STORE_DIR).exists() else '⚪ Not built'}")
+    st.caption(f"Vector Store: {'Ready' if Path(VECTOR_STORE_DIR).exists() else ' Not built'}")
 
     st.divider()
-    if st.button("🗑️  Clear caches", use_container_width=True):
+    if st.button("Clear caches", use_container_width=True):
         st.cache_resource.clear()
         st.cache_data.clear()
         st.success("Caches cleared.")
@@ -182,7 +182,7 @@ with st.sidebar:
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_chat():
-    st.markdown('<div class="main-title">💬 RAG Chat</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"> RAG Chat</div>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Multi-turn conversations with retrieval-augmented answers.</p>',
                 unsafe_allow_html=True)
 
@@ -200,7 +200,7 @@ def page_chat():
 
     col_clear, _ = st.columns([1, 5])
     with col_clear:
-        if st.button("🧹 New conversation"):
+        if st.button("New conversation"):
             st.session_state.chat_history = []
             st.rerun()
 
@@ -209,7 +209,7 @@ def page_chat():
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg.get("sources"):
-                with st.expander(f"📚 Retrieved context ({len(msg['sources'])} chunks)"):
+                with st.expander(f"Retrieved context ({len(msg['sources'])} chunks)"):
                     for i, src in enumerate(msg["sources"], 1):
                         st.markdown(f"**Chunk {i}:** {src[:400]}…" if len(src) > 400 else
                                     f"**Chunk {i}:** {src}")
@@ -232,7 +232,7 @@ def page_chat():
                 if cached:
                     answer = cached["answer"]
                     sources = cached.get("contexts", [])
-                    meta = (f"⚡ Cache hit (similarity {cached['similarity_score']:.3f}) · "
+                    meta = (f" Cache hit (similarity {cached['similarity_score']:.3f}) · "
                             f"latency 0 ms")
                 else:
                     rag = _get_architectures()[arch_choice]
@@ -247,14 +247,14 @@ def page_chat():
                     conf = scorer.score(query=query, answer=answer, contexts=sources)
                     conf_str = f" · {conf['emoji']} {conf['score']:.0f}% confidence"
 
-                    meta = (f"🔧 {arch_choice} · latency {result.get('latency_ms', 0):.0f} ms · "
+                    meta = (f" {arch_choice} · latency {result.get('latency_ms', 0):.0f} ms · "
                             f"{len(sources)} chunks{conf_str}")
                     if cache:
                         cache.store(query, answer, sources)
 
                 placeholder.markdown(answer)
                 if sources:
-                    with st.expander(f"📚 Retrieved context ({len(sources)} chunks)"):
+                    with st.expander(f" Retrieved context ({len(sources)} chunks)"):
                         for i, src in enumerate(sources, 1):
                             display = src if len(src) <= 400 else src[:400] + "…"
                             st.markdown(f"**Chunk {i}:** {display}")
@@ -277,7 +277,7 @@ def page_chat():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_ab():
-    st.markdown('<div class="main-title">🆚 A/B Architecture Test</div>',
+    st.markdown('<div class="main-title"> A/B Architecture Test</div>',
                 unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Run the same query through two architectures and compare.</p>',
                 unsafe_allow_html=True)
@@ -334,7 +334,7 @@ def page_ab():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_eval():
-    st.markdown('<div class="main-title">📊 Evaluation</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">Evaluation</div>', unsafe_allow_html=True)
     st.markdown(
         '<p class="subtitle">Run a quick RAGAS-style benchmark over synthetic queries.</p>',
         unsafe_allow_html=True,
@@ -355,7 +355,7 @@ def page_eval():
         st.warning("Select at least one architecture.")
         return
 
-    if st.button("▶  Run evaluation", type="primary"):
+    if st.button("Run evaluation", type="primary"):
         from module3.evaluation import EvaluationPipeline, RAGASEvaluator
         synthetic_path = Path(__file__).parent / "data" / "synthetic_dataset.json"
 
@@ -395,7 +395,7 @@ def page_eval():
         # KPI cards for the best architecture
         if "faithfulness" in summary.columns and not summary.empty:
             best = summary.loc[summary["faithfulness"].idxmax()]
-            st.markdown(f"🏆 **Best on Faithfulness**: `{best['architecture']}` — "
+            st.markdown(f" **Best on Faithfulness**: `{best['architecture']}` — "
                         f"{best['faithfulness']:.3f}")
 
         # Quality gate badges
@@ -473,7 +473,7 @@ def _summary_markdown(summary_df: pd.DataFrame) -> str:
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_viz():
-    st.markdown('<div class="main-title">📈 Visualizations</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"> Visualizations</div>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Plots from the latest evaluation.</p>',
                 unsafe_allow_html=True)
 
@@ -483,7 +483,7 @@ def page_viz():
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button("🔄  Regenerate from current results", disabled=not has_data):
+        if st.button(" Regenerate from current results", disabled=not has_data):
             from module4.visualization import generate_all_plots
             df = pd.read_csv(EVAL_RESULTS_PATH)
             raw = Path(OUTPUTS_DIR) / "raw_eval_results.csv"
@@ -493,7 +493,7 @@ def page_viz():
             st.success("Plots regenerated.")
             st.rerun()
     with c2:
-        if st.button("🎨  Generate demo plots (benchmark data)"):
+        if st.button(" Generate demo plots (benchmark data)"):
             from module4.visualization import demo_plots
             with st.spinner("Generating demo plots…"):
                 demo_plots()
@@ -517,7 +517,7 @@ def page_viz():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_cache():
-    st.markdown('<div class="main-title">⚡ Semantic Cache</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"> Semantic Cache</div>', unsafe_allow_html=True)
     st.markdown(
         '<p class="subtitle">Redis-backed vector cache (with in-memory fallback).</p>',
         unsafe_allow_html=True,
@@ -545,7 +545,7 @@ def page_cache():
             st.info("MISS — no semantically similar entry above threshold.")
 
     st.divider()
-    if st.button("🗑️  Clear cache", type="secondary"):
+    if st.button(" Clear cache", type="secondary"):
         cache.clear()
         st.success("Cache cleared.")
         st.rerun()
@@ -556,7 +556,7 @@ def page_cache():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_settings():
-    st.markdown('<div class="main-title">⚙️ Settings</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"> Settings</div>', unsafe_allow_html=True)
 
     st.markdown("#### Quality Gate Thresholds")
     c1, c2 = st.columns(2)
@@ -596,7 +596,7 @@ def page_settings():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_upload():
-    st.markdown('<div class="main-title">📄 Document Upload</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"> Document Upload</div>', unsafe_allow_html=True)
     st.markdown(
         '<p class="subtitle">Upload your own PDF/TXT/DOCX and query it with any architecture.</p>',
         unsafe_allow_html=True,
@@ -622,12 +622,12 @@ def page_upload():
                 try:
                     content = uploaded.getvalue()
                     n = uploader.index_documents(content, uploaded.name)
-                    st.success(f"✅ Indexed **{uploaded.name}** → {n} chunks")
+                    st.success(f" Indexed **{uploaded.name}** → {n} chunks")
                 except Exception as exc:
                     st.error(f"❌ Upload failed: {exc}")
 
     if uploader.is_ready:
-        st.info(f"📄 Active document: **{uploader.filename}** ({uploader.num_chunks} chunks)")
+        st.info(f" Active document: **{uploader.filename}** ({uploader.num_chunks} chunks)")
 
         upload_arch_options = list(_get_architectures().keys())
         arch_choice = st.selectbox(
@@ -635,7 +635,7 @@ def page_upload():
         )
         query = st.text_input("Ask a question about your document", key="upload_q")
 
-        if st.button("🔍 Search", disabled=not query) and query:
+        if st.button("Search", disabled=not query) and query:
             with st.spinner("Searching…"):
                 try:
                     from module2.rag_architectures import NaiveRAG, CorrectiveRAG, RerankRAG
@@ -672,13 +672,13 @@ def page_upload():
                     c2.markdown(f"**{conf['emoji']} {conf['label']}**")
                     c3.metric("Chunks used", len(docs))
 
-                    with st.expander("📚 Retrieved chunks"):
+                    with st.expander(" Retrieved chunks"):
                         for i, doc in enumerate(docs, 1):
                             st.markdown(f"**Chunk {i}:** {doc.page_content[:300]}")
                 except Exception as search_exc:
                     st.error(f"Search failed: {search_exc}")
 
-        if st.button("🗑️ Clear document"):
+        if st.button("Clear document"):
             uploader.clear()
             st.rerun()
     else:
@@ -690,7 +690,7 @@ def page_upload():
 # ═════════════════════════════════════════════════════════════════════════════
 
 def page_compare():
-    st.markdown('<div class="main-title">🏆 Architecture Comparison</div>',
+    st.markdown('<div class="main-title"> Architecture Comparison</div>',
                 unsafe_allow_html=True)
     n_archs = len(_get_architectures())
     st.markdown(
@@ -707,7 +707,7 @@ def page_compare():
         key="compare_q",
     )
 
-    if st.button("⚡ Compare all architectures", type="primary", disabled=not query) and query:
+    if st.button(" Compare all architectures", type="primary", disabled=not query) and query:
         archs = _get_architectures()
         comparator = ArchitectureComparator(archs)
         scorer = ConfidenceScorer()
@@ -721,7 +721,7 @@ def page_compare():
         # Winner banner
         winner = ranked[0]
         st.success(
-            f"🏆 **Winner: {winner.architecture}** — "
+            f"**Winner: {winner.architecture}** — "
             f"Confidence {winner.confidence:.0f}% · {winner.latency_ms:.0f}ms"
         )
 
@@ -764,7 +764,7 @@ def page_failure():
     from module5.failure_analysis import FailureAnalyzer, FAILURE_POINTS
 
     # Show the 7 failure points reference
-    with st.expander("📖 The 7 RAG Failure Points (Barnett et al., IEEE/ACM CAIN 2024)"):
+    with st.expander("The 7 RAG Failure Points (Barnett et al., IEEE/ACM CAIN 2024)"):
         for fp in FAILURE_POINTS:
             st.markdown(f"**{fp.id}: {fp.name}** — {fp.description}")
             st.caption(f"Solution: {fp.solution}")
@@ -784,7 +784,7 @@ def page_failure():
         ground_truth = st.text_input("Ground truth answer (optional)", key="fa_gt",
                                      placeholder="e.g. A corporation is a company...")
 
-        if st.button("🔍 Analyze", disabled=not query) and query:
+        if st.button("Analyze", disabled=not query) and query:
             rag = archs[arch_name]
 
             with st.spinner("Running RAG + analysis…"):
@@ -808,14 +808,14 @@ def page_failure():
 
             # Detected failures
             if analysis["has_failure"]:
-                st.error(f"⚠️ {len(analysis['detected_failures'])} failure point(s) detected:")
+                st.error(f" {len(analysis['detected_failures'])} failure point(s) detected:")
                 for fp in analysis["detected_failures"]:
                     st.markdown(
                         f"- **{fp.id}: {fp.name}** — {fp.evidence}\n"
-                        f"  - 💡 *{fp.solution}*"
+                        f"  -  *{fp.solution}*"
                     )
             else:
-                st.success("✅ No failure points detected — answer looks good!")
+                st.success(" No failure points detected — answer looks good!")
 
             # Recommendations
             if analysis["recommendations"]:
@@ -835,7 +835,7 @@ def page_failure():
             key="fa_batch_arch",
         )
 
-        if st.button("▶ Run batch analysis"):
+        if st.button("Run batch analysis"):
             syn_path = Path(__file__).parent / "data" / "synthetic_dataset.json"
             if not syn_path.exists():
                 st.error("No synthetic dataset found. Run evaluation first.")
@@ -889,14 +889,14 @@ def page_failure():
 # ═════════════════════════════════════════════════════════════════════════════
 
 PAGE_MAP = {
-    "💬 Chat":            page_chat,
-    "🆚 A/B Test":        page_ab,
-    "🏆 Compare All":     page_compare,
-    "📄 Upload Doc":      page_upload,
-    "📊 Evaluation":      page_eval,
-    "🔍 Failure Analysis": page_failure,
-    "📈 Visualizations":  page_viz,
-    "⚡ Cache":           page_cache,
-    "⚙️ Settings":        page_settings,
+    "Chat":            page_chat,
+    "A/B Test":        page_ab,
+    "Compare All":     page_compare,
+    "Upload Doc":      page_upload,
+    "Evaluation":      page_eval,
+    "Failure Analysis": page_failure,
+    "Visualizations":  page_viz,
+    "Cache":           page_cache,
+    "Settings":        page_settings,
 }
 PAGE_MAP[page]()
