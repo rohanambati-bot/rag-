@@ -43,11 +43,13 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _require_api_key() -> None:
-    from configs.config import GROQ_API_KEY
-    if not MISTRAL_API_KEY and not GROQ_API_KEY:
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if not MISTRAL_API_KEY and not GROQ_API_KEY and not OPENROUTER_API_KEY:
         logger.error(
-            "Neither GROQ_API_KEY nor MISTRAL_API_KEY is set. Export one before running:\n"
+            "No LLM API key found (GROQ_API_KEY, MISTRAL_API_KEY, or OPENROUTER_API_KEY). "
+            "Export one before running:\n"
             "  export GROQ_API_KEY=your_key_here   (free, recommended)\n"
+            "  export OPENROUTER_API_KEY=your_key_here\n"
             "  export MISTRAL_API_KEY=your_key_here"
         )
         sys.exit(1)
