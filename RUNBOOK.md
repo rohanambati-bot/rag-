@@ -320,6 +320,23 @@ Findings recorded 2026-10-18 (dev n=498):
 - Dense top-5 misses concentrate in DESCRIPTION (13.4%) and ENTITY (15.4%)
   query types; NUMERIC 9.6%.
 
+Cross-encoder comparison (2026-10-18, dev n=498, pool = production first
+stage, mean 84.7 docs/query — `--rerankers` mode):
+
+| model | hit@5 | MRR | P@5 | rescue@5 |
+|---|---|---|---|---|
+| BAAI/bge-reranker-base (production default) | **0.944** | 0.694 | **0.212** | **66.7%** |
+| BAAI/bge-reranker-large | 0.944 | 0.704 | 0.211 | 61.7% |
+
+Decision: **keep `bge-reranker-base`**. Hit@5 identical, the MRR delta sits
+exactly at the pre-declared +0.01 adoption threshold, P@5 and miss-rescue are
+marginally worse, and the large model costs ~2.5x cross-encoder latency. The
+reranker is not the binding constraint on accuracy at this pool size.
+(`rescue@5` = fraction of dev queries with no relevant chunk in the pool's
+default ordering that the cross-encoder still promotes into its top-5.)
+Note: Hugging Face downloads of the large model stalled via the xet transfer;
+`HF_HUB_DISABLE_XET=1` forces plain HTTP and lets it complete.
+
 Proven workflow for a model upgrade:
 
 1. Run the diagnosis + comparison on dev (`--rerankers`).
