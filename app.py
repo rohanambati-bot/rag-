@@ -110,32 +110,68 @@ def _get_chunks():
     return CONTEXT.chunks()
 
 
-@st.cache_resource(show_spinner="Building RAG architectures…")
-def _get_architectures():
-    """All registered architectures, keyed by display name for the UI.
-
-    The serving context eagerly builds only the LLM-free subset (Naive, Rerank,
-    Parent-Child, CRAG-lexical).  Other architectures (Hybrid, RAG-Fusion,
-    Adaptive, GRACE-Ω variants) are lazily constructed on first use via
-    ``CONTEXT.architecture(key)`` — that avoids spending API quota at startup
-    while still letting the UI offer the full menu.
+class LazyArchitectureMap(dict):
+    """Dictionary that advertises all architecture display names immediately,
+    constructing each architecture lazily on first access.
     """
-    from serving import CONTEXT
-    from module2.rag_architectures import ARCHITECTURE_REGISTRY
+    def __init__(self):
+        super().__init__()
+        from serving import CONTEXT
+        from module2.rag_architectures import ARCHITECTURE_REGISTRY
 
-    # Start with the eagerly-built set.
-    eager = CONTEXT.architectures()
-    result = {getattr(a, "name", k): a for k, a in sorted(eager.items())}
+        self._context = CONTEXT
+        eager = CONTEXT.architectures()
+        self._name_to_key: Dict[str, str] = {}
+        for key, meta in sorted(ARCHITECTURE_REGISTRY.items()):
+            if "kg" not in meta["requires"]:
+                display_name = meta.get("name", key)
+                self._name_to_key[display_name] = key
+                if key in eager:
+                    self[display_name] = eager[key]
 
-    # Lazily build remaining architectures that don't require a knowledge graph.
-    for key, meta in sorted(ARCHITECTURE_REGISTRY.items()):
-        if key not in eager and "kg" not in meta["requires"]:
-            try:
-                arch = CONTEXT.architecture(key)
-                result[getattr(arch, "name", key)] = arch
-            except Exception:
-                pass  # skip architectures that fail to construct
-    return result
+    def __getitem__(self, name: str):
+        if dict.__contains__(self, name):
+            return super().__getitem__(name)
+        key = self._name_to_key.get(name, name)
+        try:
+            arch = self._context.architecture(key)
+            self[name] = arch
+            return arch
+        except Exception as exc:
+            logging.getLogger("app").error("Failed to build architecture %s: %s", name, exc)
+            raise KeyError(name) from exc
+
+    def get(self, name: str, default=None):
+        try:
+            return self[name]
+        except Exception:
+            return default
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._name_to_key or dict.__contains__(self, name)
+
+    def keys(self):
+        return list(self._name_to_key.keys())
+
+    def __iter__(self):
+        return iter(list(self._name_to_key.keys()))
+
+    def __len__(self):
+        return len(self._name_to_key)
+
+    def items(self):
+        for name in list(self._name_to_key.keys()):
+            yield (name, self[name])
+
+    def values(self):
+        for name in list(self._name_to_key.keys()):
+            yield self[name]
+
+
+@st.cache_resource(show_spinner="Readying RAG architectures…")
+def _get_architectures():
+    """All registered architectures, keyed by display name for the UI."""
+    return LazyArchitectureMap()
 
 
 @st.cache_resource(show_spinner="Connecting semantic cache…")

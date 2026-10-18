@@ -161,8 +161,8 @@ def run_quality_gate(
     logger.info("CI/CD: Starting evaluation for %s (%d samples)…", architecture_name, max_samples)
 
     ragas_evaluator = None
-    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY
-    if GROQ_API_KEY or MISTRAL_API_KEY:
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if OPENROUTER_API_KEY or GROQ_API_KEY or MISTRAL_API_KEY:
         ragas_evaluator = RAGASEvaluator()
 
     pipeline = EvaluationPipeline(ragas_evaluator=ragas_evaluator)

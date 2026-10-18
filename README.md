@@ -331,19 +331,30 @@ undefined test statistics.
 relevance judgements), graded against human `is_selected` labels. LLM-free, so
 reproducible at zero API cost. Full write-up in [`docs/paper.md`](docs/paper.md).
 
+Re-verified 2026-10-18 on the corrected store contract (`--store full` =
+`data/chroma_db_full`, the validation-split store): every metric below
+replicated to three decimals, including the paired-test statistics (nDCG
++0.067, p_BH = 3×10⁻⁶, d_z = 0.218; recall +0.057, p_BH = 4×10⁻⁵, d_z = 0.191).
+
 | Architecture | nDCG@10 | MRR@10 | Recall@k | Hit Rate | Latency |
 |---|---|---|---|---|---|
-| **Rerank RAG** | **0.699** | **0.689** | **0.857** | **0.950** | 1538 ms |
-| Naive RAG | 0.632 | 0.611 | 0.800 | 0.889 | 12 ms |
-| Parent-Child RAG | 0.632 | 0.611 | 0.801 | 0.889 | 8 ms |
-| CRAG (lexical grader) | 0.575 | 0.570 | 0.702 | 0.786 | 11 ms |
+| **Rerank RAG** | **0.699** | **0.689** | **0.857** | **0.950** | 2102 ms |
+| Naive RAG | 0.632 | 0.611 | 0.800 | 0.889 | 7 ms |
+| Parent-Child RAG | 0.632 | 0.611 | 0.801 | 0.889 | 6 ms |
+| CRAG (lexical grader) | 0.575 | 0.570 | 0.702 | 0.786 | 6 ms |
+
+Latency is re-measured on the verification machine (Apple MPS, cross-encoder
+scoring ~100 first-stage pairs per query back-to-back for 500 consecutive
+queries); it is hardware- and load-dependent — the original run measured
+1538 ms under lighter conditions.
 
 Headline findings:
 
 - **Cross-encoder reranking gives the only significant retrieval gains**: nDCG@10
   +0.067 (BH-corrected p = 3.0×10⁻⁶, d_z = 0.218), MRR@10 +0.077, Recall +0.057. It
   cuts the rate of queries where a known-relevant passage is missed entirely from
-  **11.1% → 5.0%**, recovering 55% of the baseline's misses — at 129× latency.
+  **11.1% → 5.0%**, recovering 55% of the baseline's misses — at roughly 300×
+  naive latency (cross-encoder compute; see the latency note above).
 - **PΩ does not track ground truth.** Across architectures it correlates *negatively*
   with nDCG@10 (Spearman ρ = −0.200) and ranks the weakest system first, because its
   denominator rewards returning fewer tokens even when relevant passages are lost.
@@ -554,7 +565,8 @@ prototype — not a system that has survived production.
 ## Security defaults
 
 - The FastAPI backend requires an `X-API-Key` header (`API_KEY` env var). When
-  unset, the API runs in **open dev mode** and logs a warning on every request.
+  unset, protected routes return **503** (auth fails closed); local development
+  opts out explicitly with `ALLOW_UNAUTHENTICATED=true`.
 - Per-IP rate limiting via `slowapi` (default `RATE_LIMIT_PER_MINUTE = 30`,
   `5/minute` for `/evaluate`).
 - CORS is restricted to `ALLOWED_ORIGINS` (no `*` with credentials).

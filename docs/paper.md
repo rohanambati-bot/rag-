@@ -216,6 +216,17 @@ routing) and so were excluded from the zero-cost sweep.
 
 Brackets are 95% bootstrap CIs (1,000 resamples, seed 42).
 
+> **Re-verification (2026-10-18).** After the vector-store path contract was
+> fixed (`--store full` now deterministically resolves to
+> `data/chroma_db_full`, the validation-split store), the entire Run 1 was
+> re-executed n=500. All metrics in this table replicated to three decimals and
+> every paired-test statistic matched (nDCG Δ +0.067, p_BH = 3×10⁻⁶,
+> d_z = 0.218; recall Δ +0.057, p_BH = 4×10⁻⁵, d_z = 0.191; miss rate
+> 11.1 % → 5.0 %). Rerank latency measured 2,102 ms/query in the
+> re-verification run (Apple MPS, 500 back-to-back queries) vs the 1,538 ms of
+> the original run, under lighter load — cross-encoder latency is
+> hardware- and load-dependent; the quality metrics are not hardware-sensitive.
+
 ### 5.2 Effect of cross-encoder reranking
 
 Reranking improves every rank-aware metric, and every improvement survives

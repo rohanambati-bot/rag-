@@ -760,15 +760,19 @@ def compute_noise_fingerprint(retrieved_text: str,
     gt = set(re.findall(r"\w+", ground_truth.lower()))
     qt = set(re.findall(r"\w+", query.lower()))
 
+    # Key names MUST match the extractors used in evaluate_sample
+    # ("topical_noise" / "peripheral_noise" / "random_noise"). The earlier
+    # {"topical": ..} spelling caused a KeyError there, which silently dropped
+    # every sample whose retrieval returned nothing.
     if not rt:
-        return {"topical": 0, "peripheral": 0, "random": 0}
+        return {"topical_noise": 0.0, "peripheral_noise": 0.0, "random_noise": 0.0}
 
     # Tokens in retrieved but NOT in answer
     noise_tokens = rt - gt
 
     # Topical noise: noise tokens that ARE in query
     # (retrieved query-related content that isn't the answer)
-    topical = len(noise_tokens & qt) / len(rt) if rt else 0
+    topical = len(noise_tokens & qt) / len(rt)
 
     # Peripheral noise: noise tokens related to query terms
     # (one-hop from query terms — approximated by partial match)
@@ -777,7 +781,7 @@ def compute_noise_fingerprint(retrieved_text: str,
         t for t in noise_tokens
         if any(t.startswith(s) for s in query_stems)
     } - qt
-    peripheral = len(peripheral_tokens) / len(rt) if rt else 0
+    peripheral = len(peripheral_tokens) / len(rt)
 
     # Random noise: everything else
     random_noise = max(0, (len(noise_tokens) / len(rt))

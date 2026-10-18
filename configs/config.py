@@ -17,7 +17,11 @@ load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
-VECTOR_STORE_DIR = os.getenv("VECTOR_STORE_DIR", os.path.join(DATA_DIR, "chroma_db_train"))
+# Default retrieval corpus for eval/cicd/API/UI: the full MS MARCO VALIDATION set
+# built by `preprocess_full.py` (README "Build the dataset / vector store").
+# `data/chroma_db_train` is a separate, larger train-split store written by
+# `train_in_shards.py`; it must never be loaded by default.
+VECTOR_STORE_DIR = os.getenv("VECTOR_STORE_DIR", os.path.join(DATA_DIR, "chroma_db_full"))
 SYNTHETIC_DATA_PATH = os.path.join(DATA_DIR, "synthetic_dataset.json")
 EVAL_RESULTS_PATH = os.path.join(OUTPUTS_DIR, "eval_results.csv")
 
@@ -26,7 +30,10 @@ EVAL_RESULTS_PATH = os.path.join(OUTPUTS_DIR, "eval_results.csv")
 DATASET_NAME = "microsoft/ms_marco"
 DATASET_CONFIG = "v2.1"
 DATASET_SPLIT = "validation"
-DATASET_SUBSET_SIZE = 1000      # FULL validation set (101K queries)
+# Number of validation queries whose passages form the retrieval corpus for the
+# in-tree `--mode full` build (data/chroma_db_full: 9858 passages / 11510 chunks).
+# The complete 101,093-query validation set is built by `preprocess_full.py`.
+DATASET_SUBSET_SIZE = 1000
 
 # Legacy SQuAD settings (kept for backward compat / smoke tests)
 SQUAD_SPLIT = "validation"

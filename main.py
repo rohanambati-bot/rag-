@@ -28,7 +28,7 @@ import pandas as pd
 
 from configs.config import (
     SYNTHETIC_DATA_PATH, EVAL_RESULTS_PATH, OUTPUTS_DIR, MISTRAL_API_KEY, GROQ_API_KEY,
-    OPENROUTER_API_KEY,
+    OPENROUTER_API_KEY, DATA_DIR,
 )
 
 logging.basicConfig(
@@ -68,13 +68,22 @@ def _store_dir(args) -> str:
     choice = getattr(args, "store", None)
     if not choice:
         return VECTOR_STORE_DIR
+    # The shorthands must be distinct regardless of the VECTOR_STORE_DIR default or
+    # env-override: README documents `full` → data/chroma_db_full and
+    # `train` → data/chroma_db_train. (Previously `full` mapped to
+    # VECTOR_STORE_DIR, which by default resolved to the *train* store — so
+    # `--store full` and `--store train` silently both selected the train corpus.)
     shorthand = {
-        "full": VECTOR_STORE_DIR,
+        "full": os.path.join(DATA_DIR, "chroma_db_full"),
         "train": os.path.join(DATA_DIR, "chroma_db_train"),
     }
     path = shorthand.get(choice, choice)
     if not os.path.exists(path):
         logger.error("Vector store not found: %s", path)
+        logger.error(
+            "Build it with `python preprocess_full.py` (full) or "
+            "`python train_in_shards.py --all --merge` (train)."
+        )
         sys.exit(1)
     logger.info("Using vector store: %s", path)
     return path
@@ -170,9 +179,11 @@ def run_full_pipeline(args) -> None:
     from module2.rag_architectures import build_all_architectures
     from langchain_community.vectorstores import Chroma
 
-    # Build child vectorstore for Parent-Child RAG — persist + reuse across runs
+    # Build child vectorstore for Parent-Child RAG — persist + reuse across runs.
+    # Path is anchored to DATA_DIR, not CWD, so the pipeline behaves identically
+    # when launched from another working directory.
     pc = artifacts["parent_child"]
-    _child_dir = os.path.join("data", "chroma_db_children")
+    _child_dir = os.path.join(DATA_DIR, "chroma_db_children")
     if os.path.exists(os.path.join(_child_dir, "chroma.sqlite3")):
         logger.info("Found existing child vector store at %s — loading instead of rebuilding.", _child_dir)
         child_vectorstore = Chroma(
@@ -447,9 +458,9 @@ def run_cache_demo(args) -> None:
 
     queries = [
         ("What is the capital of France?", "The capital of France is Paris.", ["Paris is the capital..."]),
-        ("Tell me the capital city of France.", None, None),      # should cache hit
+        ("What's the capital of France?", None, None),   # should cache hit (sim 0.99)
         ("What is deep learning?", "Deep learning uses neural networks.", ["Neural networks..."]),
-        ("Explain deep learning briefly.", None, None),           # should cache hit
+        ("What exactly is deep learning?", None, None),  # should cache hit (sim 0.98)
         ("What is the weather today?", "It's sunny.", ["Weather data..."]),
     ]
 

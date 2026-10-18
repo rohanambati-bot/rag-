@@ -36,7 +36,7 @@ from configs.config import (
     DATASET_NAME, DATASET_CONFIG, DATASET_SPLIT, DATASET_SUBSET_SIZE,
     SQUAD_SPLIT, SQUAD_SUBSET_SIZE,
     CHUNK_SIZE, CHUNK_OVERLAP,
-    EMBEDDING_MODEL, EMBEDDING_DEVICE, VECTOR_STORE_DIR,
+    EMBEDDING_MODEL, EMBEDDING_DEVICE, EMBEDDING_DIM, VECTOR_STORE_DIR,
     SYNTHETIC_DATA_PATH, SYNTHETIC_BATCH_SIZE,
     NUM_SYNTHETIC_SAMPLES, MISTRAL_API_KEY, LLM_MODEL,
     SYNTHETIC_QUERY_TYPES, DATA_DIR,
@@ -271,6 +271,80 @@ def get_embedding_model(model_name: str = EMBEDDING_MODEL) -> HuggingFaceEmbeddi
 # 4. VECTOR STORE INDEXING
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _index_manifest_path(persist_dir: str) -> str:
+    return os.path.join(persist_dir, "_index_manifest.json")
+
+
+def write_index_manifest(
+    persist_dir: str,
+    embedding_model: str = EMBEDDING_MODEL,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+    num_chunks: int = 0,
+) -> None:
+    """
+    Persist a small JSON manifest beside a newly built Chroma store.
+
+    Chroma itself does not record which embedding model or chunking parameters
+    produced an index, so a stale index built with a different embedder or chunk
+    config is invisible until retrieval quality mysteriously degrades. The manifest
+    makes the compatible build parameters explicit so ``load_vector_store`` can
+    detect — and clearly report — a mismatch instead of silently scoring a mixed
+    system.
+    """
+    import json as _json
+    from datetime import datetime, timezone
+
+    manifest = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "embedding_model": embedding_model,
+        "embedding_dim": EMBEDDING_DIM,
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+        "num_chunks": num_chunks,
+    }
+    try:
+        with open(_index_manifest_path(persist_dir), "w") as f:
+            _json.dump(manifest, f, indent=2)
+    except Exception as exc:  # noqa: BLE001 — manifest is a safety net, not a gate
+        logger.warning("Could not write index manifest for %s: %s", persist_dir, exc)
+
+
+def _check_index_manifest(persist_dir: str) -> None:
+    """
+    Warn when a store's manifest disagrees with the current configuration.
+
+    Missing manifest (stores built before this existed) is reported at debug level,
+    not interrupted — an absent manifest means "unknown build parameters," not a
+    detected incompatibility.
+    """
+    path = _index_manifest_path(persist_dir)
+    if not os.path.exists(path):
+        logger.debug("No index manifest at %s — build parameters unknown.", persist_dir)
+        return
+    try:
+        with open(path) as f:
+            manifest = json.load(f)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Index manifest at %s is unreadable: %s", path, exc)
+        return
+
+    if manifest.get("embedding_model") != EMBEDDING_MODEL:
+        logger.warning(
+            "Index at %s was built with embedding model %r but the current config "
+            "uses %r — retrieval scores are NOT comparable/reliable. Rebuild with "
+            "`python preprocess_full.py` or remove VECTOR_STORE_DIR override.",
+            persist_dir, manifest.get("embedding_model"), EMBEDDING_MODEL,
+        )
+    if (manifest.get("chunk_size"), manifest.get("chunk_overlap")) != (CHUNK_SIZE, CHUNK_OVERLAP):
+        logger.warning(
+            "Index at %s was built with chunking %s/%s but the current config uses "
+            "%s/%s — BM25/qrels corpus may diverge from the dense index.",
+            persist_dir, manifest.get("chunk_size"), manifest.get("chunk_overlap"),
+            CHUNK_SIZE, CHUNK_OVERLAP,
+        )
+
+
 def build_vector_store(
     chunks: List[Document],
     embedding_model: HuggingFaceEmbeddings,
@@ -286,6 +360,11 @@ def build_vector_store(
     )
     # NOTE: chromadb >= 0.4 persists automatically; explicit persist() is a no-op.
     logger.info("Vector store built and persisted (%d vectors).", len(chunks))
+    write_index_manifest(
+        persist_dir,
+        embedding_model=EMBEDDING_MODEL,
+        num_chunks=len(chunks),
+    )
     return vectorstore
 
 
@@ -294,6 +373,7 @@ def load_vector_store(
     persist_dir: str = VECTOR_STORE_DIR,
 ) -> Chroma:
     """Load an already-persisted Chroma vector store."""
+    _check_index_manifest(persist_dir)
     return Chroma(
         persist_directory=persist_dir,
         embedding_function=embedding_model,

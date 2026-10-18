@@ -182,7 +182,7 @@ class ServingContext:
             )
             if key not in full:
                 raise KeyError(key)
-            self._architectures[key] = full[key]
+            self._architectures.update(full)
             return self._architectures[key]
 
     def available_keys(self) -> List[str]:

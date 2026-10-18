@@ -62,13 +62,13 @@ so they don't need it.
 ## 3. API keys
 
 At least **one** LLM key is required for `full` / `eval` / `cicd`
-(`main.py` exits if neither `GROQ_API_KEY` nor `MISTRAL_API_KEY` is set). The
-`demo` and `cache-demo` modes need no key.
+(`main.py` exits unless `GROQ_API_KEY`, `OPENROUTER_API_KEY`, or
+`MISTRAL_API_KEY` is set). The `demo` and `cache-demo` modes need no key.
 
 | Variable          | Required?           | Used for                                                                 |
 |-------------------|---------------------|--------------------------------------------------------------------------|
 | `GROQ_API_KEY`    | Primary (free tier) | Generator (`GROQ_MODEL=llama-3.1-8b-instant`) **and** judge (`JUDGE_PROVIDER=groq`, `JUDGE_MODEL=openai/gpt-oss-20b`) |
-| `MISTRAL_API_KEY` | Optional fallback   | Generator fallback (`LLM_MODEL=mistral-small-latest`); also required to construct the judge in `cicd` mode (see §7) |
+| `MISTRAL_API_KEY` | Optional fallback   | Generator fallback (`LLM_MODEL=mistral-small-latest`) |
 | `API_KEY`         | Optional            | If set, `api.py` requires an `X-API-Key` header; if unset the API runs in open dev mode |
 
 Get a free Groq key at <https://console.groq.com> → API Keys → Create.
@@ -165,11 +165,10 @@ python -c "from module1.data_preprocessing import run_module1; run_module1(gener
 python main.py --mode cicd --samples 20
 ```
 
-> `--samples` only changes the count in **`cicd`** mode. `eval`/`full` evaluate
-> up to 200 samples per architecture regardless of `--samples` (it's fixed in
-> code), so to shrink an `eval`/`full` run you reduce `NUM_SYNTHETIC_SAMPLES`
-> instead. Also note (see §7) that `cicd`'s LLM-judged metrics only turn on when
-> `MISTRAL_API_KEY` is set.
+> `--samples` applies to **both** `cicd` and `eval`. In `eval` mode, when the
+> committed synthetic set has fewer questions than requested, real MS MARCO
+> query/answer pairs are drawn so large n is reachable (see README "eval mode
+> flags").
 
 ### 5d. Expected artifacts after 5b
 
@@ -267,15 +266,16 @@ What each writes:
 
 Gotchas verified against the code:
 
-- **`--samples` only affects `cicd`.** `eval`/`full` evaluate up to 200 samples
-  per architecture regardless (fixed in code); the default `make eval` target
-  passes no `--samples` at all.
-- **`cicd` judge needs `MISTRAL_API_KEY`.** The gate (`phase3/cicd_pipeline.py`
-  `run_quality_gate`) constructs the LLM judge only when `MISTRAL_API_KEY` is
-  set. With a **Groq-only** setup, `cicd` produces no faithfulness / context
-  precision / answer relevance columns, so those thresholds evaluate as 0.0 and
-  the gate fails. CI sets **both** `GROQ_API_KEY` and `MISTRAL_API_KEY` secrets.
-  (`eval`/`full` are not affected — they build the judge on either key.)
+- **`--samples` is honoured by `eval` too.** When requested samples exceed the
+  committed synthetic set, real MS MARCO QA pairs are substituted (§7), so
+  `--samples 500` works without editing config. The default `make eval-retrieval`
+  target passes `--samples 500` explicitly.
+- **`cicd` judge accepts any one LLM key.** The gate (`phase3/cicd_pipeline.py`
+  `run_quality_gate`) constructs the LLM judge when `OPENROUTER_API_KEY`,
+  `GROQ_API_KEY` **or** `MISTRAL_API_KEY` is set, and `RAGASEvaluator` defaults to
+  `JUDGE_PROVIDER=groq` — so a Groq-only setup works. With **no** key at all,
+  `cicd` produces no faithfulness / context precision / answer relevance columns,
+  so those thresholds evaluate as 0.0 and the gate fails.
 
 ---
 
@@ -366,8 +366,8 @@ uvicorn api:app --reload --port 8000
   `POST /ab-test`, `POST /evaluate` (rate-limited to 5/min),
   `GET /cache/stats`, `POST /cache/lookup`, `DELETE /cache`.
 - **Auth:** when `API_KEY` is set, protected endpoints require an `X-API-Key`
-  header. When unset, the API runs in open dev mode and logs a warning on every
-  protected request — do not expose it that way.
+  header. When unset, protected routes return **503** (fails closed) unless
+  `ALLOW_UNAUTHENTICATED=true` — do not expose it with that bypass on.
 
 Example call (protected route with a key set):
 
@@ -389,8 +389,9 @@ streamlit run app.py
 ```
 
 Opens on port **8501**. No API key required (extractive fallback works offline).
-If `data/chroma_db_full` doesn't exist yet, the UI bootstraps a small SQuAD
-index on first load so it works out of the box.
+If `data/chroma_db_full` doesn't exist yet, the UI shows an error telling you to
+build the store first (`python preprocess_full.py` or `--mode full`) — it
+deliberately does **not** silently index a different corpus.
 
 ### 9c. Docker (Redis + API + UI)
 
@@ -433,11 +434,11 @@ They load `data/chroma_db_full`. Build it first (§6a). Remember
 `train_in_shards.py` builds `data/chroma_db_train`, which these modes do **not**
 load.
 
-**`cicd` gate fails immediately on a Groq-only setup.**
-`run_quality_gate` only constructs the judge when `MISTRAL_API_KEY` is set, so
-judged metrics are absent and their thresholds fail. Set `MISTRAL_API_KEY`
-(CI sets both keys), or use `--mode eval` to inspect judged metrics with a
-Groq-only key.
+**`cicd` gate fails with missing LLM-judged metrics.**
+If no LLM key is configured at all, `run_quality_gate` cannot construct the
+judge: judged metrics are absent and their thresholds evaluate as 0.0, so the
+gate fails. Set `GROQ_API_KEY` (free), `OPENROUTER_API_KEY`, or
+`MISTRAL_API_KEY`.
 
 **Groq rate limits (HTTP 429).**
 The generator throttles calls using `LLM_RATE_LIMIT_SECONDS` (default `3.0`

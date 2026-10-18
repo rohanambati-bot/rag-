@@ -33,6 +33,21 @@ BATCH_SIZE = 5000          # Process documents in batches of 5000
 CHECKPOINT_FILE = os.path.join(DATA_DIR, "_preprocess_checkpoint.json")
 
 
+def selected_context(passage_texts: list, is_selected: list) -> str:
+    """
+    Join the passages the MS MARCO annotator marked relevant for a query.
+
+    Written into the synthetic QA pairs as ``context`` so token-overlap metrics
+    have a non-empty ground-truth context (they previously stored the empty
+    string, leaving answer_recall / IoU unscoreable for those pairs).
+    """
+    return " ".join(
+        passage_texts[i].strip()
+        for i in range(len(passage_texts))
+        if i < len(is_selected) and is_selected[i] == 1 and passage_texts[i].strip()
+    )
+
+
 def load_checkpoint():
     if os.path.exists(CHECKPOINT_FILE):
         with open(CHECKPOINT_FILE) as f:
@@ -113,12 +128,14 @@ def main():
             urls = passages_data.get("url", [])
             answer = answers[0]
 
-            # Write QA pair
+            # Write QA pair, including the human-selected context so downstream
+            # token-overlap metrics can score against a real ground-truth context.
             qf.write(json.dumps({
                 "id": f"msmarco_{idx}",
                 "question": query,
                 "ground_truth": answer,
                 "query_type": query_type,
+                "context": selected_context(passage_texts, is_selected),
             }) + "\n")
             qa_count += 1
 
@@ -270,21 +287,29 @@ def main():
     except Exception:
         pass  # newer Chroma auto-persists
 
+    # Record build parameters so load_vector_store can detect a stale/mismatched index.
+    from module1.data_preprocessing import write_index_manifest
+    write_index_manifest(vector_store_dir, num_chunks=total_chunks)
+
     print(f"       Done: {total_chunks:,} chunks indexed in {(time.time()-t2)/60:.1f} min")
 
-    # Replace old chroma_db with new one
-    old_db = VECTOR_STORE_DIR
+    # Replace only the full-set store; other stores (e.g. the train-split store
+    # built by `train_in_shards.py`) are never touched. The earlier code rebuilt
+    # into a fresh dir and then `rmtree`+`rename`d it into VECTOR_STORE_DIR,
+    # which by default pointed at the train store — silently destroying it.
+    old_full_db = vector_store_dir
     try:
-        if os.path.exists(old_db):
-            shutil.rmtree(old_db)
+        if os.path.exists(old_full_db):
+            shutil.rmtree(old_full_db)
     except Exception:
-        print(f"       Warning: Could not remove old {old_db}, using new path instead.")
-    try:
-        os.rename(vector_store_dir, old_db)
-        print(f"       Moved to {old_db}")
-    except Exception:
-        print(f"       Vector store at: {vector_store_dir}")
-        print("       Update VECTOR_STORE_DIR in config.py if needed.")
+        print(f"       Warning: Could not remove old {old_full_db}, using new path instead.")
+
+    print(f"       Vector store at: {vector_store_dir}")
+    if VECTOR_STORE_DIR != vector_store_dir:
+        print(
+            "       NOTE: VECTOR_STORE_DIR is set to a different path — "
+            "point `--store` at this new store to evaluate it."
+        )
 
     # ── Phase 4: Synthetic dataset ────────────────────────────────────────────
     print(f"\n[4/4] Creating synthetic evaluation dataset ({NUM_SYNTHETIC_SAMPLES} samples)...")
@@ -303,7 +328,9 @@ def main():
             "question": pair["question"],
             "ground_truth": pair["ground_truth"],
             "query_type": pair.get("query_type", "unknown"),
-            "context": "",
+            # Present in checkpoints written by phase 2; older checkpoint files
+            # may omit it, in which case the empty string preserves prior format.
+            "context": pair.get("context", ""),
         })
 
     os.makedirs(os.path.dirname(SYNTHETIC_DATA_PATH), exist_ok=True)
@@ -320,7 +347,7 @@ def main():
     print(f"  Unique passages: {docs_count:,}")
     print(f"  Chunks indexed: {total_chunks:,}")
     print(f"  Synthetic Q&A: {len(synthetic)}")
-    print(f"  Vector store: {VECTOR_STORE_DIR}")
+    print(f"  Vector store: {vector_store_dir}")
     print("=" * 70)
 
     # Cleanup checkpoint

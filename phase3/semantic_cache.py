@@ -106,12 +106,20 @@ class _VectorIndex:
     ``(row, score)`` contract, so behaviour is identical apart from recall on very
     large caches. Brute force is not a naive loop: one ``matrix @ vector`` product
     scores every entry at BLAS speed.
+
+    The backing matrix is a capacity-doubling buffer: appending amortises to O(1)
+    instead of copying the whole matrix on every insert (np.vstack each add is
+    O(n) per insert, O(n²) overall — ~76 MB of memcpy per insert at 50k entries).
     """
 
     def __init__(self, dim: int, max_elements: int):
         self.dim = dim
         self.max_elements = max_elements
         self._matrix = np.zeros((0, dim), dtype=np.float32)
+        self._count = 0
+        # Capacity for the dense buffer; allocated lazily on first add because
+        # __init__ does not know the embedding width until then.
+        self._capacity = 0
         self._ann = None
         self._ann_count = 0
 
@@ -129,12 +137,24 @@ class _VectorIndex:
 
     @property
     def size(self) -> int:
-        return self._matrix.shape[0]
+        return self._count
+
+    def _grow(self, needed: int) -> None:
+        """Ensure the dense buffer can hold ``needed`` rows (amortised doubling)."""
+        if needed <= self._capacity:
+            return
+        new_cap = max(needed, self._capacity * 2 or 1024)
+        grown = np.zeros((new_cap, self.dim), dtype=np.float32)
+        grown[: self._count] = self._matrix[: self._count]
+        self._matrix = grown
+        self._capacity = new_cap
 
     def add(self, vector: np.ndarray) -> int:
         """Append a vector, returning its row id."""
-        row = self._matrix.shape[0]
-        self._matrix = np.vstack([self._matrix, vector.reshape(1, -1)])
+        row = self._count
+        self._grow(row + 1)
+        self._matrix[row] = vector.reshape(-1)
+        self._count = row + 1
         if self._ann is not None:
             try:
                 if self._ann_count >= self.max_elements:
@@ -149,7 +169,7 @@ class _VectorIndex:
 
     def search(self, vector: np.ndarray) -> Tuple[int, float]:
         """Return ``(best_row, cosine_score)``; ``(-1, 0.0)`` when empty."""
-        if self._matrix.shape[0] == 0:
+        if self._count == 0:
             return -1, 0.0
 
         if self._ann is not None and self._ann_count > 0:
@@ -163,16 +183,22 @@ class _VectorIndex:
                 logger.warning("ANN query failed (%s) — falling back to exact.", exc)
 
         # Exact: one BLAS matrix-vector product scores the whole cache at once.
-        scores = self._matrix @ vector
+        scores = self._matrix[: self._count] @ vector
         best = int(np.argmax(scores))
         return best, float(scores[best])
 
     def rebuild(self, vectors: List[np.ndarray]) -> None:
         """Rebuild from scratch (used after eviction compaction)."""
-        self._matrix = (
-            np.vstack([v.reshape(1, -1) for v in vectors]).astype(np.float32)
-            if vectors else np.zeros((0, self.dim), dtype=np.float32)
-        )
+        self._count = len(vectors)
+        if vectors:
+            self._grow(len(vectors))
+            if vectors:
+                self._matrix[: self._count] = np.vstack(
+                    [v.reshape(1, -1) for v in vectors]
+                ).astype(np.float32)
+        else:
+            self._matrix = np.zeros((0, self.dim), dtype=np.float32)
+            self._capacity = 0
         if self._ann is not None:
             try:
                 import hnswlib
@@ -183,7 +209,7 @@ class _VectorIndex:
                 )
                 self._ann.set_ef(64)
                 if vectors:
-                    self._ann.add_items(self._matrix, list(range(len(vectors))))
+                    self._ann.add_items(self._matrix[: self._count], list(range(len(vectors))))
                 self._ann_count = len(vectors)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("ANN rebuild failed (%s) — disabling ANN.", exc)
