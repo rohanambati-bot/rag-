@@ -36,7 +36,6 @@ MAX_DEPTH = 200
 # Cross-encoder candidates for `--rerankers` (dev-decided; production default
 # stays whatever configs.RERANKER_MODEL is until a candidate wins on dev).
 RERANKER_CANDIDATES = [
-    "BAAI/bge-reranker-base",   # current production default
     "BAAI/bge-reranker-large",
 ]
 
