@@ -276,6 +276,62 @@ Gotchas verified against the code:
   `JUDGE_PROVIDER=groq` — so a Groq-only setup works. With **no** key at all,
   `cicd` produces no faithfulness / context precision / answer relevance columns,
   so those thresholds evaluate as 0.0 and the gate fails.
+- **Before any judged run, probe the judge once.** `RAGASEvaluator.health_check()`
+  issues one trivial prompt and raises loudly if the model id is retired or
+  mis-configured — far better than 2,000 silently-failed calls:
+
+  ```bash
+  python -c "import sys; sys.path.insert(0,'.');
+  from module3.evaluation import RAGASEvaluator
+  print(RAGASEvaluator().health_check())"
+  ```
+
+  Verified working: provider=groq, model=qwen/qwen3.8-27b (score 1.0 on the
+  probe). A failed probe should be fixed in `.env` before launching eval.
+
+---
+
+## 7.5 Accuracy-optimization workflow (dev split — never tune on the eval set)
+
+`scripts/optimize_retrieval.py` diagnoses retrieval accuracy and compares
+candidate models on a **dev split only**. The standard eval deterministically
+samples 500 of the first 1,000 MS MARCO QA pairs (seed = `EVAL_RANDOM_SEED`);
+this script reproduces that exact sample (verified: 500/500 overlap with the
+questions in `outputs/raw_eval_results.csv`) and tunes on the remaining ~498
+questions with qrels.
+
+```bash
+# Rank-source diagnosis: where do misses come from (coverage vs ordering)?
+TOKENIZERS_PARALLELISM=false python scripts/optimize_retrieval.py
+
+# Cross-encoder comparison on the production first-stage pool
+TOKENIZERS_PARALLELISM=false python scripts/optimize_retrieval.py --rerankers
+```
+
+Findings recorded 2026-10-18 (dev n=498):
+
+- First-stage coverage is not the bottleneck: on 100% of dev misses the
+  relevant chunk sits inside the production rerank pool (dense≤50 ∪ BM25≤50);
+  99.8% sit inside dense≤50 alone. Deeper candidate pools buy nothing.
+- RRF fusion ordering is worse than dense-only ordering at top-5 (hit 0.813 vs
+  0.878) — the cross-encoder is what recovers it. Candidate *ordering* before
+  the cross-encoder is irrelevant (it rescores the whole pool); only pool
+  *membership* matters.
+- Dense top-5 misses concentrate in DESCRIPTION (13.4%) and ENTITY (15.4%)
+  query types; NUMERIC 9.6%.
+
+Proven workflow for a model upgrade:
+
+1. Run the diagnosis + comparison on dev (`--rerankers`).
+2. Adopt a candidate only if it clears a pre-declared margin on dev
+   (≥ +0.01 hit@5 or MRR used here) — never by looking at eval metrics first.
+3. If adopted: set `RERANKER_MODEL` in `configs/config.py` (and `.env.example`
+   comment), re-run the standard n=500 eval, update README/paper tables.
+4. Commit the dev evidence and the eval run separately, clearly labelled.
+
+Note: cross-encoder downloads can stall with HF's xet transfer on some
+networks; `HF_HUB_ENABLE_XET=0` forces plain HTTP and is set for these runs.
+
 
 ---
 
