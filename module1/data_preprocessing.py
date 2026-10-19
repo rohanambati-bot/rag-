@@ -21,7 +21,14 @@ import os
 import json
 import logging
 import time
-from typing import List, Dict, Any
+import shutil
+import tempfile
+import uuid
+import atexit
+import threading
+from contextlib import contextmanager
+from typing import List, Dict, Any, Optional
+from pathlib import Path
 
 import re
 from datasets import load_dataset
@@ -46,13 +53,325 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
+# ── Build/persistence lifecycle primitives ─────────────────────────────────────
+
+STAGING_METADATA_FILE = ".build-staging.json"
+DEFAULT_BUILD_LOCK_TIMEOUT_SECONDS = float(
+    os.getenv("INDEX_BUILD_LOCK_TIMEOUT_SECONDS", "30")
+)
+DEFAULT_BUILD_LOCK_POLL_SECONDS = float(
+    os.getenv("INDEX_BUILD_LOCK_POLL_SECONDS", "0.05")
+)
+
+
+class BuildLockError(RuntimeError):
+    """Raised when another process owns an index-build lock."""
+
+
+_READER_LEASES = {}
+_LEASE_LOCK = threading.RLock()
+
+
+def _lease_file(target_path: str):
+    # A sibling inode survives directory renames. Never unlink this lock file:
+    # replacing it would let later readers lock an unrelated inode.
+    path = f"{os.path.realpath(target_path)}.readers.lock"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return open(path, "a+b")
+
+
+def _acquire_reader_lease(target_path: str) -> None:
+    """Pin an embedded Chroma pathname until process exit.
+
+    Chroma retains native clients beyond a Python wrapper's lifetime, so dropping
+    a wrapper/shutdown reference is not sufficient to safely release this lease.
+    Stop all participating reader processes before publishing a replacement.
+    """
+    import fcntl
+    path = os.path.realpath(target_path)
+    with _LEASE_LOCK:
+        if path in _READER_LEASES:
+            return
+        lease = _lease_file(path)
+        try:
+            fcntl.flock(lease, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except OSError as exc:
+            lease.close()
+            raise BuildLockError("Index publication in progress; reader refused") from exc
+        _READER_LEASES[path] = lease
+
+
+@atexit.register
+def _close_reader_leases() -> None:
+    for lease in _READER_LEASES.values():
+        lease.close()
+    _READER_LEASES.clear()
+
+
+@contextmanager
+def index_publication_guard(target_path: str, *, pin_reader: bool = False):
+    """Fail closed instead of renaming files beneath active embedded readers.
+
+    This is a participating-process POSIX/local-filesystem contract, not hot swap
+    support for direct Chroma clients or network filesystems.
+    """
+    import fcntl
+    lease = _lease_file(target_path)
+    try:
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise BuildLockError(
+                "Stop existing Chroma readers before publishing; restart after publication"
+            ) from exc
+        yield
+        if pin_reader:
+            with _LEASE_LOCK:
+                fcntl.flock(lease, fcntl.LOCK_SH)
+                _READER_LEASES[os.path.realpath(target_path)] = lease
+                lease = None
+    finally:
+        if lease is not None:
+            lease.close()
+
+
+def atomic_write_json(path: str, data: Any) -> None:
+    """Write JSON through a same-directory temporary file and atomic replace.
+
+    Checkpoints and index manifests are small, but a process interruption while
+    writing either file must not leave a truncated document that a later worker
+    mistakes for a valid build state.  ``os.replace`` is atomic when both paths
+    are on the same filesystem, so the temporary file deliberately lives beside
+    the destination.
+    """
+    destination = os.path.abspath(path)
+    parent = os.path.dirname(destination) or "."
+    os.makedirs(parent, exist_ok=True)
+    temporary = None
+    try:
+        fd, temporary = tempfile.mkstemp(
+            prefix=f".{os.path.basename(destination)}.",
+            suffix=".tmp",
+            dir=parent,
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            json.dump(data, output, indent=2)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, destination)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+class BuildLock:
+    """Cross-process lock implemented with an exclusive lock file.
+
+    The lock is intentionally based only on stdlib filesystem primitives.  A
+    bounded wait avoids hanging a service forever behind a crashed or forgotten
+    builder; the lock file is never removed by a process that did not acquire it.
+    """
+
+    def __init__(
+        self,
+        target_path: str,
+        timeout: Optional[float] = None,
+        poll_interval: float = DEFAULT_BUILD_LOCK_POLL_SECONDS,
+    ):
+        self.target_path = os.path.abspath(target_path)
+        self.lock_path = f"{self.target_path}.build.lock"
+        self.timeout = (
+            DEFAULT_BUILD_LOCK_TIMEOUT_SECONDS if timeout is None else max(0.0, timeout)
+        )
+        self.poll_interval = max(0.001, poll_interval)
+        self._token: Optional[str] = None
+        self._owned = False
+
+    def acquire(self) -> "BuildLock":
+        if self._owned:
+            return self
+        os.makedirs(os.path.dirname(self.lock_path), exist_ok=True)
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                fd = os.open(
+                    self.lock_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    0o644,
+                )
+            except FileExistsError:
+                if self.timeout <= 0 or time.monotonic() >= deadline:
+                    raise BuildLockError(
+                        f"Index build lock is held for {self.target_path}: "
+                        f"{self.lock_path} (waited {self.timeout:.2f}s)"
+                    )
+                time.sleep(min(self.poll_interval, max(0.0, deadline - time.monotonic())))
+                continue
+
+            token = uuid.uuid4().hex
+            metadata = {
+                "target": self.target_path,
+                "pid": os.getpid(),
+                "acquired_at": time.time(),
+                "token": token,
+            }
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as output:
+                    json.dump(metadata, output)
+                    output.flush()
+                    os.fsync(output.fileno())
+            except Exception:
+                try:
+                    os.unlink(self.lock_path)
+                except OSError:
+                    pass
+                raise
+            self._token = token
+            self._owned = True
+            return self
+
+    def release(self) -> None:
+        if not self._owned:
+            return
+        self._owned = False
+        token = self._token
+        self._token = None
+        try:
+            with open(self.lock_path, encoding="utf-8") as lock_file:
+                metadata = json.load(lock_file)
+            if token is not None and metadata.get("token") != token:
+                logger.warning("Build lock %s changed owner before release.", self.lock_path)
+                return
+        except FileNotFoundError:
+            return
+        except (OSError, json.JSONDecodeError):
+            logger.warning("Could not verify build lock ownership: %s", self.lock_path)
+            return
+        try:
+            os.unlink(self.lock_path)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning("Could not release build lock %s: %s", self.lock_path, exc)
+
+    def __enter__(self) -> "BuildLock":
+        return self.acquire()
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.release()
+
+
+def build_lock_for(
+    target_path: str,
+    timeout: Optional[float] = None,
+    poll_interval: float = DEFAULT_BUILD_LOCK_POLL_SECONDS,
+) -> BuildLock:
+    """Return the lock guarding a final index path."""
+    return BuildLock(target_path, timeout=timeout, poll_interval=poll_interval)
+
+
+def create_staging_dir(
+    parent_dir: str,
+    prefix: str,
+    target_path: str,
+    lock: Optional[BuildLock] = None,
+) -> str:
+    """Create a marked staging directory that cleanup can identify safely."""
+    os.makedirs(parent_dir, exist_ok=True)
+    staged_dir = tempfile.mkdtemp(prefix=prefix, dir=parent_dir)
+    try:
+        atomic_write_json(
+            os.path.join(staged_dir, STAGING_METADATA_FILE),
+            {
+                "state": "active",
+                "target": os.path.abspath(target_path),
+                "pid": os.getpid(),
+                "created_at": time.time(),
+                "lock_token": getattr(lock, "_token", None),
+            },
+        )
+    except Exception:
+        shutil.rmtree(staged_dir, ignore_errors=True)
+        raise
+    return staged_dir
+
+
+def _process_is_alive(pid: Any) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    if pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except (OSError, OverflowError):
+        return False
+    return True
+
+
+def cleanup_stale_staging_dirs(
+    data_dir: str,
+    *,
+    prefix: str,
+    target_path: str,
+    protected_paths: Optional[List[str]] = None,
+    active_lock_token: Optional[str] = None,
+) -> List[str]:
+    """Remove only marked, non-active staging directories for one target.
+
+    Callers must hold ``build_lock_for(target_path)``.  The marker and target
+    match are required, and a live owner PID is preserved as a final guard
+    against deleting an active build.  Unmarked directories are deliberately
+    left alone because their ownership is unknown.
+    """
+    expected_target = os.path.abspath(target_path)
+    protected = {os.path.abspath(path) for path in (protected_paths or [])}
+    removed: List[str] = []
+    for candidate in Path(data_dir).glob(f"{prefix}*"):
+        if not candidate.is_dir() or str(candidate.resolve()) in protected:
+            continue
+        metadata_path = candidate / STAGING_METADATA_FILE
+        try:
+            with metadata_path.open(encoding="utf-8") as metadata_file:
+                metadata = json.load(metadata_file)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(metadata, dict):
+            continue
+        if metadata.get("state") != "active":
+            continue
+        if os.path.abspath(str(metadata.get("target", ""))) != expected_target:
+            continue
+        owner_is_alive = _process_is_alive(metadata.get("pid"))
+        marker_token = metadata.get("lock_token")
+        if owner_is_alive and (
+            marker_token is None
+            or not active_lock_token
+            or marker_token == active_lock_token
+        ):
+            continue
+        try:
+            shutil.rmtree(candidate)
+            removed.append(str(candidate))
+        except OSError as exc:
+            logger.warning("Could not remove stale staging directory %s: %s", candidate, exc)
+    return removed
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. DATASET LOADING
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def load_msmarco_documents(
     split: str = DATASET_SPLIT,
-    max_samples: int = DATASET_SUBSET_SIZE,
+    max_samples: Optional[int] = DATASET_SUBSET_SIZE,
 ) -> List[Document]:
     """
     Load MS MARCO v2.1 and convert to LangChain Documents.
@@ -70,6 +389,11 @@ def load_msmarco_documents(
       - Each selected passage → Document (page_content)
       - Metadata: query, answer, query_type, url
     """
+    if max_samples is not None and max_samples < 0:
+        raise ValueError("max_samples must be non-negative or None")
+    if max_samples == 0:
+        return []
+
     logger.info("Loading MS MARCO v2.1 (%s split)…", split)
     dataset = load_dataset(DATASET_NAME, DATASET_CONFIG, split=split)
 
@@ -123,7 +447,7 @@ def load_msmarco_documents(
             docs.append(doc)
 
         count += 1
-        if count >= max_samples:
+        if max_samples is not None and count >= max_samples:
             break
 
     logger.info(
@@ -135,13 +459,18 @@ def load_msmarco_documents(
 
 def load_msmarco_qa_pairs(
     split: str = DATASET_SPLIT,
-    max_samples: int = DATASET_SUBSET_SIZE,
+    max_samples: Optional[int] = DATASET_SUBSET_SIZE,
 ) -> List[Dict[str, Any]]:
     """
     Load MS MARCO as Q&A pairs for evaluation.
     Returns list of dicts with: question, ground_truth, query_type, context.
     """
-    logger.info("Loading MS MARCO Q&A pairs (%s split, max %d)…", split, max_samples)
+    if max_samples is not None and max_samples < 0:
+        raise ValueError("max_samples must be non-negative or None")
+    if max_samples == 0:
+        return []
+
+    logger.info("Loading MS MARCO Q&A pairs (%s split, max %s)…", split, max_samples)
     dataset = load_dataset(DATASET_NAME, DATASET_CONFIG, split=split)
 
     qa_pairs: List[Dict[str, Any]] = []
@@ -178,7 +507,7 @@ def load_msmarco_qa_pairs(
         })
 
         count += 1
-        if count >= max_samples:
+        if max_samples is not None and count >= max_samples:
             break
 
     logger.info("Loaded %d Q&A pairs from MS MARCO.", len(qa_pairs))
@@ -188,11 +517,16 @@ def load_msmarco_qa_pairs(
 # Legacy SQuAD loader (kept for backward compatibility)
 def load_squad_documents(
     split: str = SQUAD_SPLIT,
-    max_samples: int = SQUAD_SUBSET_SIZE,
+    max_samples: Optional[int] = SQUAD_SUBSET_SIZE,
 ) -> List[Document]:
     """
     Load SQuAD 2.0 (legacy). Use load_msmarco_documents() for the primary dataset.
     """
+    if max_samples is not None and max_samples < 0:
+        raise ValueError("max_samples must be non-negative or None")
+    if max_samples == 0:
+        return []
+
     logger.info("Loading SQuAD 2.0 %s split (legacy)…", split)
     dataset = load_dataset("rajpurkar/squad_v2", split=split)
 
@@ -219,7 +553,7 @@ def load_squad_documents(
         )
         docs.append(doc)
         count += 1
-        if count >= max_samples:
+        if max_samples is not None and count >= max_samples:
             break
 
     logger.info("Loaded %d unique answerable contexts from SQuAD.", len(docs))
@@ -236,9 +570,10 @@ def chunk_documents(
     chunk_overlap: int = CHUNK_OVERLAP,
 ) -> List[Document]:
     """
-    Split documents into chunks while preserving metadata.
+    Split documents into character-bounded chunks while preserving metadata.
     RecursiveCharacterTextSplitter respects sentence / paragraph boundaries.
     """
+    _validate_chunking(chunk_size, chunk_overlap)
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -292,7 +627,6 @@ def write_index_manifest(
     detect — and clearly report — a mismatch instead of silently scoring a mixed
     system.
     """
-    import json as _json
     from datetime import datetime, timezone
 
     manifest = {
@@ -302,10 +636,10 @@ def write_index_manifest(
         "chunk_size": chunk_size,
         "chunk_overlap": chunk_overlap,
         "num_chunks": num_chunks,
+        "build_id": uuid.uuid4().hex,
     }
     try:
-        with open(_index_manifest_path(persist_dir), "w") as f:
-            _json.dump(manifest, f, indent=2)
+        atomic_write_json(_index_manifest_path(persist_dir), manifest)
     except Exception as exc:  # noqa: BLE001 — manifest is a safety net, not a gate
         logger.warning("Could not write index manifest for %s: %s", persist_dir, exc)
 
@@ -329,6 +663,10 @@ def _check_index_manifest(persist_dir: str) -> None:
         logger.warning("Index manifest at %s is unreadable: %s", path, exc)
         return
 
+    if not isinstance(manifest, dict):
+        logger.warning("Index manifest at %s must be a JSON object.", path)
+        return
+
     if manifest.get("embedding_model") != EMBEDDING_MODEL:
         logger.warning(
             "Index at %s was built with embedding model %r but the current config "
@@ -345,12 +683,39 @@ def _check_index_manifest(persist_dir: str) -> None:
         )
 
 
+def _manifest_matches_current(persist_dir: str, num_chunks: int) -> bool:
+    """Return whether a known manifest matches the current index contract.
+
+    Legacy stores without a manifest are treated as unknown rather than forcibly
+    rebuilt; stores with a manifest are safe to invalidate when their model,
+    chunking, or recorded vector count changed.
+    """
+    path = _index_manifest_path(persist_dir)
+    if not os.path.exists(path):
+        return True
+    try:
+        with open(path, encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(manifest, dict):
+        return False
+    return (
+        manifest.get("embedding_model") == EMBEDDING_MODEL
+        and manifest.get("chunk_size") == CHUNK_SIZE
+        and manifest.get("chunk_overlap") == CHUNK_OVERLAP
+        and manifest.get("num_chunks") == num_chunks
+    )
+
+
 def build_vector_store(
     chunks: List[Document],
     embedding_model: HuggingFaceEmbeddings,
     persist_dir: str = VECTOR_STORE_DIR,
 ) -> Chroma:
     """Index chunks into Chroma and persist to disk."""
+    if not chunks:
+        raise ValueError("Cannot build a vector store from an empty chunk list")
     os.makedirs(persist_dir, exist_ok=True)
     logger.info("Building Chroma vector store at %s (%d chunks)…", persist_dir, len(chunks))
     vectorstore = Chroma.from_documents(
@@ -368,16 +733,94 @@ def build_vector_store(
     return vectorstore
 
 
+def rebuild_vector_store_safely(
+    chunks: List[Document],
+    embedding_model: HuggingFaceEmbeddings,
+    persist_dir: str = VECTOR_STORE_DIR,
+) -> Chroma:
+    """Build a replacement index beside the live one, then publish atomically."""
+    with build_lock_for(persist_dir) as build_lock, index_publication_guard(persist_dir, pin_reader=True):
+        parent_dir = os.path.dirname(os.path.abspath(persist_dir))
+        cleanup_stale_staging_dirs(
+            parent_dir,
+            prefix=".vector_store.",
+            target_path=persist_dir,
+            active_lock_token=build_lock._token,
+        )
+        staged_dir = create_staging_dir(
+            parent_dir, ".vector_store.", persist_dir, lock=build_lock
+        )
+        backup_dir = f"{os.path.abspath(persist_dir)}.previous"
+        moved_previous = False
+        try:
+            build_vector_store(chunks, embedding_model, persist_dir=staged_dir)
+            if not os.path.exists(persist_dir) and os.path.exists(backup_dir):
+                os.replace(backup_dir, persist_dir)
+            if os.path.exists(backup_dir):
+                shutil.rmtree(backup_dir)
+            if os.path.exists(persist_dir):
+                os.replace(persist_dir, backup_dir)
+                moved_previous = True
+            os.replace(staged_dir, persist_dir)
+            try:
+                vectorstore = Chroma(
+                    persist_directory=persist_dir, embedding_function=embedding_model
+                )
+                # Chroma caches clients by persistence path. If this process already
+                # opened the old directory, reopening the pathname may return OLD
+                # handles or a collection that no longer exists. Never report that
+                # as a successful rebuild or delete its backup. A fresh process is
+                # required in that case.
+                from collections import Counter
+                actual = Counter(vectorstore.get(include=["documents"])["documents"])
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(
+                    "Published vector store could not be validated. "
+                    "Stop existing Chroma readers and rebuild from a fresh process."
+                ) from exc
+            if actual != Counter(doc.page_content for doc in chunks):
+                raise RuntimeError(
+                    "Published vector store did not match the replacement corpus. "
+                    "Stop existing Chroma readers and rebuild from a fresh process."
+                )
+            if os.path.exists(backup_dir):
+                try:
+                    shutil.rmtree(backup_dir)
+                except OSError as exc:
+                    logger.warning("Could not remove previous vector store %s: %s", backup_dir, exc)
+            marker = os.path.join(persist_dir, STAGING_METADATA_FILE)
+            try:
+                os.unlink(marker)
+            except FileNotFoundError:
+                pass
+            # The returned native client still pins the path. Downgrading the
+            # publication guard occurs on exit; subsequent publishers are refused.
+        except Exception:
+            if moved_previous and os.path.exists(backup_dir):
+                if os.path.exists(persist_dir):
+                    shutil.rmtree(persist_dir, ignore_errors=True)
+                os.replace(backup_dir, persist_dir)
+            shutil.rmtree(staged_dir, ignore_errors=True)
+            raise
+    return vectorstore
+
+
 def load_vector_store(
     embedding_model: HuggingFaceEmbeddings,
     persist_dir: str = VECTOR_STORE_DIR,
 ) -> Chroma:
     """Load an already-persisted Chroma vector store."""
+    _acquire_reader_lease(persist_dir)
+    if not os.path.isfile(os.path.join(persist_dir, "chroma.sqlite3")):
+        raise FileNotFoundError(f"Vector store directory not found: {persist_dir}")
     _check_index_manifest(persist_dir)
-    return Chroma(
+    vectorstore = Chroma(
         persist_directory=persist_dir,
         embedding_function=embedding_model,
     )
+    if vectorstore._collection.count() == 0:
+        raise ValueError(f"Vector store is empty: {persist_dir}")
+    return vectorstore
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -530,6 +973,8 @@ def build_parent_child_chunks(
     For each parent chunk, create smaller child chunks.
     Returns { "parents": [...], "children": [...], "child_to_parent": {child_id: parent_id} }
     """
+    _validate_chunking(parent_chunk_size, overlap)
+    _validate_chunking(child_chunk_size, overlap)
     parent_splitter = RecursiveCharacterTextSplitter(
         chunk_size=parent_chunk_size, chunk_overlap=overlap
     )
@@ -562,10 +1007,17 @@ def build_parent_child_chunks(
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _validate_chunking(chunk_size: int, chunk_overlap: int) -> None:
+    """Reject invalid splitter settings before LangChain raises a vague error."""
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    if chunk_overlap < 0:
+        raise ValueError("chunk_overlap must be non-negative")
+    if chunk_overlap >= chunk_size:
+        raise ValueError("chunk_overlap must be smaller than chunk_size")
+
 def _save_json(data: Any, path: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+    atomic_write_json(path, data)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -600,11 +1052,35 @@ def run_module1(
 
     # Embed + index — reuse an existing persisted store if one is already on disk
     embedding_model = get_embedding_model()
-    if os.path.exists(os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3")):
+    existing_store = os.path.exists(os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3"))
+    manifest_compatible = _manifest_matches_current(VECTOR_STORE_DIR, len(chunks))
+    if existing_store and manifest_compatible:
         logger.info("Found existing vector store at %s — loading instead of rebuilding.", VECTOR_STORE_DIR)
         vectorstore = load_vector_store(embedding_model)
     else:
-        vectorstore = build_vector_store(chunks, embedding_model)
+        if existing_store:
+            logger.warning(
+                "Existing vector store at %s does not match the current index contract; rebuilding.",
+                VECTOR_STORE_DIR,
+            )
+            vectorstore = rebuild_vector_store_safely(chunks, embedding_model)
+        else:
+            # A first build is also serialized: two workers starting with no
+            # directory must not both write Chroma's persistent files. Recheck
+            # after acquiring the lock because another worker may have finished
+            # while this one was waiting.
+            rebuild_after_lock = False
+            with build_lock_for(VECTOR_STORE_DIR):
+                if os.path.exists(os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3")):
+                    if _manifest_matches_current(VECTOR_STORE_DIR, len(chunks)):
+                        vectorstore = load_vector_store(embedding_model)
+                    else:
+                        rebuild_after_lock = True
+                        vectorstore = None
+                else:
+                    vectorstore = build_vector_store(chunks, embedding_model)
+            if rebuild_after_lock:
+                vectorstore = rebuild_vector_store_safely(chunks, embedding_model)
 
     # Synthetic data
     synthetic_data: List[Dict] = []
@@ -671,7 +1147,7 @@ class KnowledgeGraphBuilder:
             except OSError:
                 import subprocess
                 subprocess.run(
-                    ["python", "-m", "spacy", "download", "en_core_web_sm"],
+                    [sys.executable, "-m", "spacy", "download", "en_core_web_sm"],
                     check=True
                 )
                 self._nlp = spacy.load("en_core_web_sm")

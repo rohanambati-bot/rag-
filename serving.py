@@ -26,6 +26,8 @@ requests cannot trigger duplicate model loads.
 from __future__ import annotations
 
 import os
+import hashlib
+import json
 import sys
 import threading
 import time
@@ -67,6 +69,7 @@ class ServingContext:
         self._architectures: Optional[Dict[str, Any]] = None
         self._available_keys: Optional[List[str]] = None
         self._cache = None
+        self._caches: Dict[str, Any] = {}
         self._ready = False
         self._degraded_reason: Optional[str] = None
         self._arch_count = 0
@@ -147,11 +150,19 @@ class ServingContext:
             return self._architectures
         with self._lock:
             if self._architectures is None:
-                from module2.rag_architectures import build_all_architectures
+                from module2.rag_architectures import (
+                    ARCHITECTURE_KEYS,
+                    ARCHITECTURE_REGISTRY,
+                    build_all_architectures,
+                )
+                cheap_keys = [
+                    key for key in ARCHITECTURE_KEYS
+                    if ARCHITECTURE_REGISTRY[key]["llm_free"]
+                ]
                 self._architectures = build_all_architectures(
                     vectorstore=self.vectorstore(),
                     chunks=self.chunks(),
-                    llm_free_only=True,
+                    selected_architectures=cheap_keys,
                 )
                 logger.info("Eager architectures registered.",
                             extra={"count": len(self._architectures),
@@ -177,12 +188,13 @@ class ServingContext:
 
             logger.info("Lazily constructing architecture.", extra={"architecture": key})
             from module2.rag_architectures import build_all_architectures
-            full = build_all_architectures(
+            selected = build_all_architectures(
                 vectorstore=self.vectorstore(), chunks=self.chunks(),
+                selected_architectures=[key],
             )
-            if key not in full:
+            if key not in selected:
                 raise KeyError(key)
-            self._architectures.update(full)
+            self._architectures[key] = selected[key]
             return self._architectures[key]
 
     def available_keys(self) -> List[str]:
@@ -201,14 +213,69 @@ class ServingContext:
     def architecture_names(self) -> List[str]:
         return self.available_keys()
 
-    def cache(self):
-        if self._cache is not None:
-            return self._cache
+    def cache(self, architecture: str = "naive"):
+        if architecture in self._caches:
+            return self._caches[architecture]
         with self._lock:
-            if self._cache is None:
+            if architecture not in self._caches:
+                if architecture not in self.available_keys():
+                    raise KeyError(architecture)
                 from phase3.semantic_cache import SemanticCache
-                self._cache = SemanticCache(embedding_model=self.embedding())
-            return self._cache
+                self._caches[architecture] = SemanticCache(
+                    embedding_model=self.embedding(),
+                    namespace=self._cache_namespace(architecture),
+                    redis_failure_policy="miss",
+                )
+                if architecture == "naive":
+                    self._cache = self._caches[architecture]
+            return self._caches[architecture]
+
+    def _cache_namespace(self, architecture: str) -> str:
+        """Version answers by restart-time source/model contract, not just query.
+
+        The service does not hot-reload stores. Stop readers before rebuilding and
+        restart after publication. Legacy unscoped Redis entries are not reused.
+        """
+        from configs import config as cfg
+        sqlite_path = os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3")
+        stat = os.stat(sqlite_path)
+        source_key = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        if getattr(self, "_source_key", None) != source_key:
+            digest = hashlib.sha256()
+            with open(sqlite_path, "rb") as source:
+                for block in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(block)
+            manifest_path = os.path.join(VECTOR_STORE_DIR, "_index_manifest.json")
+            if os.path.isfile(manifest_path):
+                with open(manifest_path, "rb") as manifest:
+                    digest.update(manifest.read())
+            self._source_digest = digest.hexdigest()
+            self._source_key = source_key
+        contract = {
+            "schema": 3, "architecture": architecture,
+            "source_digest": self._source_digest,
+            "embedding": cfg.EMBEDDING_MODEL, "reranker": cfg.RERANKER_MODEL,
+            "top_k": cfg.TOP_K, "candidates": cfg.RERANK_CANDIDATES,
+            "generator": cfg.GROQ_MODEL, "fallback": cfg.LLM_MODEL,
+            "openrouter": bool(cfg.OPENROUTER_API_KEY),
+            "groq": bool(cfg.GROQ_API_KEY), "mistral": bool(cfg.MISTRAL_API_KEY),
+            "base_url": cfg.OPENROUTER_BASE_URL,
+            "temperature": cfg.LLM_TEMPERATURE, "max_tokens": cfg.LLM_MAX_TOKENS,
+            "context_limit": cfg.MAX_CONTEXT_CHARS,
+            "bm25_weight": cfg.BM25_WEIGHT, "dense_weight": cfg.DENSE_WEIGHT,
+            "chunk_size": cfg.CHUNK_SIZE, "chunk_overlap": cfg.CHUNK_OVERLAP,
+            "parent_chunk_size": cfg.PARENT_CHUNK_SIZE,
+            "child_chunk_size": cfg.CHILD_CHUNK_SIZE,
+            "dataset": [cfg.DATASET_NAME, cfg.DATASET_CONFIG, cfg.DATASET_SPLIT,
+                        cfg.DATASET_SUBSET_SIZE],
+            "embedding_revision": getattr(cfg, "EMBEDDING_REVISION", None),
+            "reranker_revision": getattr(cfg, "RERANKER_REVISION", None),
+        }
+        # Constructor defaults and generation/prompt behavior also affect answers.
+        implementation = os.path.join(os.path.dirname(__file__), "module2", "rag_architectures.py")
+        with open(implementation, "rb") as source:
+            contract["implementation"] = hashlib.sha256(source.read()).hexdigest()
+        return hashlib.sha256(json.dumps(contract, sort_keys=True).encode()).hexdigest()
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
@@ -248,6 +315,7 @@ class ServingContext:
             self._vectorstore = None
             self._chunks = None
             self._cache = None
+            self._caches.clear()
         logger.info("Serving context shut down.")
 
     # ── health ─────────────────────────────────────────────────────────────────

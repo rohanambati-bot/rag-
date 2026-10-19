@@ -25,7 +25,7 @@ import json
 import time
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -35,12 +35,17 @@ from configs.config import (
     TOP_K, GROQ_API_KEY, GROQ_MODEL,
     MISTRAL_API_KEY, LLM_MODEL,
     LLM_MAX_TOKENS, LLM_TEMPERATURE, LLM_RATE_LIMIT_SECONDS,
+    MAX_CONTEXT_CHARS,
     OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
     RERANKER_MODEL, RERANK_CANDIDATES, RERANK_DEVICE,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+_ABSTENTION_ANSWER = (
+    "Based on the retrieved context, I could not find a relevant answer to this question."
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -175,17 +180,20 @@ class _LLM:
     @staticmethod
     def _extractive_fallback(prompt: str) -> str:
         """Pick the most relevant sentence from the context block of the prompt."""
-        # Try to isolate a "Context: ... Question: ..." pattern
-        ctx_match = re.search(r"Context:?\s*(.+?)(?:Question:|$)", prompt, re.S | re.I)
-        q_match = re.search(r"Question:?\s*(.+?)(?:Answer:|$)", prompt, re.S | re.I)
-        if not ctx_match:
-            return "I cannot answer without an LLM (set MISTRAL_API_KEY for generated answers)."
+        # Match actual headers, never the words "context"/"question" in the
+        # instructions. Greedy context capture keeps header-like text inside the
+        # evidence, ending at the final Question section before the Answer suffix.
+        match = re.search(
+            r"^Context:[ \t]*\n(.*)\n\nQuestion:[ \t]*(.*?)\n\nAnswer:[ \t]*\Z",
+            prompt,
+            re.S | re.M | re.I,
+        )
+        if not match:
+            return _ABSTENTION_ANSWER
 
-        context = ctx_match.group(1).strip()
-        question = q_match.group(1).strip() if q_match else ""
-
-        # Remove the "Answer:" suffix if captured
-        question = re.sub(r"\s*Answer:\s*$", "", question).strip()
+        context, question = (part.strip() for part in match.groups())
+        if not context:
+            return _ABSTENTION_ANSWER
 
         # Score sentences by keyword overlap with the question
         sentences = re.split(r"(?<=[.!?])\s+", context)
@@ -193,7 +201,7 @@ class _LLM:
         expanded = []
         for s in sentences:
             expanded.extend(s.split("\n"))
-        sentences = [s.strip() for s in expanded if len(s.strip()) > 15]
+        sentences = [s.strip() for s in expanded if s.strip()]
 
         q_tokens = set(re.findall(r"\w+", question.lower())) - {
             "the", "a", "an", "is", "are", "was", "were", "of", "to",
@@ -204,7 +212,7 @@ class _LLM:
             "has", "had", "for", "with", "from", "by", "about",
         }
         if not sentences:
-            return context[:300]
+            return _ABSTENTION_ANSWER
 
         if not q_tokens:
             # If question has no meaningful keywords, return first substantial sentence
@@ -227,7 +235,7 @@ class _LLM:
         # Return the best sentence only (not a jumble of multiple)
         best_score, best_sentence = scored[0]
         if best_score == 0:
-            return "Based on the retrieved context, I could not find a relevant answer to this question."
+            return _ABSTENTION_ANSWER
         return best_sentence[:500]
 
 
@@ -286,10 +294,54 @@ class BaseRAG:
     def retrieve(self, query: str) -> List[Document]:
         raise NotImplementedError
 
+    @staticmethod
+    def _generation_evidence(docs: List[Document]) -> List[Dict[str, Any]]:
+        """Return the exact prompt-visible slices and their retrieval indices.
+
+        Indices refer to the original returned documents, including blank/skipped
+        documents. This is evidence scoping, not claim-level citation support.
+        """
+        remaining = MAX_CONTEXT_CHARS
+        evidence = []
+        for index, doc in enumerate(docs, start=1):
+            if not doc.page_content.strip():
+                continue
+            separator_chars = 2 if evidence else 0
+            if remaining <= separator_chars:
+                break
+            text = doc.page_content[:remaining - separator_chars]
+            evidence.append({"context_index": index, "text": text})
+            remaining -= len(text) + separator_chars
+        return evidence
+
     def generate(self, query: str, docs: List[Document]) -> str:
-        context = "\n\n".join(d.page_content for d in docs)
+        context = "\n\n".join(item["text"] for item in self._generation_evidence(docs))
+        if not context.strip():
+            return _ABSTENTION_ANSWER
         prompt = ANSWER_PROMPT.format(context=context, question=query)
         return _llm().complete(prompt)
+
+    @staticmethod
+    def _citations(docs: List[Document]) -> List[Dict[str, Any]]:
+        """Create citations that point only to returned context documents.
+
+        ``context_index`` is always valid for the response's ``contexts`` list;
+        optional source/page/query fields are copied from document metadata rather
+        than inferred from the answer or invented by a model.
+        """
+        citations = []
+        for index, doc in enumerate(docs, start=1):
+            metadata = getattr(doc, "metadata", None) or {}
+            citation: Dict[str, Any] = {"context_index": index}
+            for key in (
+                "source", "url", "page", "paragraph", "query",
+                "parent_id", "child_id", "chunk_id",
+            ):
+                value = metadata.get(key)
+                if value not in (None, ""):
+                    citation[key] = value
+            citations.append(citation)
+        return citations
 
     def run(self, query: str) -> Dict[str, Any]:
         t0 = time.time()
@@ -302,6 +354,7 @@ class BaseRAG:
             "answer": answer,
             "context_docs": docs,
             "contexts": [d.page_content for d in docs],
+            "citations": self._citations(docs),
             "latency_ms": round(latency, 2),
         }
 
@@ -670,6 +723,8 @@ class _CrossEncoderReranker:
         self.device = device or self._best_device()
         self._model = None
         self._unavailable = False
+        # The global wrapper lock does not cover the later, expensive model load.
+        self._load_lock = threading.Lock()
 
     @staticmethod
     def _best_device() -> str:
@@ -686,15 +741,18 @@ class _CrossEncoderReranker:
     def _load(self):
         if self._model is not None or self._unavailable:
             return self._model
-        try:
-            from sentence_transformers import CrossEncoder
-            self._model = CrossEncoder(self.model_name, device=self.device)
-            logger.info("Reranker: %s on %s.", self.model_name, self.device)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Reranker unavailable (%s) — falling back to first-stage order.", exc
-            )
-            self._unavailable = True
+        with self._load_lock:
+            if self._model is not None or self._unavailable:
+                return self._model
+            try:
+                from sentence_transformers import CrossEncoder
+                self._model = CrossEncoder(self.model_name, device=self.device)
+                logger.info("Reranker: %s on %s.", self.model_name, self.device)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Reranker unavailable (%s) — falling back to first-stage order.", exc
+                )
+                self._unavailable = True
         return self._model
 
     def is_available(self) -> bool:
@@ -723,13 +781,16 @@ class _CrossEncoderReranker:
 
 
 _GLOBAL_RERANKER: Optional[_CrossEncoderReranker] = None
+_RERANKER_INIT_LOCK = threading.Lock()
 
 
 def _reranker() -> _CrossEncoderReranker:
     """Process-wide lazily-loaded reranker (the model is expensive to construct)."""
     global _GLOBAL_RERANKER
     if _GLOBAL_RERANKER is None:
-        _GLOBAL_RERANKER = _CrossEncoderReranker(device=RERANK_DEVICE)
+        with _RERANKER_INIT_LOCK:
+            if _GLOBAL_RERANKER is None:
+                _GLOBAL_RERANKER = _CrossEncoderReranker(device=RERANK_DEVICE)
     return _GLOBAL_RERANKER
 
 
@@ -1392,6 +1453,7 @@ def build_all_architectures(
     child_vectorstore=None,
     kg_builder=None,
     llm_free_only: bool = False,
+    selected_architectures: Optional[Iterable[str]] = None,
 ) -> Dict[str, BaseRAG]:
     """
     Register the architecture set implied by the supplied inputs.
@@ -1400,8 +1462,38 @@ def build_all_architectures(
     call. It must be honoured at *construction* time, not by filtering afterwards:
     GRACE-Ω summarises its RAPTOR clusters inside ``__init__``, so merely discarding
     it later would still have paid for those calls.
+
+    ``selected_architectures`` optionally narrows construction to the requested
+    registry keys. When omitted, the historical input-dependent registration is
+    preserved for existing callers. Selection is applied while constructing the
+    objects, so unrequested GRACE-Ω variants are never instantiated as a side
+    effect of resolving one architecture.
     """
-    if llm_free_only:
+    selected = None
+    if selected_architectures is not None:
+        if isinstance(selected_architectures, str):
+            selected = {selected_architectures}
+        else:
+            selected = set(selected_architectures)
+        unknown = selected.difference(ARCHITECTURE_REGISTRY)
+        if unknown:
+            raise ValueError(
+                "Unknown architecture key(s): "
+                f"{', '.join(sorted(unknown))}"
+            )
+        if llm_free_only:
+            selected.intersection_update(
+                key for key, meta in ARCHITECTURE_REGISTRY.items()
+                if meta["llm_free"]
+            )
+
+    def requested(key: str) -> bool:
+        return selected is None or key in selected
+
+    # Keep the legacy mode exactly as-is when no explicit selection is supplied.
+    # In particular, callers such as the CLI may still rely on its lexical CRAG
+    # fallback, which is intentionally not part of the public registry.
+    if llm_free_only and selected is None:
         architectures: Dict[str, BaseRAG] = {
             "naive": NaiveRAG(vectorstore=vectorstore),
             # Lexical grading with no rewrite keeps CRAG free; reported as such.
@@ -1421,65 +1513,77 @@ def build_all_architectures(
                 vectorstore=vectorstore, chunks=chunks)
         return architectures
 
-    architectures: Dict[str, BaseRAG] = {
-        "naive":       NaiveRAG(vectorstore=vectorstore),
-        "crag":        CorrectiveRAG(vectorstore=vectorstore),
-        "rag_fusion":  RAGFusion(vectorstore=vectorstore),
-    }
+    architectures: Dict[str, BaseRAG] = {}
+    if requested("naive"):
+        architectures["naive"] = NaiveRAG(vectorstore=vectorstore)
+    if requested("crag"):
+        architectures["crag"] = CorrectiveRAG(vectorstore=vectorstore)
+    if requested("rag_fusion"):
+        architectures["rag_fusion"] = RAGFusion(vectorstore=vectorstore)
+
     if chunks:
-        architectures["hybrid"] = HybridMultiQueryRAG(
-            vectorstore=vectorstore, chunks=chunks)
-        architectures["adaptive"] = AdaptiveRAG(
-            vectorstore=vectorstore, chunks=chunks)
-        architectures["grace_omega"] = GRACEOmegaRAG(
-            vectorstore=vectorstore,
-            chunks=chunks,
-            kg_builder=kg_builder,
-        )
+        if requested("hybrid"):
+            architectures["hybrid"] = HybridMultiQueryRAG(
+                vectorstore=vectorstore, chunks=chunks)
+        if requested("adaptive"):
+            architectures["adaptive"] = AdaptiveRAG(
+                vectorstore=vectorstore, chunks=chunks)
+        if requested("grace_omega"):
+            architectures["grace_omega"] = GRACEOmegaRAG(
+                vectorstore=vectorstore,
+                chunks=chunks,
+                kg_builder=kg_builder,
+            )
 
         # Parent-Child depends ONLY on chunks — register whenever chunks exist.
-        architectures["parent_child"] = ParentChildRAG(
-            vectorstore=vectorstore,
-            chunks=chunks,
-            parent_child=parent_child,
-            child_vectorstore=child_vectorstore,
-        )
+        if requested("parent_child"):
+            architectures["parent_child"] = ParentChildRAG(
+                vectorstore=vectorstore,
+                chunks=chunks,
+                parent_child=parent_child,
+                child_vectorstore=child_vectorstore,
+            )
 
         # Two-stage retrieval baseline: wide first stage + cross-encoder rerank.
-        architectures["rerank"] = RerankRAG(
-            vectorstore=vectorstore, chunks=chunks)
+        if requested("rerank"):
+            architectures["rerank"] = RerankRAG(
+                vectorstore=vectorstore, chunks=chunks)
 
         # GRACE-Ω + reranker — isolates the reranker's contribution on top of the
         # full architecture (paired with `grace_omega` for a single-variable A/B).
-        architectures["grace_rerank"] = GRACEOmegaRAG(
-            vectorstore=vectorstore,
-            chunks=chunks,
-            kg_builder=kg_builder,
-            use_reranker=True,
-        )
-        architectures["grace_rerank"].name = "GRACE-Ω + Rerank"
+        if requested("grace_rerank"):
+            architectures["grace_rerank"] = GRACEOmegaRAG(
+                vectorstore=vectorstore,
+                chunks=chunks,
+                kg_builder=kg_builder,
+                use_reranker=True,
+            )
+            architectures["grace_rerank"].name = "GRACE-Ω + Rerank"
 
         # GRACE ablation variants require the knowledge graph.
         if kg_builder:
-            architectures["grace_no_gate"] = GRACEOmegaNoGate(
-                vectorstore=vectorstore,
-                chunks=chunks,
-                kg_builder=kg_builder,
-            )
-            architectures["grace_no_kg"] = GRACEOmegaNoKG(
-                vectorstore=vectorstore,
-                chunks=chunks,
-                kg_builder=kg_builder,
-            )
+            if requested("grace_no_gate"):
+                architectures["grace_no_gate"] = GRACEOmegaNoGate(
+                    vectorstore=vectorstore,
+                    chunks=chunks,
+                    kg_builder=kg_builder,
+                )
+            if requested("grace_no_kg"):
+                architectures["grace_no_kg"] = GRACEOmegaNoKG(
+                    vectorstore=vectorstore,
+                    chunks=chunks,
+                    kg_builder=kg_builder,
+                )
             # Single-variable ablation: the KG MUST stay wired here, otherwise this
             # variant removes HyDE *and* cross-structure verification at once and
             # its results become indistinguishable from `grace_no_kg` (which is
             # exactly what previous runs showed).
-            architectures["grace_no_hyde"] = GRACEOmegaNoHyDE(
-                vectorstore=vectorstore,
-                chunks=chunks,
-                kg_builder=kg_builder,
-            )
+            if requested("grace_no_hyde"):
+                architectures["grace_no_hyde"] = GRACEOmegaNoHyDE(
+                    vectorstore=vectorstore,
+                    chunks=chunks,
+                    kg_builder=kg_builder,
+                )
     return architectures
 
 if __name__ == "__main__":

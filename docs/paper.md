@@ -106,7 +106,9 @@ honest comparison, including negative results.
 ### 3.1 Corpus and relevance judgements
 
 MS MARCO v2.1 [@nguyen2016msmarco]. Passages are extracted per query, deduplicated
-on a 200-character prefix, and chunked (400 tokens, 50 overlap).
+on a 200-character prefix, and chunked with `RecursiveCharacterTextSplitter`
+(400 characters, 50-character overlap). The configuration names are character
+limits, not tokenizer token limits.
 
 The key enabling detail: each MS MARCO passage carries `is_selected`, a human
 judgement that the passage contains the answer. This label is preserved through
@@ -175,8 +177,8 @@ baseline are reported as such rather than as undefined test statistics.
 ### 3.5 Reproducibility
 
 Fixed seed (42) for sampling and bootstrap; pinned dependencies; all prompts in
-source; per-sample outputs in `outputs/raw_eval_results.csv`; 164 automated tests
-including property-based tests for metric bounds.
+source; per-sample outputs in `outputs/raw_eval_results.csv`; an offline automated
+regression suite including property-based tests for metric bounds.
 
 ---
 
@@ -253,15 +255,18 @@ returned top-k:
 | Parent-Child RAG | 11.1% |
 | **Rerank RAG** | **5.0%** |
 
-Reranking cuts the miss rate from 11.1% to 5.0% — it recovers **55% of the
-baseline's misses**. This is direct evidence for the project's original hypothesis:
-the answer-bearing passage is frequently retrieved by the first stage but ranked
-below the cut-off, and a cross-encoder is what promotes it.
+The two-stage system cuts the miss rate from 11.1% to 5.0% — a **net 55% miss
+reduction**, not a 55% rescue rate. The paired replay rescues 42 of 55 baseline
+misses but loses 12 baseline hits. This compares a wider dense+BM25 candidate pool
+plus a cross-encoder against dense-only top-5; an identical-pool ablation is needed
+to isolate the cross-encoder's causal contribution.
 
-**Cost.** The gain is not free: +0.067 nDCG@10 costs **129× latency** (11.9 ms →
-1538.3 ms) with 50 candidates on contended MPS hardware. Reranking is therefore a
-quality/latency trade rather than a strict improvement, and candidate depth is the
-obvious tuning knob.
+**Cost.** Older measurements reported 11.9 ms → 1538.3 ms; those are historical,
+not a universal latency ratio. The independent replay measured mean 7.4 ms →
+1370.6 ms on cached models and this host's load. The pool is up to 50 candidates
+**per source**, not 50 total. Reranking is a quality/latency trade, not a strict
+improvement. See [the validation receipt](VALIDATION_2026-10-19.md) for timing scope;
+any future candidate-depth decision must use dev questions, never these eval labels.
 
 ### 5.3 Generation quality (LLM-judged)
 

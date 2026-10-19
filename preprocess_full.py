@@ -11,6 +11,7 @@ import sys
 import json
 import time
 import logging
+import shutil
 from pathlib import Path
 
 logging.basicConfig(
@@ -31,6 +32,12 @@ from configs.config import (  # noqa: E402
 # ── Config ────────────────────────────────────────────────────────────────────
 BATCH_SIZE = 5000          # Process documents in batches of 5000
 CHECKPOINT_FILE = os.path.join(DATA_DIR, "_preprocess_checkpoint.json")
+
+
+def _atomic_write_json(path, data) -> None:
+    """Use the shared same-directory atomic JSON writer."""
+    from module1.data_preprocessing import atomic_write_json
+    atomic_write_json(path, data)
 
 
 def selected_context(passage_texts: list, is_selected: list) -> str:
@@ -56,12 +63,144 @@ def load_checkpoint():
 
 
 def save_checkpoint(data):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CHECKPOINT_FILE, "w") as f:
-        json.dump(data, f)
+    _atomic_write_json(CHECKPOINT_FILE, data)
+
+
+def _recover_previous_vector_store(final_dir: str) -> None:
+    """Restore or discard a backup left by an interrupted publication."""
+    final_dir = os.path.abspath(final_dir)
+    backup_dir = f"{final_dir}.previous"
+    if not os.path.exists(backup_dir):
+        return
+    if os.path.exists(final_dir):
+        shutil.rmtree(backup_dir)
+    else:
+        os.replace(backup_dir, final_dir)
+
+
+def _create_staging_dir(data_dir: str, prefix: str, target_dir: str, lock=None) -> str:
+    """Create a staging directory with ownership metadata for safe cleanup."""
+    from module1.data_preprocessing import create_staging_dir
+    return create_staging_dir(data_dir, prefix, target_dir, lock=lock)
+
+
+def _cleanup_staged_vector_stores(
+    data_dir: str,
+    *,
+    target_dir: str | None = None,
+    prefix: str = ".chroma_db_full.",
+    lock=None,
+) -> list:
+    """Remove only marked stale stages while the target build lock is held.
+
+    A direct caller briefly acquires the same lock; if another process is
+    actively building, cleanup returns without touching any staging directory.
+    Unmarked directories are intentionally left in place because their ownership
+    cannot be established safely.
+    """
+    from module1.data_preprocessing import (
+        BuildLockError,
+        build_lock_for,
+        cleanup_stale_staging_dirs,
+    )
+
+    target_dir = target_dir or os.path.join(data_dir, "chroma_db_full")
+    if lock is None:
+        try:
+            with build_lock_for(target_dir, timeout=0) as cleanup_lock:
+                return _cleanup_staged_vector_stores(
+                    data_dir,
+                    target_dir=target_dir,
+                    prefix=prefix,
+                    lock=cleanup_lock,
+                )
+        except BuildLockError:
+            logger.info("Skipping staging cleanup while %s is actively building.", target_dir)
+            return []
+
+    return cleanup_stale_staging_dirs(
+        data_dir,
+        prefix=prefix,
+        target_path=target_dir,
+        active_lock_token=getattr(lock, "_token", None),
+    )
+
+
+def _publish_vector_store_locked(staged_dir: str, final_dir: str) -> None:
+    from module1.data_preprocessing import index_publication_guard
+    with index_publication_guard(final_dir):
+        _publish_vector_store_without_readers(staged_dir, final_dir)
+
+
+def _publish_vector_store_without_readers(staged_dir: str, final_dir: str) -> None:
+    """Publish a completed store without discarding the last good build.
+
+    Chroma writes a directory rather than a single file, so replacing a populated
+    store takes two directory renames.  Keep the previous directory as a backup
+    during that small window and restore it if the staged directory cannot be
+    promoted.  This means an interrupted or failed rebuild leaves the previous
+    store loadable and a later run can try again.
+    """
+    staged_dir = os.path.abspath(staged_dir)
+    final_dir = os.path.abspath(final_dir)
+    if staged_dir == final_dir:
+        raise ValueError("staged and final vector-store paths must differ")
+    if not os.path.isdir(staged_dir):
+        raise FileNotFoundError(f"Staged vector store not found: {staged_dir}")
+
+    os.makedirs(os.path.dirname(final_dir), exist_ok=True)
+    backup_dir = f"{final_dir}.previous"
+    _recover_previous_vector_store(final_dir)
+
+    moved_previous = False
+    try:
+        if os.path.exists(final_dir):
+            os.replace(final_dir, backup_dir)
+            moved_previous = True
+        os.replace(staged_dir, final_dir)
+    except Exception:
+        if moved_previous and not os.path.exists(final_dir) and os.path.exists(backup_dir):
+            os.replace(backup_dir, final_dir)
+        raise
+
+    # The new store is now live.  A stale backup is no longer needed, but a
+    # cleanup failure must not turn a successful publish into a failed build.
+    if os.path.exists(backup_dir):
+        try:
+            shutil.rmtree(backup_dir)
+        except OSError as exc:
+            logger.warning("Could not remove previous vector store %s: %s", backup_dir, exc)
+
+    # The marker is useful while building but must not become part of the live
+    # Chroma directory. A cleanup failure is harmless after publication.
+    try:
+        os.unlink(os.path.join(final_dir, ".build-staging.json"))
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.warning("Could not remove staging marker from %s: %s", final_dir, exc)
+
+
+def _publish_vector_store(staged_dir: str, final_dir: str, *, lock=None) -> None:
+    """Publish a store while holding the cross-process lock for ``final_dir``."""
+    if lock is not None:
+        _publish_vector_store_locked(staged_dir, final_dir)
+        return
+    from module1.data_preprocessing import build_lock_for
+    with build_lock_for(final_dir):
+        _publish_vector_store_locked(staged_dir, final_dir)
 
 
 def main():
+    """Run the full rebuild under a bounded cross-process builder lock."""
+    from module1.data_preprocessing import build_lock_for
+
+    final_vector_dir = os.path.join(DATA_DIR, "chroma_db_full")
+    with build_lock_for(final_vector_dir) as build_lock:
+        return _run_locked(final_vector_dir, build_lock)
+
+
+def _run_locked(final_vector_dir: str, build_lock):
     os.makedirs(DATA_DIR, exist_ok=True)
 
     print("=" * 70)
@@ -186,7 +325,7 @@ def main():
 
     # ── Phase 3: Chunk + Embed + Index ────────────────────────────────────────
     print(f"\n[3/4] Chunking and embedding {docs_count:,} passages...")
-    print(f"       Chunk size: {CHUNK_SIZE}, overlap: {CHUNK_OVERLAP}")
+    print(f"       Chunk size: {CHUNK_SIZE} characters, overlap: {CHUNK_OVERLAP} characters")
     print(f"       Embedding model: {EMBEDDING_MODEL}")
     print("       This is the slow part — embedding on CPU...")
 
@@ -209,17 +348,23 @@ def main():
         separators=["\n\n", "\n", ". ", " ", ""],
     )
 
-    # Clear old vector store
-    import shutil
-    new_vector_dir = os.path.join(DATA_DIR, "chroma_db_full")
-    if os.path.exists(new_vector_dir):
-        try:
-            shutil.rmtree(new_vector_dir)
-        except Exception:
-            pass
-    os.makedirs(new_vector_dir, exist_ok=True)
-    # Override for this run
-    vector_store_dir = new_vector_dir
+    # Build beside the live store.  The existing full-set store remains available
+    # until the new Chroma directory and its manifest are complete and published.
+    _cleanup_staged_vector_stores(
+        DATA_DIR,
+        target_dir=final_vector_dir,
+        lock=build_lock,
+    )
+    # Recovery also renames/removes directories: use the same reader barrier.
+    from module1.data_preprocessing import index_publication_guard
+    with index_publication_guard(final_vector_dir):
+        _recover_previous_vector_store(final_vector_dir)
+    vector_store_dir = _create_staging_dir(
+        DATA_DIR,
+        ".chroma_db_full.",
+        final_vector_dir,
+        lock=build_lock,
+    )
 
     # Process in batches to avoid OOM
     total_chunks = 0
@@ -282,27 +427,31 @@ def main():
         total_chunks += len(batch_docs)
 
     # Persist
+    if batch_num == 0 and not batch_docs:
+        shutil.rmtree(vector_store_dir, ignore_errors=True)
+        raise RuntimeError("No valid passages were produced; refusing to publish an empty index")
     try:
         vectorstore.persist()
-    except Exception:
-        pass  # newer Chroma auto-persists
+    except AttributeError:
+        pass  # newer Chroma auto-persists and may not expose persist()
 
     # Record build parameters so load_vector_store can detect a stale/mismatched index.
     from module1.data_preprocessing import write_index_manifest
     write_index_manifest(vector_store_dir, num_chunks=total_chunks)
 
-    print(f"       Done: {total_chunks:,} chunks indexed in {(time.time()-t2)/60:.1f} min")
-
-    # Replace only the full-set store; other stores (e.g. the train-split store
-    # built by `train_in_shards.py`) are never touched. The earlier code rebuilt
-    # into a fresh dir and then `rmtree`+`rename`d it into VECTOR_STORE_DIR,
-    # which by default pointed at the train store — silently destroying it.
-    old_full_db = vector_store_dir
+    manifest_path = os.path.join(vector_store_dir, "_index_manifest.json")
     try:
-        if os.path.exists(old_full_db):
-            shutil.rmtree(old_full_db)
-    except Exception:
-        print(f"       Warning: Could not remove old {old_full_db}, using new path instead.")
+        with open(manifest_path) as manifest_file:
+            json.load(manifest_file)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(
+            f"Full validation index manifest was not written correctly: {manifest_path}"
+        ) from exc
+
+    _publish_vector_store(vector_store_dir, final_vector_dir, lock=build_lock)
+    vector_store_dir = final_vector_dir
+
+    print(f"       Done: {total_chunks:,} chunks indexed in {(time.time()-t2)/60:.1f} min")
 
     print(f"       Vector store at: {vector_store_dir}")
     if VECTOR_STORE_DIR != vector_store_dir:
@@ -333,9 +482,7 @@ def main():
             "context": pair.get("context", ""),
         })
 
-    os.makedirs(os.path.dirname(SYNTHETIC_DATA_PATH), exist_ok=True)
-    with open(SYNTHETIC_DATA_PATH, "w") as f:
-        json.dump(synthetic, f, indent=2)
+    _atomic_write_json(SYNTHETIC_DATA_PATH, synthetic)
     print(f"       Saved {len(synthetic)} synthetic Q&A pairs")
 
     # ── Done ──────────────────────────────────────────────────────────────────

@@ -1,0 +1,69 @@
+{
+  "schema": "saved-retrieval-supplement/v1",
+  "retrospective_not_preregistered": true,
+  "source_hashes": {
+    "contract.json": "cdb19e51bcc2b344380ab39a24c3a73e237ab4da8357ebed24a71e2f3b0379ac",
+    "run_metadata.json": "ba90c88bdcbdbca3866e7c3c638362ff6bc5e5490549b0fe17ee4d16691aa4a4",
+    "per_query.jsonl": "be892e68710f613bbdceae5d9f5616052de5d871a69b08fd8daf8e65056e2fb7",
+    "condition_summary.csv": "a6dfde0b7497489736529cc333fec96c797c2d46252b88f5c9139fed65e5552e"
+  },
+  "original_rows": 2480,
+  "queries_per_condition": 496,
+  "maximum_historical_metric_error": 0.0,
+  "identical_hybrid_pools": 496,
+  "derived_dense_differs_from_historical_query_ids": [
+    "msmarco_505"
+  ],
+  "mean_ndcg_at_5": {
+    "dense_only": 0.6313695407172196,
+    "dense_reranked": 0.6985999316860868,
+    "bm25_only": 0.41499984177193683,
+    "hybrid_no_rerank": 0.5533626349885458,
+    "hybrid_reranked": 0.6989724023730506,
+    "dense_same_pool_no_rerank_derived": 0.6319019361256322
+  },
+  "paired_contrasts": [
+    {
+      "left": "dense_same_pool_no_rerank_derived",
+      "right": "dense_reranked",
+      "n": 496,
+      "mean_delta_right_minus_left": 0.06669799556045476,
+      "bootstrap_95_percentile": [
+        0.039694829632932624,
+        0.09344272014529444
+      ],
+      "p_two_sided_monte_carlo": 9.999000099990002e-05,
+      "p_holm_family_3": 0.00029997000299970003
+    },
+    {
+      "left": "hybrid_no_rerank",
+      "right": "hybrid_reranked",
+      "n": 496,
+      "mean_delta_right_minus_left": 0.14560976738450473,
+      "bootstrap_95_percentile": [
+        0.1170004931478612,
+        0.17341948390161604
+      ],
+      "p_two_sided_monte_carlo": 9.999000099990002e-05,
+      "p_holm_family_3": 0.00029997000299970003
+    },
+    {
+      "left": "dense_reranked",
+      "right": "hybrid_reranked",
+      "n": 496,
+      "mean_delta_right_minus_left": 0.00037247068696369764,
+      "bootstrap_95_percentile": [
+        -0.001222423466737183,
+        0.002339835527628276
+      ],
+      "p_two_sided_monte_carlo": 1.0,
+      "p_holm_family_3": 1.0
+    }
+  ],
+  "limits": [
+    "Inherited passage labels, not human chunk judgments.",
+    "No new retrieval/model run; dense common-pool baseline is derived from saved pool order.",
+    "No nDCG@10 depth-ten retrieval, semantic scoring or latency inference.",
+    "Bootstrap intervals are individual descriptive intervals; only p-values have Holm adjustment."
+  ]
+}

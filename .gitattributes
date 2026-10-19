@@ -1,3 +1,3 @@
-# Raw evidence retains source reference text verbatim, including spaces before
-# embedded CSV newlines. Never trim dataset labels just to satisfy diff checks.
-outputs/validation-*/raw.csv -whitespace
+# Preserve research CSV bytes (including standard CSV CRLF record endings).
+# Treat CRLF as a record terminator, while still checking genuine whitespace.
+outputs/**/*.csv -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

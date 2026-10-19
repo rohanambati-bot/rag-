@@ -74,7 +74,10 @@ The concrete mechanism (this is the memorable line):
 
 > "The answer-bearing passage was often retrieved but ranked below the cut-off. The
 > reranker cut the rate of queries that miss a known-relevant passage entirely from
-> **11.1% to 5.0% — it recovered 55% of the misses.**"
+> **11.1% to 5.0% — a net 55% miss reduction, with 42 rescues and 12 lost hits.**"
+
+This is a full-system comparison (wider dense+BM25 pool plus cross-encoder), not
+an identical-pool ablation proving that the reranker alone caused the gain.
 
 ### 3c. The negative result — PΩ (be proud of this)
 
@@ -93,7 +96,8 @@ panel is actually grading.
 "Every comparison is question-paired — the same query under two systems — not zipped
 positionally, which was a bug in the original code. I run a paired t-test and a
 Wilcoxon signed-rank test, report Cohen's d_z, and correct for multiple comparisons
-with Benjamini-Hochberg because I'm testing 11 architectures against one baseline.
+with Benjamini-Hochberg across the comparisons actually run for each metric
+(three non-baseline architectures in the four-system retrieval experiment).
 Systems that return identical context to the baseline are flagged rather than
 producing meaningless NaN statistics."
 
@@ -138,7 +142,7 @@ flakiness in front of the panel).
 
 ```bash
 # 1. Tests are green (credibility in one command)
-python -m pytest -q                      # 220 passed, 1 skipped
+python -m pytest -q
 
 # 2. The real, significant results
 column -s, -t outputs/eval_results.csv | head -6
@@ -190,7 +194,8 @@ which is exactly why the earlier n=12 run found nothing significant."
 A: "Three things: reusing MS MARCO's own labels to make retrieval evaluation free and
 standard; a corrected statistical protocol most applied RAG comparisons skip; and a
 validated-then-rejected metric, which is a genuine negative result. The engineering
-breadth — 12 architectures, a production API, 220 tests — supports those claims."
+breadth — 12 architectures, a production API, and a deterministic regression suite —
+supports those claims."
 
 **Q: Is this production-ready?**
 A: "The serving layer is production-*grade* in design — fail-closed auth,
@@ -230,7 +235,7 @@ Saying these *first* converts potential 'gotcha' moments into evidence of maturi
 3. **Corrected statistics** — most student (and many industry) RAG comparisons skip
    this entirely.
 4. **Engineering breadth** — data pipeline at 4M-passage scale, 12 architectures, a
-   real API with auth/observability/caching, 220 automated tests.
+   real API with auth/observability/caching, and a deterministic regression suite.
 5. **You can defend every number** — it's all reproducible from committed artefacts.
 
 Close with: *"The point of the project isn't that one architecture won — it's that I

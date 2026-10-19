@@ -3,6 +3,7 @@
 
 import os
 from dotenv import load_dotenv
+from security_boundary import is_loopback_literal, valid_api_key
 
 # ─── Load .env as early as possible ─────────────────────────────────────────────
 # Every entry point (main.py CLI modes and the standalone research scripts) imports
@@ -40,8 +41,8 @@ SQUAD_SPLIT = "validation"
 SQUAD_SUBSET_SIZE = 500
 
 # ─── Chunking ──────────────────────────────────────────────────────────────────
-CHUNK_SIZE = 400                   # tokens per chunk
-CHUNK_OVERLAP = 50                 # token overlap between consecutive chunks
+CHUNK_SIZE = 400                   # characters per chunk (RecursiveCharacterTextSplitter)
+CHUNK_OVERLAP = 50                 # character overlap between consecutive chunks
 PARENT_CHUNK_SIZE = 1200           # larger parent chunk for Parent-Child RAG
 CHILD_CHUNK_SIZE = 300             # fine-grained child chunk
 
@@ -85,6 +86,10 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small-latest")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_RATE_LIMIT_SECONDS = float(os.getenv("LLM_RATE_LIMIT_SECONDS", "3.0"))
+# Bound the amount of retrieved text sent to a generator. Retrieval metrics still
+# score the complete returned documents; this only protects generation latency and
+# provider context windows from unusually large parent chunks.
+MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))
 
 # Judge LLM (separate from generator to reduce self-evaluation bias).
 # If set, RAGAS uses this provider/model for grading; otherwise falls back to
@@ -129,6 +134,7 @@ CACHE_TTL_SECONDS = 3600
 # Local development can opt out explicitly with ALLOW_UNAUTHENTICATED=true, which is
 # a deliberate, visible choice rather than a silent default.
 API_KEY = os.getenv("API_KEY", "")
+API_BIND_HOST = os.getenv("HOST", "127.0.0.1")
 ALLOW_UNAUTHENTICATED = os.getenv("ALLOW_UNAUTHENTICATED", "false").lower() in {
     "1", "true", "yes", "on",
 }
@@ -173,6 +179,10 @@ def validate_runtime_config(require_llm: bool = False) -> list:
         )
     if API_KEY and len(API_KEY) < 16:
         problems.append("API_KEY is shorter than 16 characters; use a longer secret.")
+    if API_KEY and not valid_api_key(API_KEY):
+        problems.append("API_KEY must contain only printable non-space ASCII characters (max 4096).")
+    if ALLOW_UNAUTHENTICATED and not is_loopback_literal(API_BIND_HOST):
+        problems.append("ALLOW_UNAUTHENTICATED requires a numeric loopback HOST.")
     if "*" in ALLOWED_ORIGINS and API_KEY:
         problems.append(
             "ALLOWED_ORIGINS contains '*' while authentication is enabled; "
@@ -188,6 +198,10 @@ def validate_runtime_config(require_llm: bool = False) -> list:
         problems.append("RATE_LIMIT_PER_MINUTE must be positive.")
     if REQUEST_TIMEOUT_SECONDS <= 0:
         problems.append("REQUEST_TIMEOUT_SECONDS must be positive.")
+    if MAX_CONTEXT_CHARS <= 0:
+        problems.append("MAX_CONTEXT_CHARS must be positive.")
+    if RERANK_CANDIDATES < TOP_K:
+        problems.append("RERANK_CANDIDATES must be at least TOP_K.")
 
     return problems
 

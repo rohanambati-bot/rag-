@@ -21,9 +21,17 @@ import os
 import string
 import tempfile
 
+import pytest
 from dotenv import load_dotenv
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+
+@pytest.fixture(autouse=True)
+def enable_only_explicit_temporary_dotenv_tests(monkeypatch):
+    # The suite disables automatic project .env reads. These tests deliberately
+    # exercise explicit temporary files and must not inherit dotenv's kill switch.
+    monkeypatch.delenv("PYTHON_DOTENV_DISABLED", raising=False)
 
 # ── Distinct, collision-proof prefixes ───────────────────────────────────────────
 # Generated keys are namespaced under these prefixes so they can never clobber a real

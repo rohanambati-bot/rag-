@@ -144,6 +144,12 @@ class TestStaticDatasetPathWiring:
             "stale `SYNTHETIC_PATH` variable should be replaced by SYNTHETIC_DATA_PATH"
         )
 
+    def test_ablation_uses_the_ms_marco_corpus(self):
+        """Synthetic MS MARCO questions must not be evaluated against SQuAD text."""
+        source = _read_script_source()
+        assert "load_msmarco_documents" in source
+        assert "load_squad_documents" not in source
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. BEHAVIORAL existence-check test — hermetic via lightweight import stubs.

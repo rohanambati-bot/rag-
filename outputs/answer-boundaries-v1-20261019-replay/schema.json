@@ -1,0 +1,147 @@
+{
+  "$id": "answer-boundaries.dataset/v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "scripted_answer"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "expected_diagnostics"
+                    ]
+                  }
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "scripted"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "scripted_answer",
+                "expected_diagnostics"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "category": {
+            "enum": [
+              "supported",
+              "unsupported",
+              "abstention",
+              "citation_probes",
+              "contradiction",
+              "retrieved_instructions",
+              "exfiltration",
+              "evidence_scoping"
+            ]
+          },
+          "context_cap": {
+            "type": "integer"
+          },
+          "documents": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "metadata": {
+                  "type": "object"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "metadata"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "expected_answer": {
+            "type": "string"
+          },
+          "expected_diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "pattern": "^[a-z]{3}-[0-9]{2}$",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "extractive",
+              "scripted"
+            ]
+          },
+          "observe_literals": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "question": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "scripted_answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "question",
+          "documents",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "maxItems": 64,
+      "minItems": 64,
+      "type": "array"
+    },
+    "dataset_version": {
+      "const": "1.0.0"
+    },
+    "default_context_cap": {
+      "const": 12000,
+      "type": "integer"
+    },
+    "description": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "answer-boundaries.dataset/v1"
+    }
+  },
+  "required": [
+    "schema_version",
+    "dataset_version",
+    "description",
+    "default_context_cap",
+    "cases"
+  ],
+  "type": "object"
+}

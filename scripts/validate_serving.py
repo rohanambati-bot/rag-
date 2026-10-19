@@ -20,7 +20,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-for key in ("GROQ_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY"):
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
+for key in ("GROQ_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"):
     os.environ[key] = ""
 for key in ("HF_HUB_OFFLINE", "HF_DATASETS_OFFLINE", "TRANSFORMERS_OFFLINE"):
     os.environ[key] = "1"
@@ -48,7 +49,12 @@ def cache_workload() -> list[dict]:
 
     rows = []
     for size in (100, 1000, 5000):
-        cache = SemanticCache(Embedder(), redis_port=1, warm_start=False, max_entries=size)
+        cache = SemanticCache(Embedder(), redis_port=1, warm_start=False, max_entries=size,
+                              namespace="validation-local-only", redis_failure_policy="local")
+        # This microbenchmark explicitly measures only the local availability policy.
+        # HTTP serving below instead measures fail-closed misses while Redis is down.
+        cache._redis = None
+        cache._use_redis = False
         start = time.perf_counter()
         for i in range(size):
             cache.store(f"fixed-query-{i}", "fixture answer", ["fixture context"])
@@ -147,6 +153,7 @@ def run(args):
               "generator": "extractive (credentials blanked)", "provider_calls": 0,
               "cost_per_query_usd": None, "questions": questions,
               "max_concurrent_requests": 2, "rate_limit_for_workload": 100000,
+              "http_cache_scope": "Redis unavailable; fail-closed misses, not cached-hit latency",
               "cache_microbenchmark": cache_workload(), "batches": []}
     with tempfile.TemporaryDirectory(prefix="serving-validation-", dir=ROOT / "data") as temp:
         copied = Path(temp) / "store"
@@ -194,7 +201,8 @@ def run(args):
                         result["batches"].append(asyncio.run(batch(
                             base, headers, questions * 4, concurrency, False
                         )))
-                    # Prime exact repeats separately; measured cached batches are all hits.
+                    # Request repeats, but record actual hits: serving must miss during
+                    # Redis outage. Do not label this as a successful cached-hit test.
                     asyncio.run(batch(base, headers, [questions[0]], 1, True))
                     for concurrency in (1, 2, 4):
                         result["batches"].append(asyncio.run(batch(

@@ -199,3 +199,14 @@ def test_selected_context_no_selected_passages_or_mismatched_lengths():
     assert selected_context(["A.", "B."], [0, 0]) == ""
     # is_selected shorter than passage list must not raise.
     assert selected_context(["A.", "B."], [1]) == "A."
+
+
+def test_preprocessing_rejects_invalid_limits_and_chunk_overlap():
+    """Invalid user/configuration bounds fail before a dataset or splitter call."""
+    from module1.data_preprocessing import chunk_documents, load_msmarco_documents
+
+    assert load_msmarco_documents(max_samples=0) == []
+    with pytest.raises(ValueError, match="non-negative"):
+        load_msmarco_documents(max_samples=-1)
+    with pytest.raises(ValueError, match="smaller than chunk_size"):
+        chunk_documents([], chunk_size=10, chunk_overlap=10)

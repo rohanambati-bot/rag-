@@ -1,5 +1,14 @@
 # RUNBOOK — Live Run (build data + run the pipeline end-to-end)
 
+> Current security/deployment scope: see
+> [the 19 October security continuation](docs/VALIDATION_2026-10-19_SECURITY_V3.md).
+> Use `make test` for offline checks without loading private `.env` files.
+> Compose now starts **Redis + authenticated API only**; use `make ui` on the host
+> for the unauthenticated loopback-only UI. Do not tunnel/proxy it. Stop every
+> participating index reader before publication/rebuild. Docker/Linux replay is
+> not yet verified. Commands below that write research outputs or call providers
+> are deliberate research operations, not part of the safe validation command.
+
 A copy-paste runbook for the RAG Evaluation Framework. Follow it top to bottom
 on a Python 3.12 machine with a Groq API key. It includes a **FAST smoke path**
 so you can prove everything works in minutes before committing to the multi-hour
@@ -14,10 +23,10 @@ full build.
 
 ## 1. Prerequisites
 
-- **Python 3.12** (required). The pinned deps in `requirements.txt`
+- **Python 3.12.14** (required). The resolved deps in `requirements.lock`
   (`numpy==2.1.3`, `torch==2.5.1`) need Python ≥ 3.10, and the project targets
-  3.12: the `Dockerfile` uses `python:3.12-slim` and CI
-  (`.github/workflows/rag_quality_gate.yml`) sets `PYTHON_VERSION: "3.12"`.
+  3.12: the `Dockerfile` uses `python:3.12.14-slim` and CI
+  (`.github/workflows/rag_quality_gate.yml`) sets `PYTHON_VERSION: "3.12.14"`.
 - **git** — to clone/manage the repo.
 - **Disk** — several GB free. The ML stack (`torch`, `transformers`,
   `sentence-transformers`) is large, and the full Chroma store at
@@ -39,9 +48,9 @@ python --version   # expect Python 3.12.x
 
 ```bash
 # from rag_project/
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install --requirement requirements.lock
 ```
 
 Optional (recommended if you will run `--mode full` / GRACE-Ω):
@@ -69,7 +78,7 @@ At least **one** LLM key is required for `full` / `eval` / `cicd`
 |-------------------|---------------------|--------------------------------------------------------------------------|
 | `GROQ_API_KEY`    | Primary (free tier) | Generator (`GROQ_MODEL=llama-3.1-8b-instant`) **and** judge (`JUDGE_PROVIDER=groq`, `JUDGE_MODEL=openai/gpt-oss-20b`) |
 | `MISTRAL_API_KEY` | Optional fallback   | Generator fallback (`LLM_MODEL=mistral-small-latest`) |
-| `API_KEY`         | Optional            | If set, `api.py` requires an `X-API-Key` header; if unset the API runs in open dev mode |
+| `API_KEY`         | Protected HTTP routes | Unset means 503 unless `ALLOW_UNAUTHENTICATED=true` explicitly enables local open access |
 
 Get a free Groq key at <https://console.groq.com> → API Keys → Create.
 
@@ -108,7 +117,7 @@ python main.py --mode demo
 python main.py --mode cache-demo
 
 # Unit + property tests (offline, no key). Needs the installed requirements
-# (pytest, hypothesis are pinned in requirements.txt).
+# (pytest, hypothesis are pinned in requirements.lock).
 pytest -q
 ```
 
@@ -143,7 +152,7 @@ python main.py --mode full
 ```
 
 `full` mode builds data inline (respecting the two knobs above), builds the
-knowledge graph, registers all 10 architectures, evaluates them, and writes
+knowledge graph, registers all 12 architectures, evaluates them, and writes
 plots. On a fresh checkout this produces a small store + small synthetic set in
 a few minutes.
 
@@ -185,9 +194,10 @@ outputs/plots/*.png             # all plots
 
 ### 5e. Revert the smoke edits before the real build
 
-```bash
-git checkout -- configs/config.py     # restore DATASET_SUBSET_SIZE / NUM_SYNTHETIC_SAMPLES
-```
+Restore only the two values you deliberately edited, using the values you recorded
+before the smoke run. **Do not use checkout/reset/clean to discard a file that may
+contain unrelated uncommitted work.** Prefer the non-destructive validation scripts
+in [`docs/VALIDATION_2026-10-19.md`](docs/VALIDATION_2026-10-19.md).
 
 ---
 
@@ -241,10 +251,10 @@ All commands assume `data/chroma_db_full` and `data/synthetic_dataset.json`
 exist (§6).
 
 ```bash
-# End-to-end: build data -> 10 architectures -> eval -> plots.
+# End-to-end: build data -> 12 architectures -> eval -> plots.
 python main.py --mode full
 
-# Evaluation only: loads the pre-built store; evaluates the 7 no-KG architectures.
+# Evaluation only: loads the pre-built store; evaluates the 9 no-KG architectures.
 python main.py --mode eval --samples 200
 
 # CI/CD quality gate on CRAG: exits 0 (pass) or 1 (fail).
@@ -378,7 +388,7 @@ grep -Ei "squad" outputs/eval_run.log                  # expect NO SQuAD loading
 The point of 6.3 is corpus consistency: the dense retriever (Chroma store) and
 the BM25 / graph inputs (from `chunks`) are all derived from the **same**
 MS MARCO corpus — no retriever falls back to SQuAD in eval mode. `eval`
-registers the 7 no-KG architectures; the dedicated knowledge-graph retriever is
+registers the 9 no-KG architectures; the dedicated knowledge-graph retriever is
 fully built in `full` mode (which constructs the `KnowledgeGraphBuilder`).
 
 ### 8b. Task 10.2 — full pipeline records judged metrics, full arch set, judge health
@@ -411,16 +421,16 @@ python main.py --mode full 2>&1 | tee outputs/full_run.log
    python -c "import pandas as pd; print([c for c in pd.read_csv('outputs/eval_results.csv').columns if c in {'faithfulness','context_precision','context_recall','answer_relevance'}])"
    ```
 
-3. **Expected architecture set is present.** `full` registers **10**
-   architectures (`eval` registers **7**). Check the `architecture` column:
+3. **Expected architecture set is present.** `full` registers **12**
+   architectures (`eval` registers **9**, or 4 in the legacy `--llm-free` mode,
+   which includes explicitly lexical CRAG). Check the `architecture` column:
 
    ```bash
    python -c "import pandas as pd; df=pd.read_csv('outputs/eval_results.csv'); print(len(df)); print(df['architecture'].tolist())"
    ```
 
-   Expect the 10 display names from the README table (Naive RAG, CRAG,
-   RAG-Fusion, Hybrid Multi-Query, Adaptive RAG, GRACE-Ω, Parent-Child RAG, and
-   the three GRACE-Ω ablations).
+   Expect the display names from the README table, including Rerank RAG and
+   GRACE-Ω + Rerank in addition to the three GRACE-Ω ablations.
 
 ---
 
@@ -453,7 +463,9 @@ curl -s -X POST http://localhost:8000/query \
 ```
 
 `/evaluate` needs `data/synthetic_dataset.json` (returns 503 if missing).
-Valid architectures for the API are `naive`, `hybrid`, `parent_child`, `crag`.
+Valid API architecture keys are the 9 no-knowledge-graph entries listed by
+`GET /architectures` (including `naive`, `crag`, `hybrid`, `parent_child`, and
+`rerank`). GRACE-Ω variants are constructed lazily on first use.
 
 ### 9b. Streamlit UI
 
@@ -493,10 +505,8 @@ docker compose down
 **Judge health check failed / LLM-judged metrics missing.**
 Usually a mis-set or retired `JUDGE_MODEL`. The config default is
 `openai/gpt-oss-20b`; set `JUDGE_PROVIDER` / `JUDGE_MODEL` (in `.env`) to a model
-your Groq account can access. Note the CI workflow still pins
-`JUDGE_MODEL=llama-3.1-70b-versatile`, which the config comment marks as the
-old value the judge was migrated off — if you copy CI settings and that model is
-unavailable to you, the health check will fail loudly.
+your account can access. The current CI workflow does not invoke a judge or set a
+judge model; its demo plots are not evidence that these thresholds passed.
 
 **`Synthetic dataset not found at ... Run --mode full first`.**
 `eval`/`cicd` need `data/synthetic_dataset.json`. Build it via `--mode full`

@@ -537,6 +537,7 @@ class EvaluationPipeline:
         answer: str,
         architecture: str = "unknown",
         relevant_doc_ids: Optional[set] = None,
+        use_judge: bool = True,
     ) -> Dict[str, Any]:
         retrieved_text = " ".join(getattr(d, "page_content", str(d)) for d in retrieved_docs)
 
@@ -577,7 +578,7 @@ class EvaluationPipeline:
             result["ndcg_at_10"] = compute_ndcg_at_k(retrieved_ids, relevant_doc_ids, k=10)
             result["num_relevant_known"] = len(relevant_doc_ids)
 
-        if self.ragas_evaluator:
+        if self.ragas_evaluator and use_judge:
             ragas = self.ragas_evaluator.evaluate(
                 question=question, context=retrieved_text,
                 answer=answer, ground_truth=ground_truth,
@@ -646,6 +647,7 @@ class EvaluationPipeline:
                     answer=result.get("answer", ""),
                     architecture=architecture_name,
                     relevant_doc_ids=(qrels or {}).get(question),
+                    use_judge=not retrieval_only,
                 )
 
                 metrics["latency_ms"] = result.get("latency_ms", 0)
@@ -908,8 +910,10 @@ def test_metric_significance(
             "baseline_mean": round(float(base.mean()), 6),
             "mean_diff": round(float(diff.mean()), 6),
             "t_statistic": round(float(t_stat), 4),
-            "p_value": round(float(t_p), 6),
-            "wilcoxon_p": round(float(w_p), 6) if w_p == w_p else np.nan,
+            # Keep full precision through FDR correction and serialization. Tiny
+            # but nonzero p-values must not be rounded to zero before BH.
+            "p_value": float(t_p),
+            "wilcoxon_p": float(w_p) if w_p == w_p else np.nan,
             "effect_size_dz": round(float(diff.mean() / sd), 4) if sd > 0 else 0.0,
             "identical_to_baseline": False,
         })
@@ -924,7 +928,7 @@ def test_metric_significance(
         for r in rows
     ]
     adjusted, reject = benjamini_hochberg(primary, alpha=alpha)
-    out["p_value_bh"] = [round(a, 6) for a in adjusted]
+    out["p_value_bh"] = adjusted
     out[f"significant_p{str(alpha).split('.')[-1]}_bh"] = reject
     return out.sort_values("p_value_bh").reset_index(drop=True)
 

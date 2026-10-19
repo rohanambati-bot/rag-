@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import os
+import re
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -45,7 +46,7 @@ ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
 from configs.config import (  # noqa: E402
-    ALLOW_UNAUTHENTICATED, ALLOWED_ORIGINS, API_KEY, MAX_CONCURRENT_REQUESTS,
+    ALLOW_UNAUTHENTICATED, ALLOWED_ORIGINS, API_BIND_HOST, API_KEY, MAX_CONCURRENT_REQUESTS,
     MAX_QUESTION_LENGTH, RATE_LIMIT_PER_MINUTE, REQUEST_TIMEOUT_SECONDS,
     SERVICE_NAME, SERVICE_VERSION, VECTOR_STORE_DIR, validate_runtime_config,
 )
@@ -53,6 +54,7 @@ from observability import (  # noqa: E402
     METRICS, configure_logging, get_logger, new_request_id, request_id_var,
 )
 from serving import CONTEXT  # noqa: E402
+from security_boundary import is_loopback_literal, valid_api_key  # noqa: E402
 
 configure_logging()
 logger = get_logger("api")
@@ -140,21 +142,36 @@ else:
 @app.middleware("http")
 async def observability_middleware(request: Request, call_next):
     """Attach a request id, time the request, and record metrics for every route."""
-    rid = request.headers.get("X-Request-ID") or new_request_id()
+    incoming_rid = request.headers.get("X-Request-ID", "")
+    rid = incoming_rid if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", incoming_rid) else new_request_id()
     token = request_id_var.set(rid)
     route = request.url.path
     started = time.perf_counter()
     METRICS.inflight.inc()
     status_code = 500
     try:
-        response = await call_next(request)
+        # Protect the whole non-probe surface before body parsing or validation.
+        # CORS preflight performs no protected work and needs no credentials.
+        preflight = request.method == "OPTIONS" and "access-control-request-method" in request.headers
+        if route not in {"/", "/health", "/healthz", "/readyz"} and not preflight:
+            try:
+                require_api_key(request.headers.get("X-API-Key"), request)
+            except HTTPException as exc:
+                response = JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
         status_code = response.status_code
         response.headers["X-Request-ID"] = rid
         return response
     except Exception:
         METRICS.errors.labels(route=route, kind="unhandled").inc()
         logger.exception("Unhandled error.", extra={"route": route})
-        raise
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal server error."},
+            headers={"X-Request-ID": rid},
+        )
     finally:
         elapsed = time.perf_counter() - started
         METRICS.inflight.dec()
@@ -173,7 +190,20 @@ async def observability_middleware(request: Request, call_next):
 
 # ─── Auth (fails closed) ──────────────────────────────────────────────────────
 
-def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+def _auth_config_problem() -> Optional[str]:
+    if API_KEY:
+        if not valid_api_key(API_KEY):
+            return "API_KEY configuration is invalid."
+        return None
+    if not ALLOW_UNAUTHENTICATED:
+        return "API_KEY is not configured; protected routes are unavailable."
+    if not is_loopback_literal(API_BIND_HOST):
+        return "Unauthenticated access requires a numeric loopback HOST."
+    return None
+
+
+def require_api_key(x_api_key: Optional[str] = Header(default=None),
+                    request: Request = None) -> None:
     """
     Enforce ``X-API-Key`` on protected routes.
 
@@ -181,18 +211,27 @@ def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
     unless ``ALLOW_UNAUTHENTICATED=true`` was set deliberately. The previous
     behaviour served every protected route openly and only logged a warning.
     """
-    if not API_KEY:
-        if ALLOW_UNAUTHENTICATED:
-            return
+    problem = _auth_config_problem()
+    if problem:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Server misconfigured: API_KEY is not set. Set API_KEY to enable "
-                "authenticated access, or ALLOW_UNAUTHENTICATED=true for local dev."
-            ),
+            detail=problem,
         )
+    if not API_KEY:
+        # Never trust X-Forwarded-For for this opt-out. Uvicorn proxy headers must
+        # stay disabled for local dev. A local tunnel can still mask remote use.
+        forwarded = request is not None and any(
+            name == "forwarded" or name.startswith("x-forwarded-")
+            for name in request.headers
+        )
+        if (request is None or request.client is None
+                or not is_loopback_literal(request.client.host) or forwarded):
+            raise HTTPException(status_code=403, detail="Unauthenticated access is local-only.")
+        return
     # hmac.compare_digest avoids leaking the key via response timing.
-    if not x_api_key or not hmac.compare_digest(x_api_key, API_KEY):
+    duplicate = request is not None and len(request.headers.getlist("x-api-key")) != 1
+    if (duplicate or not valid_api_key(x_api_key)
+            or not hmac.compare_digest(x_api_key.encode("ascii"), API_KEY.encode("ascii"))):
         METRICS.errors.labels(route="auth", kind="unauthorized").inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -205,7 +244,7 @@ def require_ready() -> None:
     if not CONTEXT.is_ready():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Service not ready: {CONTEXT.readiness().get('reason') or 'warming up'}",
+            detail="Service not ready; warming up or temporarily unavailable.",
         )
 
 
@@ -275,18 +314,54 @@ async def run_blocking(fn, *args, timeout: float = REQUEST_TIMEOUT_SECONDS):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Server is at capacity; retry shortly.",
         ) from None
+    executor_future = None
+    released_on_completion = False
+
+    def _release_when_done(_future) -> None:
+        _WORK_SEMAPHORE.release()
+
     try:
+        executor_future = loop.run_in_executor(None, fn, *args)
+        # ``wait_for`` cancels the awaitable it wraps on timeout. Shielding the
+        # executor future is essential: cancelling that asyncio wrapper does not
+        # stop a synchronous function already running in a thread, and releasing
+        # the semaphore here would admit another task on top of it.
         return await asyncio.wait_for(
-            loop.run_in_executor(None, fn, *args), timeout=timeout
+            asyncio.shield(executor_future), timeout=timeout
         )
     except asyncio.TimeoutError:
+        # The thread keeps running after the request receives its 504. Transfer
+        # ownership of the semaphore to a completion callback so the concurrency
+        # bound covers the actual executor work, not just the request lifetime.
+        released_on_completion = True
+        executor_future.add_done_callback(_release_when_done)
         METRICS.errors.labels(route="pipeline", kind="timeout").inc()
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=f"Request exceeded {timeout:.0f}s budget.",
         ) from None
+    except asyncio.CancelledError:
+        # Client disconnects cancel the coroutine, not the synchronous function
+        # already running in the executor. Keep the slot owned by that function
+        # until it really finishes; otherwise repeated disconnects can bypass the
+        # concurrency bound and exhaust the worker pool.
+        if executor_future.done():
+            _WORK_SEMAPHORE.release()
+            released_on_completion = True
+        else:
+            released_on_completion = True
+            executor_future.add_done_callback(_release_when_done)
+        raise
     finally:
-        _WORK_SEMAPHORE.release()
+        if executor_future is None:
+            _WORK_SEMAPHORE.release()
+        elif not released_on_completion:
+            if executor_future.done():
+                _WORK_SEMAPHORE.release()
+            else:
+                # Request cancellation has the same ownership requirement as a
+                # timeout: the underlying synchronous task may still be running.
+                executor_future.add_done_callback(_release_when_done)
 
 
 def _resolve_architecture_sync(name: str):
@@ -305,7 +380,10 @@ def _resolve_architecture_sync(name: str):
                          extra={"architecture": name})
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Architecture {name!r} is unavailable: {exc}",
+            # Do not send exception strings (paths, SDK request details, or
+            # provider metadata) to callers. The correlated server log has the
+            # diagnostic; the public response stays intentionally generic.
+            detail=f"Architecture {name!r} is temporarily unavailable.",
         ) from exc
 
 
@@ -337,6 +415,12 @@ async def resolve_architecture(name: str):
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
+def _require_non_blank_question(value: str) -> str:
+    """Reject whitespace-only questions consistently across request schemas."""
+    if not value.strip():
+        raise ValueError("question must not be blank")
+    return value
+
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=MAX_QUESTION_LENGTH)
     architecture: str = Field("naive", description="See GET /architectures")
@@ -345,9 +429,7 @@ class QueryRequest(BaseModel):
     @field_validator("question")
     @classmethod
     def _not_blank(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("question must not be blank")
-        return v
+        return _require_non_blank_question(v)
 
 
 class QueryResponse(BaseModel):
@@ -355,6 +437,7 @@ class QueryResponse(BaseModel):
     question: str
     answer: str
     contexts: List[str]
+    citations: List[Dict[str, Any]] = Field(default_factory=list)
     latency_ms: float
     cache_hit: bool = False
     similarity_score: Optional[float] = None
@@ -365,6 +448,11 @@ class ABRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=MAX_QUESTION_LENGTH)
     arch_a: str = "naive"
     arch_b: str = "rerank"
+
+    @field_validator("question")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        return _require_non_blank_question(v)
 
 
 class ABVariantResult(BaseModel):
@@ -402,6 +490,13 @@ class EvalResponse(BaseModel):
 
 class CacheLookup(BaseModel):
     query: str = Field(..., min_length=1, max_length=MAX_QUESTION_LENGTH)
+
+    @field_validator("query")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("query must not be blank")
+        return v
 
 
 class CacheStatsResponse(BaseModel):
@@ -466,7 +561,7 @@ def healthz() -> HealthResponse:
         version=SERVICE_VERSION,
         llm_available=bool(OPENROUTER_API_KEY or GROQ_API_KEY or MISTRAL_API_KEY),
         vector_store_exists=Path(VECTOR_STORE_DIR).exists(),
-        auth_enabled=bool(API_KEY),
+        auth_enabled=bool(API_KEY and valid_api_key(API_KEY)),
     )
 
 
@@ -484,7 +579,16 @@ def readyz(response: Response) -> Dict[str, Any]:
     Returns 503 until warmup succeeds, so an orchestrator keeps a broken or still-
     loading instance out of the load-balancer rotation.
     """
-    payload = CONTEXT.readiness()
+    payload = dict(CONTEXT.readiness())
+    problem = _auth_config_problem()
+    if problem:
+        payload["ready"] = False
+        payload["reason"] = "Authentication configuration unavailable."
+    elif not payload["ready"]:
+        # Warmup exceptions can contain private paths, upstream URLs or secrets.
+        payload["reason"] = "Warming up or temporarily unavailable."
+    else:
+        payload["reason"] = None
     if not payload["ready"]:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return payload
@@ -530,7 +634,7 @@ def list_architectures() -> Dict[str, Any]:
           dependencies=[Depends(require_api_key), Depends(require_ready)])
 async def query(request: Request, req: QueryRequest) -> QueryResponse:
     arch = await resolve_architecture(req.architecture)
-    cache = CONTEXT.cache()
+    cache = CONTEXT.cache(req.architecture) if req.use_cache else None
 
     if req.use_cache:
         cached = await run_blocking(cache.lookup, req.question, timeout=15)
@@ -542,6 +646,7 @@ async def query(request: Request, req: QueryRequest) -> QueryResponse:
             return QueryResponse(
                 architecture=req.architecture, question=req.question,
                 answer=cached["answer"], contexts=cached.get("contexts", []),
+                citations=cached.get("citations", []),
                 latency_ms=cached.get("latency_ms", 0.0), cache_hit=True,
                 similarity_score=cached.get("similarity_score"),
                 request_id=request_id_var.get(),
@@ -556,16 +661,26 @@ async def query(request: Request, req: QueryRequest) -> QueryResponse:
     if req.use_cache:
         # Populating the cache must never fail the user's request.
         try:
-            await run_blocking(
-                cache.store, req.question, result["answer"],
-                result.get("contexts", []), timeout=15,
-            )
+            store_with_citations = getattr(cache, "store_with_citations", None)
+            if store_with_citations is not None:
+                await run_blocking(
+                    store_with_citations, req.question, result["answer"],
+                    result.get("contexts", []), result.get("citations", []), timeout=15,
+                )
+            else:
+                # Keep compatibility with cache doubles and older integrations
+                # that implement the original three-argument method.
+                await run_blocking(
+                    cache.store, req.question, result["answer"],
+                    result.get("contexts", []), timeout=15,
+                )
         except HTTPException:
             logger.warning("Cache store skipped (timeout/capacity).")
 
     return QueryResponse(
         architecture=req.architecture, question=req.question,
         answer=result["answer"], contexts=result.get("contexts", []),
+        citations=result.get("citations", []),
         latency_ms=result.get("latency_ms", 0.0), cache_hit=False,
         request_id=request_id_var.get(),
     )
@@ -617,7 +732,7 @@ async def evaluate(request: Request, req: EvalRequest) -> EvalResponse:
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"RAGAS evaluator unavailable: {exc}",
+                detail="RAGAS evaluator temporarily unavailable.",
             ) from exc
 
     archs = {name: await resolve_architecture(name) for name in req.architectures}
@@ -646,22 +761,30 @@ async def evaluate(request: Request, req: EvalRequest) -> EvalResponse:
 
 @app.get("/cache/stats", response_model=CacheStatsResponse,
          dependencies=[Depends(require_api_key)])
-def cache_stats() -> CacheStatsResponse:
-    stats = CONTEXT.cache().stats()
+def cache_stats(architecture: str = "naive") -> CacheStatsResponse:
+    if architecture not in CONTEXT.available_keys():
+        raise HTTPException(status_code=400, detail="Unknown cache architecture.")
+    stats = CONTEXT.cache(architecture).stats()
     return CacheStatsResponse(**{
         field: stats.get(field, 0) for field in CacheStatsResponse.model_fields
     })
 
 
 @app.post("/cache/lookup", dependencies=[Depends(require_api_key), Depends(require_ready)])
-async def cache_lookup(request: Request, req: CacheLookup) -> Dict[str, Any]:
-    result = await run_blocking(CONTEXT.cache().lookup, req.query, timeout=15)
+async def cache_lookup(request: Request, req: CacheLookup,
+                       architecture: str = "naive") -> Dict[str, Any]:
+    if architecture not in CONTEXT.available_keys():
+        raise HTTPException(status_code=400, detail="Unknown cache architecture.")
+    result = await run_blocking(CONTEXT.cache(architecture).lookup, req.query, timeout=15)
     return {"hit": False} if result is None else {"hit": True, **result}
 
 
 @app.delete("/cache", dependencies=[Depends(require_api_key)])
-def cache_clear() -> Dict[str, str]:
-    CONTEXT.cache().clear()
+def cache_clear(architecture: str = "naive") -> Dict[str, str]:
+    if architecture not in CONTEXT.available_keys():
+        raise HTTPException(status_code=400, detail="Unknown cache architecture.")
+    if CONTEXT.cache(architecture).clear() is False:
+        raise HTTPException(status_code=503, detail="Shared cache invalidation could not be confirmed.")
     logger.info("Cache cleared by API request.")
     return {"status": "cleared"}
 
@@ -670,8 +793,9 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "api:app",
-        host=os.getenv("HOST", "127.0.0.1"),  # bind locally by default
+        host=API_BIND_HOST,  # bind locally by default
         port=int(os.getenv("PORT", "8000")),
         reload=False,
         log_config=None,  # keep our JSON logging
+        proxy_headers=False,  # no implicit forwarded-header trust for dev opt-out
     )

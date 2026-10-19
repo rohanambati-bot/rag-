@@ -22,13 +22,14 @@ import argparse
 import json
 import logging
 import os
+import shutil
 import sys
 
 import pandas as pd
 
 from configs.config import (
     SYNTHETIC_DATA_PATH, EVAL_RESULTS_PATH, OUTPUTS_DIR, MISTRAL_API_KEY, GROQ_API_KEY,
-    OPENROUTER_API_KEY, DATA_DIR,
+    OPENROUTER_API_KEY, DATA_DIR, EMBEDDING_MODEL, CHILD_CHUNK_SIZE, CHUNK_OVERLAP,
 )
 
 logging.basicConfig(
@@ -184,19 +185,84 @@ def run_full_pipeline(args) -> None:
     # when launched from another working directory.
     pc = artifacts["parent_child"]
     _child_dir = os.path.join(DATA_DIR, "chroma_db_children")
-    if os.path.exists(os.path.join(_child_dir, "chroma.sqlite3")):
+    child_manifest = os.path.join(_child_dir, "_index_manifest.json")
+
+    def _child_store_is_reusable() -> bool:
+        if not (
+            os.path.exists(os.path.join(_child_dir, "chroma.sqlite3"))
+            and os.path.exists(child_manifest)
+        ):
+            return False
+        try:
+            with open(child_manifest, encoding="utf-8") as manifest_file:
+                manifest = json.load(manifest_file)
+            return (
+                manifest.get("embedding_model") == EMBEDDING_MODEL
+                and manifest.get("chunk_size") == CHILD_CHUNK_SIZE
+                and manifest.get("chunk_overlap") == CHUNK_OVERLAP
+                and manifest.get("num_chunks") == len(pc["children"])
+            )
+        except (OSError, AttributeError, TypeError, json.JSONDecodeError):
+            return False
+
+    if _child_store_is_reusable():
         logger.info("Found existing child vector store at %s — loading instead of rebuilding.", _child_dir)
         child_vectorstore = Chroma(
             persist_directory=_child_dir,
             embedding_function=artifacts["embedding_model"],
         )
     else:
-        os.makedirs(_child_dir, exist_ok=True)
-        child_vectorstore = Chroma.from_documents(
-            documents=pc["children"],
-            embedding=artifacts["embedding_model"],
-            persist_directory=_child_dir,
-        )
+        logger.warning("Child vector store is missing or stale; rebuilding %s.", _child_dir)
+        from module1.data_preprocessing import build_lock_for, create_staging_dir
+        from module1.data_preprocessing import write_index_manifest
+        from preprocess_full import _cleanup_staged_vector_stores, _publish_vector_store
+
+        with build_lock_for(_child_dir) as child_lock:
+            # Another process may have completed the same rebuild while this one
+            # waited. Re-read the manifest only after acquiring the lock.
+            if _child_store_is_reusable():
+                child_vectorstore = Chroma(
+                    persist_directory=_child_dir,
+                    embedding_function=artifacts["embedding_model"],
+                )
+            else:
+                _cleanup_staged_vector_stores(
+                    DATA_DIR,
+                    target_dir=_child_dir,
+                    prefix=".chroma_db_children.",
+                    lock=child_lock,
+                )
+                staged_child_dir = create_staging_dir(
+                    DATA_DIR,
+                    ".chroma_db_children.",
+                    _child_dir,
+                    lock=child_lock,
+                )
+                try:
+                    Chroma.from_documents(
+                        documents=pc["children"],
+                        embedding=artifacts["embedding_model"],
+                        persist_directory=staged_child_dir,
+                    )
+                    write_index_manifest(
+                        staged_child_dir,
+                        embedding_model=EMBEDDING_MODEL,
+                        chunk_size=CHILD_CHUNK_SIZE,
+                        chunk_overlap=CHUNK_OVERLAP,
+                        num_chunks=len(pc["children"]),
+                    )
+                    _publish_vector_store(
+                        staged_child_dir, _child_dir, lock=child_lock
+                    )
+                except Exception:
+                    shutil.rmtree(staged_child_dir, ignore_errors=True)
+                    raise
+                # The staged directory was renamed during publication; reopen it
+                # at the stable path rather than retaining an old pathname handle.
+                child_vectorstore = Chroma(
+                    persist_directory=_child_dir,
+                    embedding_function=artifacts["embedding_model"],
+                )
 
     # Build knowledge graph for GRACE-Ω
     from module1.data_preprocessing import KnowledgeGraphBuilder
@@ -314,6 +380,9 @@ def _run_evaluation(
                 "════════════════════════════════════════════════════════════════",
                 exc,
             )
+            raise RuntimeError(
+                "Judge health check failed; refusing to spend the evaluation budget."
+            ) from exc
 
     pipeline = EvaluationPipeline(ragas_evaluator=ragas_evaluator)
 
@@ -454,7 +523,7 @@ def run_cache_demo(args) -> None:
     from phase3.cicd_pipeline import SemanticCache
 
     print("\n=== Semantic Cache Demo ===\n")
-    cache = SemanticCache()  # uses in-memory fallback if Redis not available
+    cache = SemanticCache(namespace="cli-cache-demo-v1")  # availability fallback, never a serving namespace
 
     queries = [
         ("What is the capital of France?", "The capital of France is Paris.", ["Paris is the capital..."]),

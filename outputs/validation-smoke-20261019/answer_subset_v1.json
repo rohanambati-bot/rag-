@@ -1,0 +1,32 @@
+[
+  {
+    "id": "msmarco_771",
+    "question": "the indigo girl by natasha boyd",
+    "ground_truth": "Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_438",
+    "question": "average salary for chief operating officer medical group",
+    "ground_truth": "$85,000",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_653",
+    "question": "temperature sigonella sicily",
+    "ground_truth": "The average maximum temperature in July and August is 32 \u00b0C in sigonella, sicily.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_88",
+    "question": "definition of jape",
+    "ground_truth": "It is a configurable, graphical proof assistant, originally developed at the University of Oxford.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_433",
+    "question": "how long do peppers take to grow",
+    "ground_truth": "Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days.",
+    "query_type": "NUMERIC"
+  }
+]
