@@ -81,30 +81,54 @@ def test_evaluate_sample_tolerates_empty_retrieval():
 
 # ── --store shorthand resolution ──────────────────────────────────────────────
 
-def test_store_shorthand_full_and_train_are_distinct_paths():
-    """`full` and `train` must resolve to different directories under DATA_DIR."""
-    from configs.config import DATA_DIR
+@pytest.mark.parametrize("default_store", ["full", "train", "custom"])
+def test_store_shorthand_full_and_train_are_distinct_paths(tmp_path, monkeypatch, default_store):
+    """Resolve shorthands independently of local datasets and the configured default."""
+    import configs.config as cfg
     import main as main_mod
+
+    full_dir = tmp_path / "chroma_db_full"
+    train_dir = tmp_path / "chroma_db_train"
+    custom_dir = tmp_path / "custom_store"
+    for directory in (full_dir, train_dir, custom_dir):
+        directory.mkdir()
+    monkeypatch.setattr(cfg, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(cfg, "VECTOR_STORE_DIR", str({
+        "full": full_dir, "train": train_dir, "custom": custom_dir,
+    }[default_store]))
 
     full = main_mod._store_dir(SimpleNamespace(store="full"))
     train = main_mod._store_dir(SimpleNamespace(store="train"))
-    both_exist = os.path.isdir(full) and os.path.isdir(train)
-    if not both_exist:
-        pytest.skip("Both full/train stores not present on this machine.")
-    assert full == os.path.join(DATA_DIR, "chroma_db_full")
-    assert train == os.path.join(DATA_DIR, "chroma_db_train")
+    assert full == str(full_dir)
+    assert train == str(train_dir)
     assert full != train
 
 
-def test_store_shorthand_rejects_missing_custom_path(caplog):
+def test_store_shorthand_rejects_missing_custom_path(tmp_path, caplog):
     """An explicit --store path that does not exist exits with a clear error."""
     import logging
 
     import main as main_mod
 
-    with caplog.at_level(logging.ERROR, logger="main"), pytest.raises(SystemExit):
-        main_mod._store_dir(SimpleNamespace(store="data/_definitely_missing_db_"))
+    missing = tmp_path / "missing_custom_store"
+    with caplog.at_level(logging.ERROR, logger="main"), pytest.raises(SystemExit) as caught:
+        main_mod._store_dir(SimpleNamespace(store=str(missing)))
+    assert caught.value.code == 1
     assert any("Vector store not found" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.parametrize("store", ["full", "train"])
+def test_store_shorthand_rejects_missing_named_store(tmp_path, monkeypatch, caplog, store):
+    """Keep the real missing-corpus guard: only the test fixtures create stores."""
+    import configs.config as cfg
+    import main as main_mod
+
+    monkeypatch.setattr(cfg, "DATA_DIR", str(tmp_path))
+    with pytest.raises(SystemExit) as caught:
+        main_mod._store_dir(SimpleNamespace(store=store))
+    assert caught.value.code == 1
+    assert any("Vector store not found" in rec.message for rec in caplog.records)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_config_default_vector_store_is_the_full_store():
