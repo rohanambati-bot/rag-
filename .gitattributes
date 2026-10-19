@@ -1,0 +1,3 @@
+# Raw evidence retains source reference text verbatim, including spaces before
+# embedded CSV newlines. Never trim dataset labels just to satisfy diff checks.
+outputs/validation-*/raw.csv -whitespace
