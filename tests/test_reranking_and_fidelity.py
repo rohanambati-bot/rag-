@@ -150,6 +150,15 @@ class TestRerankRAG:
     def test_is_registered_by_the_builder(self):
         assert "RerankRAG" in dir(rag)
 
+    def test_run_emits_metadata_backed_citations(self, monkeypatch):
+        monkeypatch.setattr(rag, "_llm", lambda: _RecordingLLM(["grounded answer"]))
+        doc = _Doc("source passage", {"source": "fixture.txt", "page": 2})
+        vs = _StubVectorStore([doc])
+        result = rag.NaiveRAG(vectorstore=vs, top_k=1).run("q")
+        assert result["citations"] == [
+            {"context_index": 1, "source": "fixture.txt", "page": 2}
+        ]
+
 
 # ── CorrectiveRAG fidelity ──────────────────────────────────────────────────────
 

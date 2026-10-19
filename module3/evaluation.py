@@ -537,6 +537,7 @@ class EvaluationPipeline:
         answer: str,
         architecture: str = "unknown",
         relevant_doc_ids: Optional[set] = None,
+        use_judge: bool = True,
     ) -> Dict[str, Any]:
         retrieved_text = " ".join(getattr(d, "page_content", str(d)) for d in retrieved_docs)
 
@@ -577,7 +578,7 @@ class EvaluationPipeline:
             result["ndcg_at_10"] = compute_ndcg_at_k(retrieved_ids, relevant_doc_ids, k=10)
             result["num_relevant_known"] = len(relevant_doc_ids)
 
-        if self.ragas_evaluator:
+        if self.ragas_evaluator and use_judge:
             ragas = self.ragas_evaluator.evaluate(
                 question=question, context=retrieved_text,
                 answer=answer, ground_truth=ground_truth,
@@ -646,6 +647,7 @@ class EvaluationPipeline:
                     answer=result.get("answer", ""),
                     architecture=architecture_name,
                     relevant_doc_ids=(qrels or {}).get(question),
+                    use_judge=not retrieval_only,
                 )
 
                 metrics["latency_ms"] = result.get("latency_ms", 0)
@@ -760,15 +762,19 @@ def compute_noise_fingerprint(retrieved_text: str,
     gt = set(re.findall(r"\w+", ground_truth.lower()))
     qt = set(re.findall(r"\w+", query.lower()))
 
+    # Key names MUST match the extractors used in evaluate_sample
+    # ("topical_noise" / "peripheral_noise" / "random_noise"). The earlier
+    # {"topical": ..} spelling caused a KeyError there, which silently dropped
+    # every sample whose retrieval returned nothing.
     if not rt:
-        return {"topical": 0, "peripheral": 0, "random": 0}
+        return {"topical_noise": 0.0, "peripheral_noise": 0.0, "random_noise": 0.0}
 
     # Tokens in retrieved but NOT in answer
     noise_tokens = rt - gt
 
     # Topical noise: noise tokens that ARE in query
     # (retrieved query-related content that isn't the answer)
-    topical = len(noise_tokens & qt) / len(rt) if rt else 0
+    topical = len(noise_tokens & qt) / len(rt)
 
     # Peripheral noise: noise tokens related to query terms
     # (one-hop from query terms — approximated by partial match)
@@ -777,7 +783,7 @@ def compute_noise_fingerprint(retrieved_text: str,
         t for t in noise_tokens
         if any(t.startswith(s) for s in query_stems)
     } - qt
-    peripheral = len(peripheral_tokens) / len(rt) if rt else 0
+    peripheral = len(peripheral_tokens) / len(rt)
 
     # Random noise: everything else
     random_noise = max(0, (len(noise_tokens) / len(rt))
@@ -904,8 +910,10 @@ def test_metric_significance(
             "baseline_mean": round(float(base.mean()), 6),
             "mean_diff": round(float(diff.mean()), 6),
             "t_statistic": round(float(t_stat), 4),
-            "p_value": round(float(t_p), 6),
-            "wilcoxon_p": round(float(w_p), 6) if w_p == w_p else np.nan,
+            # Keep full precision through FDR correction and serialization. Tiny
+            # but nonzero p-values must not be rounded to zero before BH.
+            "p_value": float(t_p),
+            "wilcoxon_p": float(w_p) if w_p == w_p else np.nan,
             "effect_size_dz": round(float(diff.mean() / sd), 4) if sd > 0 else 0.0,
             "identical_to_baseline": False,
         })
@@ -920,7 +928,7 @@ def test_metric_significance(
         for r in rows
     ]
     adjusted, reject = benjamini_hochberg(primary, alpha=alpha)
-    out["p_value_bh"] = [round(a, 6) for a in adjusted]
+    out["p_value_bh"] = adjusted
     out[f"significant_p{str(alpha).split('.')[-1]}_bh"] = reject
     return out.sort_values("p_value_bh").reset_index(drop=True)
 

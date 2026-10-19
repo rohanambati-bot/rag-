@@ -236,25 +236,30 @@ def plot_architecture_comparison(summary_df: pd.DataFrame) -> str:
 
     archs = summary_df["architecture"].tolist()
     x = np.arange(len(archs))
-    width = 0.25
+    num_cols = len(ragas_cols)
+    width = 0.8 / max(num_cols + 0.5, 1)
 
-    fig, ax = plt.subplots(figsize=(11, 6))
+    fig, ax = plt.subplots(figsize=(max(13, len(archs) * 1.55), 6.5))
+    colors = ["#4C72B0", "#DD8452", "#55A868"]  # Distinct Blue, Orange, Green matching standard palette
+
     for j, col in enumerate(ragas_cols):
         vals = summary_df[col].tolist()
-        offset = (j - len(ragas_cols) / 2) * width + width / 2
-        ax.bar(x + offset, vals, width, label=col.replace("_", " ").title())
+        offset = (j - (num_cols - 1) / 2) * width
+        c = colors[j % len(colors)]
+        ax.bar(x + offset, vals, width, label=col.replace("_", " ").title(),
+               color=c, edgecolor="white", linewidth=0.8)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(archs, rotation=15, ha="right")
-    ax.set_ylim(0, 1.1)
+    ax.set_xticklabels(archs, rotation=18, ha="right", fontsize=10.5, fontweight="semibold")
+    ax.set_ylim(0, 1.15)
     ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
-    ax.set_ylabel("Score")
-    ax.set_title("Architecture Performance: RAGAS Metrics", fontsize=14, fontweight="bold")
-    ax.legend(loc="lower right")
+    ax.set_ylabel("Score", fontsize=12, fontweight="bold")
+    ax.set_title("Architecture Performance: RAGAS Metrics", fontsize=14, fontweight="bold", pad=12)
+    ax.legend(loc="lower right", fontsize=10, framealpha=0.95)
 
     # Add threshold lines
-    ax.axhline(0.75, color="#e05c5c", lw=1.2, ls="--", alpha=0.7, label="Faithfulness gate")
-    ax.axhline(0.80, color="#f0a500", lw=1.2, ls=":", alpha=0.7, label="Ans Rel gate")
+    ax.axhline(0.75, color="#e05c5c", lw=1.2, ls="--", alpha=0.75, label="Faithfulness gate (75%)")
+    ax.axhline(0.80, color="#f0a500", lw=1.2, ls=":", alpha=0.75, label="Ans Rel gate (80%)")
     return _save(fig, "architecture_comparison.png")
 
 
@@ -457,17 +462,32 @@ def generate_summary_report(summary_df: pd.DataFrame, output_path: Optional[str]
 # ─── Demo with fixed benchmark data (matches slide 7 values) ──────────────────
 
 def demo_plots() -> None:
-    """Generate demo plots using the benchmark data from the capstone slides."""
+    """Generate demo plots using the benchmark data covering all 9 architectures."""
     data = {
-        "architecture":       ["Naive RAG", "Hybrid Multi-Query", "Parent-Child RAG", "CRAG", "Prod CRAG + Cache"],
-        "faithfulness":       [0.61, 0.74, 0.79, 0.83, 0.89],
-        "context_precision":  [0.57, 0.70, 0.76, 0.79, 0.83],
-        "context_recall":     [0.55, 0.68, 0.73, 0.77, 0.85],
-        "answer_relevance":   [0.63, 0.75, 0.80, 0.82, 0.86],
-        "noise_ratio":        [0.31, 0.18, 0.14, 0.11, 0.08],
-        "iou":                [0.45, 0.58, 0.65, 0.71, 0.78],
-        "precision_omega":    [0.52, 0.63, 0.70, 0.75, 0.82],
-        "latency_ms":         [820, 1150, 980, 1300, 90],
+        "architecture": [
+            "Naive RAG",
+            "Hybrid Multi-Query",
+            "Parent-Child RAG",
+            "CRAG",
+            "RAG-Fusion",
+            "Adaptive RAG",
+            "Rerank RAG",
+            "GRACE-Ω",
+            "GRACE-Ω + Rerank",
+        ],
+        "n":                  [50, 50, 50, 50, 50, 50, 50, 50, 50],
+        "faithfulness":       [0.61, 0.74, 0.79, 0.83, 0.78, 0.81, 0.89, 0.82, 0.87],
+        "context_precision":  [0.57, 0.70, 0.76, 0.79, 0.74, 0.78, 0.83, 0.77, 0.82],
+        "context_recall":     [0.55, 0.68, 0.73, 0.77, 0.71, 0.76, 0.85, 0.79, 0.84],
+        "answer_relevance":   [0.63, 0.75, 0.80, 0.82, 0.79, 0.81, 0.86, 0.83, 0.85],
+        "noise_ratio":        [0.31, 0.18, 0.14, 0.11, 0.15, 0.12, 0.08, 0.10, 0.09],
+        "iou":                [0.0826, 0.0703, 0.0819, 0.0840, 0.0696, 0.0819, 0.1240, 0.0682, 0.0837],
+        "precision_omega":    [0.0041, 0.0073, 0.0039, 0.0053, 0.0040, 0.0039, 0.0125, 0.0039, 0.0045],
+        "latency_ms":         [126.3, 270.5, 103.8, 687.8, 197.8, 342.3, 1356.3, 536.8, 1065.0],
+        "ndcg_at_10":         [0.632, 0.665, 0.632, 0.575, 0.640, 0.658, 0.699, 0.645, 0.682],
+        "mrr_at_10":          [0.611, 0.642, 0.611, 0.570, 0.620, 0.635, 0.689, 0.628, 0.669],
+        "recall_at_k":        [0.800, 0.825, 0.801, 0.702, 0.810, 0.820, 0.857, 0.815, 0.845],
+        "hit_rate":           [0.889, 0.910, 0.889, 0.786, 0.900, 0.915, 0.950, 0.895, 0.935],
     }
     summary_df = pd.DataFrame(data)
 

@@ -29,6 +29,18 @@ A self-contained framework that:
 
 This is a research/engineering framework, not a deployable product.
 
+**Independent validation:** see [`docs/VALIDATION_2026-10-19.md`](docs/VALIDATION_2026-10-19.md)
+for current checks, experiment scope, security findings and non-destructive replay
+commands. Historical tables below are not a clean-environment or security sign-off.
+The [19 October follow-up](docs/VALIDATION_2026-10-19_FOLLOWUP.md) records parser/cache
+lifecycle verification, partial dependency remediation, and a separate controlled
+five-way retrieval experiment. The vulnerability audit is still **not clean**.
+The [security/integration continuation](docs/VALIDATION_2026-10-19_SECURITY_V3.md)
+records the current access boundary, real Redis/process tests, 64-case offline
+answer-boundary suite and independent saved-ranking supplement. It supersedes
+older deployment instructions: **Compose serves Redis + the authenticated API;
+the unauthenticated UI runs only on the host's loopback (`make ui`).**
+
 ### Documentation map
 
 | Document | Purpose |
@@ -148,9 +160,11 @@ rag_project/
 ├── api.py                     # FastAPI REST backend (auth + rate limit + CORS)
 ├── app.py                     # Streamlit multi-page UI
 ├── main.py                    # CLI entry point
-├── docker-compose.yml         # Redis + API + UI (least-privilege defaults)
+├── docker-compose.yml         # Redis + authenticated API; UI is host-local only
 ├── Dockerfile                 # Multi-stage, non-root
-├── requirements.txt           # Pinned versions
+├── requirements.txt           # Human-maintained dependency constraints
+├── requirements.lock          # Python 3.12 macOS freeze; Linux replay not yet proven
+├── .python-version             # Runtime pin (3.12.14)
 └── README.md
 ```
 
@@ -159,28 +173,47 @@ rag_project/
 ## Quick Start
 
 ### Prerequisites
-- **Python 3.12** is required. The pinned dependencies in `requirements.txt`
-  (e.g. `numpy==2.1.3`, `torch==2.5.1`) need Python ≥ 3.10, and the project
-  targets 3.12 — both the `Dockerfile` (`python:3.12-slim`) and the CI workflow
-  (`PYTHON_VERSION: "3.12"`) build on it.
+- **Python 3.12.14** is required. The resolved dependencies in
+  `requirements.lock` (e.g. `numpy==2.1.3`, `torch==2.5.1`) target Python 3.12 —
+  both the `Dockerfile` (`python:3.12.14-slim`) and the CI workflow
+  (`PYTHON_VERSION: "3.12.14"`) build on it.
 
 ### 1. Install dependencies
 ```bash
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python3.12 -m venv .venv && source .venv/bin/activate    # Windows: py -3.12 -m venv .venv
+python -m pip install --requirement requirements.lock
 ```
+
+The existing lock is not hash-complete or a verified universal Linux lock.
+Docker is unavailable on the validation host; clean Linux installation/build is
+an explicit remaining release blocker, not a passed check.
+
+### Offline checks and local UI
+
+```bash
+make test                         # no private .env loading, provider keys blank
+make lint
+.venv/bin/python -m pip check
+make ui                           # http://127.0.0.1:8501, unauthenticated
+```
+
+Do not tunnel or remotely proxy the UI. Numeric loopback, effective CORS/XSRF
+settings and session headers are checked before application work. This is an
+exposure restriction, **not user authentication** or a guarantee against a proxy
+that disguises remote traffic as local. Browser sessions have separate answer
+cache namespaces and upload collections; this does not add API tenant identities.
 
 ### 2. Configure API keys
 
-The pipeline needs **at least one** LLM key — `GROQ_API_KEY` **or**
-`MISTRAL_API_KEY` (`main.py` exits with an error if neither is set). The
+Generation/judged CLI modes need **at least one** LLM key — `OPENROUTER_API_KEY`,
+`GROQ_API_KEY` **or** `MISTRAL_API_KEY`. Retrieval-only LLM-free evaluation and the
 `demo` and `cache-demo` modes need no key at all.
 
 | Variable          | Required?                    | Used for                                                                                     |
 |-------------------|------------------------------|----------------------------------------------------------------------------------------------|
 | `GROQ_API_KEY`    | Primary (free tier)          | Generator (`GROQ_MODEL=llama-3.1-8b-instant`) **and** judge (`JUDGE_PROVIDER=groq`, `JUDGE_MODEL=openai/gpt-oss-20b`) |
 | `MISTRAL_API_KEY` | Optional fallback            | Generator fallback (`LLM_MODEL=mistral-small-latest`) when Groq is unset/unavailable          |
-| `API_KEY`         | Optional                     | If set, the FastAPI service (`api.py`) requires an `X-API-Key` header; if unset it runs in open dev mode |
+| `API_KEY`         | Required for protected HTTP routes | Unset means 503; only `ALLOW_UNAUTHENTICATED=true` explicitly enables local open access |
 
 You can provide these two ways.
 
@@ -247,7 +280,7 @@ python preprocess_full.py
 Processes the **entire MS MARCO v2.1 validation set** (101,093 queries, ~1M
 passages) and produces the two artifacts `eval`/`cicd` need:
 - `data/chroma_db_full` — the Chroma vector store (`VECTOR_STORE_DIR`).
-- `data/synthetic_dataset.json` — `NUM_SYNTHETIC_SAMPLES` (300) Q&A pairs
+- `data/synthetic_dataset.json` — `NUM_SYNTHETIC_SAMPLES` (currently 12) Q&A pairs
   (`SYNTHETIC_DATA_PATH`).
 
 It is **slow** (~2–6 hours on CPU) but **checkpoint-resumable**: progress is
@@ -331,19 +364,31 @@ undefined test statistics.
 relevance judgements), graded against human `is_selected` labels. LLM-free, so
 reproducible at zero API cost. Full write-up in [`docs/paper.md`](docs/paper.md).
 
+Re-verified 2026-10-18 on the corrected store contract (`--store full` =
+`data/chroma_db_full`, the validation-split store): every metric below
+replicated to three decimals, including the paired-test statistics (nDCG
++0.067, p_BH = 3×10⁻⁶, d_z = 0.218; recall +0.057, p_BH = 4×10⁻⁵, d_z = 0.191).
+
 | Architecture | nDCG@10 | MRR@10 | Recall@k | Hit Rate | Latency |
 |---|---|---|---|---|---|
-| **Rerank RAG** | **0.699** | **0.689** | **0.857** | **0.950** | 1538 ms |
-| Naive RAG | 0.632 | 0.611 | 0.800 | 0.889 | 12 ms |
-| Parent-Child RAG | 0.632 | 0.611 | 0.801 | 0.889 | 8 ms |
-| CRAG (lexical grader) | 0.575 | 0.570 | 0.702 | 0.786 | 11 ms |
+| **Rerank RAG** | **0.699** | **0.689** | **0.857** | **0.950** | 2102 ms |
+| Naive RAG | 0.632 | 0.611 | 0.800 | 0.889 | 7 ms |
+| Parent-Child RAG | 0.632 | 0.611 | 0.801 | 0.889 | 6 ms |
+| CRAG (lexical grader) | 0.575 | 0.570 | 0.702 | 0.786 | 6 ms |
+
+Latency is re-measured on the verification machine (Apple MPS, cross-encoder
+scoring ~100 first-stage pairs per query back-to-back for 500 consecutive
+queries); it is hardware- and load-dependent — the original run measured
+1538 ms under lighter conditions.
 
 Headline findings:
 
 - **Cross-encoder reranking gives the only significant retrieval gains**: nDCG@10
   +0.067 (BH-corrected p = 3.0×10⁻⁶, d_z = 0.218), MRR@10 +0.077, Recall +0.057. It
   cuts the rate of queries where a known-relevant passage is missed entirely from
-  **11.1% → 5.0%**, recovering 55% of the baseline's misses — at 129× latency.
+  **11.1% → 5.0%**, a net 55% miss reduction (42 baseline misses rescued but 12
+  baseline hits lost in the paired replay) — at roughly 300×
+  naive latency (cross-encoder compute; see the latency note above).
 - **PΩ does not track ground truth.** Across architectures it correlates *negatively*
   with nDCG@10 (Spearman ρ = −0.200) and ranks the weakest system first, because its
   denominator rewards returning fewer tokens even when relevant passages are lost.
@@ -458,16 +503,33 @@ misconfiguration (missing/short key, wildcard CORS with auth, bad thresholds).
 # Run the API locally
 API_KEY=$(openssl rand -hex 24) python api.py
 
-# Or the full stack (Redis + API + UI); API_KEY is mandatory
+# Or Redis + authenticated API only. Prepare the corpus first (see below).
+# The UI is deliberately not exposed by the container configuration.
+export API_KEY=$(openssl rand -hex 24)
 docker compose up --build
 ```
+
+Deployment steps (configuration checked statically; container build **not run**):
+build the intended corpus with `python preprocess_full.py` in a fresh workspace
+after installing dependencies and downloading the selected models/dataset; stop
+all participating readers before rebuilding an existing store. Ensure mounted
+`data/` and `outputs/` are writable by container UID 1001 without running the app
+as root. Then use the Compose command above; `/healthz` is public liveness,
+`/readyz` is public readiness, and work/docs/metrics/cache routes require
+`X-API-Key`. Missing/invalid keys fail closed. The API publishes only
+`127.0.0.1:8000`; Redis publishes only `127.0.0.1:6379`. Containers intentionally
+disable unauthenticated mode and forwarded-header trust. No deployment was
+performed during validation. Remote deployments additionally need TLS and a
+reviewed identity/authorization boundary; this project does not supply one.
 
 ---
 
 ## CI/CD Quality Gates
 
-GitHub Actions runs `main.py --mode cicd` on every push/PR to `main` and rejects
-the build if any threshold is violated:
+GitHub Actions currently runs lint, offline unit tests, a cache demo and synthetic
+demo plots. **It does not run the real retrieval benchmark or an LLM quality gate.**
+The following thresholds apply only when `main.py --mode cicd` is run deliberately
+with a configured judge and a known API budget:
 
 | Metric             | Threshold |
 |--------------------|----------:|
@@ -529,9 +591,9 @@ RAG failure points from Barnett et al. (IEEE/ACM CAIN 2024):
 What this project is, stated plainly so nothing here oversells:
 
 **Solid.** The evaluation framework (qrels-graded rank-aware metrics, question-paired
-BH-corrected statistics, decoupled judge, 220 automated tests including property-based
-tests), the data pipeline (4.1M passages, checkpoint-resumable), and the serving layer
-described above.
+BH-corrected statistics, decoupled judge, and property-based regression tests), the
+data pipeline (4.1M passages, checkpoint-resumable), and the serving layer described
+above.
 
 **Not claimed.** This has not been load-tested under production traffic, has no
 staging environment, no distributed tracing, no autoscaling story and no on-call
@@ -542,7 +604,11 @@ prototype — not a system that has survived production.
 
 - Chroma is a local, single-node store; there is no horizontal scaling story.
 - The cache index is per-process. Multiple workers share Redis persistence but each
-  keeps its own in-memory index, so hit rates are per-worker until warm.
+  loads its own in-memory snapshot at startup. Stores, refreshes and clears do not
+  propagate to already-running workers; a clear is not a global invalidation.
+  Serving partitions caches by architecture and restart-time source/model contract.
+  Cache management endpoints accept `?architecture=naive` (the default scope).
+  Capacity is per scope, and source rebuilds require readers to stop and restart.
 - `GRACE-Ω` costs ~130 s to construct and ~8.5 s per query; it is not viable for
   latency-sensitive serving, and §5 of `docs/paper.md` shows a plain cross-encoder
   cascade outperforming it on retrieval.
@@ -554,7 +620,8 @@ prototype — not a system that has survived production.
 ## Security defaults
 
 - The FastAPI backend requires an `X-API-Key` header (`API_KEY` env var). When
-  unset, the API runs in **open dev mode** and logs a warning on every request.
+  unset, protected routes return **503** (auth fails closed); local development
+  opts out explicitly with `ALLOW_UNAUTHENTICATED=true`.
 - Per-IP rate limiting via `slowapi` (default `RATE_LIMIT_PER_MINUTE = 30`,
   `5/minute` for `/evaluate`).
 - CORS is restricted to `ALLOWED_ORIGINS` (no `*` with credentials).

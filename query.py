@@ -24,9 +24,9 @@ def main():
 
     # Check API key — the RAG architectures resolve keys via configs.config
     # (Groq → Mistral → extractive fallback), so accept EITHER key here.
-    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY
-    if not GROQ_API_KEY and not MISTRAL_API_KEY:
-        print("ERROR: No LLM API key set (GROQ_API_KEY or MISTRAL_API_KEY).")
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if not (GROQ_API_KEY or MISTRAL_API_KEY or OPENROUTER_API_KEY):
+        print("ERROR: No LLM API key set (GROQ_API_KEY, MISTRAL_API_KEY, or OPENROUTER_API_KEY).")
         print("Set one before running:")
         print("  export GROQ_API_KEY=your_key_here     (free, recommended)")
         print("  export MISTRAL_API_KEY=your_key_here")
@@ -34,18 +34,26 @@ def main():
 
     print("Loading RAG system, please wait...")
 
-    from module1.data_preprocessing import load_vector_store, get_embedding_model, chunk_documents, load_squad_documents
+    from module1.data_preprocessing import (
+        load_vector_store, get_embedding_model, chunk_documents,
+        load_msmarco_documents,
+    )
     from module2.rag_architectures import NaiveRAG, HybridMultiQueryRAG, ParentChildRAG, CorrectiveRAG
 
     embedding_model = get_embedding_model()
     vectorstore = load_vector_store(embedding_model)
 
+    # One corpus everywhere: the BM25 index for hybrid/parent-child must cover the
+    # same MS MARCO chunks as the dense store. (Previously this bootstrapped from
+    # SQuAD, so sparse retrieval searched a different corpus than dense.)
+    chunks = chunk_documents(load_msmarco_documents())
+
     arch_map = {
         "naive":       ("Naive RAG",          NaiveRAG(vectorstore=vectorstore)),
         "hybrid":      ("Hybrid Multi-Query",  HybridMultiQueryRAG(vectorstore=vectorstore,
-                            chunks=chunk_documents(load_squad_documents()))),
+                            chunks=chunks)),
         "parentchild": ("Parent-Child RAG",    ParentChildRAG(vectorstore=vectorstore,
-                            chunks=chunk_documents(load_squad_documents()))),
+                            chunks=chunks)),
         "crag":        ("Corrective RAG (CRAG)", CorrectiveRAG(vectorstore=vectorstore)),
     }
 

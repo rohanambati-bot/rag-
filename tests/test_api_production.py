@@ -80,6 +80,7 @@ def _make_client(monkeypatch, api_key: str = "", allow_unauth: bool = False,
     monkeypatch.setenv("API_KEY", api_key)
     monkeypatch.setenv("ALLOW_UNAUTHENTICATED", "true" if allow_unauth else "false")
     monkeypatch.setenv("LOG_FORMAT", "text")
+    monkeypatch.setenv("HOST", "127.0.0.1")
 
     # Reload config + api so module-level constants pick up the env above.
     import configs.config as cfg
@@ -97,7 +98,7 @@ def _make_client(monkeypatch, api_key: str = "", allow_unauth: bool = False,
     }
     cache = _StubCache()
     monkeypatch.setattr(ctx, "architectures", lambda: archs)
-    monkeypatch.setattr(ctx, "cache", lambda: cache)
+    monkeypatch.setattr(ctx, "cache", lambda *_args: cache)
     monkeypatch.setattr(ctx, "chunks", lambda: [])
     monkeypatch.setattr(ctx, "warmup", lambda: None)
     monkeypatch.setattr(ctx, "is_ready", lambda: ready)
@@ -107,7 +108,7 @@ def _make_client(monkeypatch, api_key: str = "", allow_unauth: bool = False,
                  "architectures": len(archs), "vector_store": True,
                  "cache": True, "uptime_seconds": 1.0},
     )
-    client = TestClient(api_module.app)
+    client = TestClient(api_module.app, client=("127.0.0.1", 50000))
     client._stub_cache = cache  # type: ignore[attr-defined]
     return client
 
@@ -157,7 +158,8 @@ class TestAuthFailsClosed:
         with _make_client(monkeypatch, api_key="a-sufficiently-long-key") as client:
             assert client.get("/healthz").status_code == 200
             assert client.get("/readyz").status_code == 200
-            assert client.get("/metrics").status_code == 200
+            assert client.get("/metrics").status_code == 401
+            assert client.get("/metrics", headers={"X-API-Key": "a-sufficiently-long-key"}).status_code == 200
 
 
 # ── Liveness vs readiness ──────────────────────────────────────────────────────
@@ -307,6 +309,15 @@ class TestInputValidation:
                 "/query", json={"question": "x" * 5000, "architecture": "naive"}
             )
             assert r.status_code == 422
+
+    def test_blank_questions_are_rejected_on_other_expensive_routes(self, monkeypatch):
+        with _make_client(monkeypatch, allow_unauth=True) as client:
+            assert client.post(
+                "/ab-test", json={"question": "   "}
+            ).status_code == 422
+            assert client.post(
+                "/cache/lookup", json={"query": "   "}
+            ).status_code == 422
 
     def test_ab_test_returns_both_variants(self, monkeypatch):
         with _make_client(monkeypatch, allow_unauth=True) as client:

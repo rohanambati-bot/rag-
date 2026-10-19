@@ -1,0 +1,44 @@
+{
+  "corpus": [
+    {"doc_id": "d-noise", "text": "noise passage"},
+    {"doc_id": "d-gold", "text": "gold answer passage"},
+    {"doc_id": "d-other", "text": "other passage"},
+    {"doc_id": "d-four", "text": "fourth passage"}
+  ],
+  "queries": [
+    {"query_id": "q-1", "text": "what is the answer"},
+    {"query_id": "q-2", "text": "what else"}
+  ],
+  "qrels": {
+    "q-1": {"d-gold": 1},
+    "q-2": {"d-other": 1}
+  },
+  "rankings": {
+    "dense": {
+      "q-1": ["d-noise", "d-gold", "d-other", "d-four"],
+      "q-2": ["d-noise", "d-other", "d-gold", "d-four"]
+    },
+    "bm25": {
+      "q-1": ["d-other", "d-gold", "d-noise", "d-four"],
+      "q-2": ["d-noise", "d-other", "d-four", "d-gold"]
+    }
+  },
+  "top_k": 1,
+  "candidate_pool_k": 3,
+  "corpus_revision": "fixture-corpus@1",
+  "qrels_revision": "fixture-qrels@1",
+  "filter": {"name": "fixture-filter", "revision": "1"},
+  "model_revisions": {
+    "dense": "fake-dense@rev-1",
+    "bm25": "fake-bm25@rev-1",
+    "reranker": "fake-cross-encoder@rev-1"
+  },
+  "reranker_scores": {
+    "q-1": {"d-noise": 0.0, "d-gold": 1.0, "d-other": 0.0},
+    "q-2": {"d-noise": 0.0, "d-other": 1.0, "d-four": 0.0}
+  },
+  "package_metadata": {
+    "python": "fixture",
+    "packages": {"fake": "1"}
+  }
+}

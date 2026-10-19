@@ -18,7 +18,7 @@ sys.path.insert(0, ".")
 
 from configs.config import SYNTHETIC_DATA_PATH
 from module1.data_preprocessing import (
-    chunk_documents, build_vector_store, get_embedding_model, load_squad_documents
+    chunk_documents, build_vector_store, get_embedding_model, load_msmarco_documents
 )
 from module2.rag_architectures import NaiveRAG
 from module3.evaluation import (
@@ -40,12 +40,14 @@ print(f"Running ablation on {len(samples)} samples...")
 chunk_sizes = [100, 200, 400, 600, 800, 1000]
 results = []
 
-# Load documents once
-docs = load_squad_documents(max_samples=500)
+# Load the same MS MARCO corpus family as the synthetic questions and production
+# validation store. Mixing MS MARCO queries with SQuAD contexts would make the
+# chunk-size comparison a corpus mismatch rather than an ablation.
+docs = load_msmarco_documents(max_samples=1000)
 embedding_model = get_embedding_model()
 
 for size in chunk_sizes:
-    print(f"\nChunk size: {size} tokens...")
+    print(f"\nChunk size: {size} characters...")
 
     # Re-chunk with this size
     chunks = chunk_documents(docs, chunk_size=size, chunk_overlap=min(50, size//4))
@@ -115,8 +117,8 @@ ax.fill_between(
     label='Misleading zone (Precision@K overestimates quality)'
 )
 ax.axvline(x=400, color='green', linestyle='--', linewidth=1.5,
-           label='Optimal chunk size (400 tokens)')
-ax.set_xlabel('Chunk Size (tokens)', fontsize=13)
+           label='Reference chunk size (400 characters)')
+ax.set_xlabel('Chunk Size (characters)', fontsize=13)
 ax.set_ylabel('Score (0–1)', fontsize=13)
 ax.set_title(
     'Precision@K Inflates as PΩ Drops with Increasing Chunk Size\n'

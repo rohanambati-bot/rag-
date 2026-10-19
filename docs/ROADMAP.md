@@ -94,13 +94,11 @@ The "MULTIHOP" route is a label, not real iterative retrieval.
   vs a stored baseline.
 - **Why:** catches retrieval regressions automatically; extends the existing gate.
 
-### 12. Package the spaCy model · Impact L · Effort L
-`KnowledgeGraphBuilder` needs `en_core_web_sm`; its auto-download shells out to
-`python -m spacy download`, which fails when `python` isn't on PATH (only `python3`).
-- **Do:** add `en_core_web_sm` to `requirements.txt` (as the pinned wheel URL) or a
-  post-install step, and fix the download command to use `sys.executable`.
-- **Why:** on a fresh machine the KG silently falls back to regex NER, degrading
-  graph retrieval quality.
+### 12. Package the spaCy model · completed in this audit
+`requirements.lock` now includes the pinned `en_core_web_sm` wheel, and the fallback
+download path invokes `sys.executable` rather than assuming a `python` executable is
+on `PATH`. A fresh locked install therefore keeps KG entity extraction deterministic;
+the regex path remains an explicit dependency-failure fallback.
 
 ---
 

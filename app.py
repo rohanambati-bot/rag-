@@ -12,7 +12,8 @@ Pages:
    Cache           — semantic cache statistics + manual lookup
    Settings       — toggle thresholds, view config
 
-No API key required — extractive fallback works offline.
+Local development only. The API key does not authenticate this UI.
+Do not expose it through a tunnel or remote proxy, including one on loopback.
 """
 
 from __future__ import annotations
@@ -44,6 +45,16 @@ logging.getLogger("langchain").setLevel(logging.ERROR)
 logging.getLogger("urllib3").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+
+from security_boundary import session_cache, session_resource, ui_boundary_problems  # noqa: E402
+
+# Use Streamlit's effective settings, not just the checked-in TOML. CLI and env
+# overrides must not silently turn this direct-Python UI into a remote service.
+# This stops application work; it is not authentication for Streamlit endpoints.
+_boundary_problems = ui_boundary_problems(st.get_option, st.context.headers)
+if _boundary_problems:
+    st.error("UI access refused. " + " ".join(_boundary_problems))
+    st.stop()
 
 from configs.config import (  # noqa: E402
     OUTPUTS_DIR, EVAL_RESULTS_PATH, MISTRAL_API_KEY, VECTOR_STORE_DIR,
@@ -79,7 +90,7 @@ st.markdown("""
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Cached resources (load once per Streamlit session)
+# Shared read-only/model resources (Streamlit cache_resource is process-wide)
 # ═════════════════════════════════════════════════════════════════════════════
 
 # Every resource comes from serving.CONTEXT, the same stack the API and the CLI use.
@@ -98,9 +109,10 @@ def _get_vectorstore():
     from serving import CONTEXT
     try:
         return CONTEXT.vectorstore()
-    except RuntimeError as exc:
+    except RuntimeError:
         # Fail loudly rather than quietly indexing a different corpus.
-        st.error(f"{exc}")
+        logging.getLogger("app").exception("Vector store unavailable.")
+        st.error("Vector store unavailable. Build the configured corpus before serving.")
         st.stop()
 
 
@@ -110,38 +122,86 @@ def _get_chunks():
     return CONTEXT.chunks()
 
 
-@st.cache_resource(show_spinner="Building RAG architectures…")
-def _get_architectures():
-    """All registered architectures, keyed by display name for the UI.
-
-    The serving context eagerly builds only the LLM-free subset (Naive, Rerank,
-    Parent-Child, CRAG-lexical).  Other architectures (Hybrid, RAG-Fusion,
-    Adaptive, GRACE-Ω variants) are lazily constructed on first use via
-    ``CONTEXT.architecture(key)`` — that avoids spending API quota at startup
-    while still letting the UI offer the full menu.
+class LazyArchitectureMap(dict):
+    """Dictionary that advertises all architecture display names immediately,
+    constructing each architecture lazily on first access.
     """
-    from serving import CONTEXT
+    def __init__(self):
+        super().__init__()
+        from serving import CONTEXT
+        from module2.rag_architectures import ARCHITECTURE_REGISTRY
+
+        self._context = CONTEXT
+        eager = CONTEXT.architectures()
+        self._name_to_key: Dict[str, str] = {}
+        for key, meta in sorted(ARCHITECTURE_REGISTRY.items()):
+            if "kg" not in meta["requires"]:
+                display_name = meta.get("name", key)
+                self._name_to_key[display_name] = key
+                if key in eager:
+                    self[display_name] = eager[key]
+
+    def __getitem__(self, name: str):
+        if dict.__contains__(self, name):
+            return super().__getitem__(name)
+        key = self._name_to_key.get(name, name)
+        try:
+            arch = self._context.architecture(key)
+            self[name] = arch
+            return arch
+        except Exception as exc:
+            logging.getLogger("app").error("Failed to build architecture %s: %s", name, exc)
+            raise KeyError(name) from exc
+
+    def get(self, name: str, default=None):
+        try:
+            return self[name]
+        except Exception:
+            return default
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._name_to_key or dict.__contains__(self, name)
+
+    def keys(self):
+        return list(self._name_to_key.keys())
+
+    def __iter__(self):
+        return iter(list(self._name_to_key.keys()))
+
+    def __len__(self):
+        return len(self._name_to_key)
+
+    def items(self):
+        for name in list(self._name_to_key.keys()):
+            yield (name, self[name])
+
+    def values(self):
+        for name in list(self._name_to_key.keys()):
+            yield self[name]
+
+
+@st.cache_resource(show_spinner="Readying RAG architectures…")
+def _get_architectures():
+    """All registered architectures, keyed by display name for the UI."""
+    return LazyArchitectureMap()
+
+
+def _get_cache(architecture: str = "naive"):
+    from phase3.semantic_cache import SemanticCache
     from module2.rag_architectures import ARCHITECTURE_REGISTRY
-
-    # Start with the eagerly-built set.
-    eager = CONTEXT.architectures()
-    result = {getattr(a, "name", k): a for k, a in sorted(eager.items())}
-
-    # Lazily build remaining architectures that don't require a knowledge graph.
-    for key, meta in sorted(ARCHITECTURE_REGISTRY.items()):
-        if key not in eager and "kg" not in meta["requires"]:
-            try:
-                arch = CONTEXT.architecture(key)
-                result[getattr(arch, "name", key)] = arch
-            except Exception:
-                pass  # skip architectures that fail to construct
-    return result
+    key = next((key for key, meta in ARCHITECTURE_REGISTRY.items()
+                if meta["name"] == architecture), architecture)
+    # Never reuse API/shared-corpus answer caches for private browser queries.
+    return session_cache(st.session_state, key, lambda namespace: SemanticCache(
+        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="miss",
+    ))
 
 
-@st.cache_resource(show_spinner="Connecting semantic cache…")
-def _get_cache():
-    from serving import CONTEXT
-    return CONTEXT.cache()
+def _get_uploader():
+    from module5.document_upload import DocumentUploader
+    return session_resource(st.session_state, "uploader", lambda: DocumentUploader(
+        embedding_model=_get_embedding_model(),
+    ))
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -170,11 +230,14 @@ with st.sidebar:
     st.caption(f"Vector Store: {'Ready' if Path(VECTOR_STORE_DIR).exists() else ' Not built'}")
 
     st.divider()
-    if st.button("Clear caches", use_container_width=True):
-        st.cache_resource.clear()
-        st.cache_data.clear()
-        st.success("Caches cleared.")
-        st.rerun()
+    st.caption("Local-only UI · no user authentication · do not tunnel/proxy")
+    if st.button("Clear my answer caches", use_container_width=True):
+        receipts = [cache.clear() for cache in st.session_state.get("_private_answer_caches", {}).values()]
+        if any(receipt is False for receipt in receipts):
+            st.warning("Local caches cleared; shared invalidation could not be confirmed. Retry when Redis recovers.")
+        else:
+            st.success("Your answer caches cleared.")
+            st.rerun()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -226,7 +289,7 @@ def page_chat():
             placeholder = st.empty()
             placeholder.markdown("_Thinking…_")
             try:
-                cache = _get_cache() if use_cache else None
+                cache = _get_cache(arch_choice) if use_cache else None
                 cached = cache.lookup(query) if cache else None
 
                 if cached:
@@ -250,7 +313,13 @@ def page_chat():
                     meta = (f" {arch_choice} · latency {result.get('latency_ms', 0):.0f} ms · "
                             f"{len(sources)} chunks{conf_str}")
                     if cache:
-                        cache.store(query, answer, sources)
+                        store_with_citations = getattr(cache, "store_with_citations", None)
+                        if store_with_citations is not None:
+                            store_with_citations(
+                                query, answer, sources, result.get("citations", [])
+                            )
+                        else:
+                            cache.store(query, answer, sources)
 
                 placeholder.markdown(answer)
                 if sources:
@@ -265,10 +334,11 @@ def page_chat():
                     "sources": sources,
                     "meta": meta,
                 })
-            except Exception as exc:
-                placeholder.error(f"Error: {exc}")
+            except Exception:
+                logging.getLogger("app").exception("Chat request failed.")
+                placeholder.error("Request failed; check the local server logs.")
                 st.session_state.chat_history.append(
-                    {"role": "assistant", "content": f"Error: {exc}"}
+                    {"role": "assistant", "content": "Request failed; check the local server logs."}
                 )
 
 
@@ -519,7 +589,7 @@ def page_viz():
 def page_cache():
     st.markdown('<div class="main-title"> Semantic Cache</div>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="subtitle">Redis-backed vector cache (with in-memory fallback).</p>',
+        '<p class="subtitle">Session-isolated vector cache (Redis with in-memory fallback).</p>',
         unsafe_allow_html=True,
     )
 
@@ -546,9 +616,11 @@ def page_cache():
 
     st.divider()
     if st.button(" Clear cache", type="secondary"):
-        cache.clear()
-        st.success("Cache cleared.")
-        st.rerun()
+        if cache.clear() is False:
+            st.warning("Local cache cleared; shared invalidation could not be confirmed. Retry when Redis recovers.")
+        else:
+            st.success("Cache cleared.")
+            st.rerun()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -602,13 +674,9 @@ def page_upload():
         unsafe_allow_html=True,
     )
 
-    from module5.document_upload import DocumentUploader
     from module5.confidence import ConfidenceScorer
 
-    if "uploader" not in st.session_state:
-        st.session_state.uploader = DocumentUploader(embedding_model=_get_embedding_model())
-
-    uploader = st.session_state.uploader
+    uploader = _get_uploader()
 
     uploaded = st.file_uploader(
         "Upload a document",
@@ -617,19 +685,28 @@ def page_upload():
     )
 
     if uploaded:
-        if not uploader.is_ready or uploader.filename != uploaded.name:
+        import hashlib
+        content = uploaded.getvalue()
+        upload_digest = hashlib.sha256(content).hexdigest()
+        if (not uploader.is_ready or uploader.filename != uploaded.name
+                or st.session_state.get("_upload_digest") != upload_digest):
             with st.spinner(f"Indexing {uploaded.name}…"):
                 try:
-                    content = uploaded.getvalue()
                     n = uploader.index_documents(content, uploaded.name)
+                    st.session_state["_upload_digest"] = upload_digest
                     st.success(f" Indexed **{uploaded.name}** → {n} chunks")
-                except Exception as exc:
-                    st.error(f"❌ Upload failed: {exc}")
+                except Exception:
+                    logging.getLogger("app").exception("Document upload failed.")
+                    st.error("Upload failed. Check the file format/limits and local server logs.")
 
     if uploader.is_ready:
         st.info(f" Active document: **{uploader.filename}** ({uploader.num_chunks} chunks)")
 
-        upload_arch_options = list(_get_architectures().keys())
+        # Uploaded documents have their own temporary corpus, so only expose
+        # architectures whose constructors can consume that vector store directly.
+        # Previously the UI listed every global architecture but silently fell back to
+        # Naive RAG for most selections, making the displayed experiment misleading.
+        upload_arch_options = ["Naive RAG", "CRAG", "Rerank RAG"]
         arch_choice = st.selectbox(
             "Architecture", upload_arch_options, index=0, key="upload_arch"
         )
@@ -638,16 +715,17 @@ def page_upload():
         if st.button("Search", disabled=not query) and query:
             with st.spinner("Searching…"):
                 try:
-                    from module2.rag_architectures import NaiveRAG, CorrectiveRAG, RerankRAG
-                    _upload_arch_map = {
-                        "Naive RAG": NaiveRAG,
-                        "CRAG": CorrectiveRAG,
-                        "Rerank RAG": RerankRAG,
-                    }
-                    arch_cls = _upload_arch_map.get(arch_choice, NaiveRAG)
-                    try:
-                        rag = arch_cls(vectorstore=uploader.vectorstore)
-                    except TypeError:
+                    from module2.rag_architectures import (
+                        CorrectiveRAG, NaiveRAG, RerankRAG,
+                    )
+                    if arch_choice == "CRAG":
+                        rag = CorrectiveRAG(vectorstore=uploader.vectorstore)
+                    elif arch_choice == "Rerank RAG":
+                        rag = RerankRAG(
+                            vectorstore=uploader.vectorstore,
+                            chunks=uploader.chunks,
+                        )
+                    else:
                         rag = NaiveRAG(vectorstore=uploader.vectorstore)
                     result = rag.run(query)
 
@@ -675,11 +753,13 @@ def page_upload():
                     with st.expander(" Retrieved chunks"):
                         for i, doc in enumerate(docs, 1):
                             st.markdown(f"**Chunk {i}:** {doc.page_content[:300]}")
-                except Exception as search_exc:
-                    st.error(f"Search failed: {search_exc}")
+                except Exception:
+                    logging.getLogger("app").exception("Uploaded document search failed.")
+                    st.error("Search failed; check the local server logs.")
 
         if st.button("Clear document"):
             uploader.clear()
+            st.session_state.pop("_upload_digest", None)
             st.rerun()
     else:
         st.info("Upload a document above to get started.")

@@ -79,11 +79,20 @@ class CachedRAG:
 
         # Cache miss: run full pipeline
         result = self.rag.run(query)
-        self.cache.store(
-            query=query,
-            answer=result.get("answer", ""),
-            contexts=result.get("contexts", []),
-        )
+        store_with_citations = getattr(self.cache, "store_with_citations", None)
+        if store_with_citations is not None:
+            store_with_citations(
+                query=query,
+                answer=result.get("answer", ""),
+                contexts=result.get("contexts", []),
+                citations=result.get("citations", []),
+            )
+        else:
+            self.cache.store(
+                query=query,
+                answer=result.get("answer", ""),
+                contexts=result.get("contexts", []),
+            )
         result["cache_hit"] = False
         return result
 
@@ -161,9 +170,20 @@ def run_quality_gate(
     logger.info("CI/CD: Starting evaluation for %s (%d samples)…", architecture_name, max_samples)
 
     ragas_evaluator = None
-    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY
-    if GROQ_API_KEY or MISTRAL_API_KEY:
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if OPENROUTER_API_KEY or GROQ_API_KEY or MISTRAL_API_KEY:
         ragas_evaluator = RAGASEvaluator()
+        # Refuse to spend a long run on a retired/misconfigured judge.  Without
+        # this preflight, every per-sample call would fail independently and the
+        # gate would only report missing metrics after wasting the whole budget.
+        try:
+            probe_score = ragas_evaluator.health_check()
+            logger.info("CI/CD judge health check passed (probe score=%.3f).", probe_score)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                "CI/CD judge health check failed; refusing to run a judged gate. "
+                "Fix JUDGE_PROVIDER/JUDGE_MODEL before retrying."
+            ) from exc
 
     pipeline = EvaluationPipeline(ragas_evaluator=ragas_evaluator)
     df = pipeline.evaluate_architecture(

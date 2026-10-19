@@ -12,11 +12,11 @@ on:
     branches: [main]
 
 env:
-  PYTHON_VERSION: "3.12"
+  PYTHON_VERSION: "3.12.14"
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
-  # Stage 1 — Lint + unit tests (220 tests, offline)
+  # Stage 1 — Lint + unit tests (offline)
   # ──────────────────────────────────────────────────────────────────────────
   lint-test:
     name: Lint & Unit Tests
@@ -33,12 +33,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --requirement requirements.lock
 
       - name: Ruff Lint Check
         run: ruff check . --select E,F,W --ignore E501
 
-      - name: Run Test Suite (220 tests)
+      - name: Run Test Suite
         run: pytest -q tests/
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --requirement requirements.lock
 
       - name: Test Semantic Cache (In-Memory HNSW)
         run: python main.py --mode cache-demo
@@ -79,4 +79,3 @@ jobs:
         with:
           name: benchmark-plots-${{ github.sha }}
           path: outputs/plots/
-

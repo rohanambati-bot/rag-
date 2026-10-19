@@ -1,0 +1,171 @@
+{
+  "candidate_pool_k": 50,
+  "conditions": [
+    {
+      "candidate_pool": "dense top-k",
+      "description": "Dense retriever returns top-k directly; no second stage.",
+      "label": "dense-only",
+      "name": "dense_only",
+      "rerank": false,
+      "sources": [
+        "dense"
+      ]
+    },
+    {
+      "candidate_pool": "dense[:candidate_pool_k]",
+      "description": "Dense candidate pool is filtered once, then every candidate is scored by the same local cross-encoder before top-k truncation.",
+      "label": "dense candidate pool + cross-encoder reranking",
+      "name": "dense_reranked",
+      "rerank": true,
+      "sources": [
+        "dense"
+      ]
+    },
+    {
+      "candidate_pool": "BM25 top-k",
+      "description": "BM25 retriever returns top-k directly; no second stage.",
+      "label": "BM25-only",
+      "name": "bm25_only",
+      "rerank": false,
+      "sources": [
+        "bm25"
+      ]
+    },
+    {
+      "candidate_pool": "dedup(dense[:candidate_pool_k] U BM25[:candidate_pool_k]) + deterministic RRF",
+      "description": "Equal-width dense and BM25 pools are filtered, deduplicated, fused with RRF, and truncated to top-k.",
+      "label": "hybrid without reranking",
+      "name": "hybrid_no_rerank",
+      "rerank": false,
+      "sources": [
+        "dense",
+        "bm25"
+      ]
+    },
+    {
+      "candidate_pool": "dedup(dense[:candidate_pool_k] U BM25[:candidate_pool_k])",
+      "description": "The same hybrid union is passed in full to the local cross-encoder; only then is it truncated to top-k.",
+      "label": "hybrid + cross-encoder reranking",
+      "name": "hybrid_reranked",
+      "rerank": true,
+      "sources": [
+        "dense",
+        "bm25"
+      ]
+    }
+  ],
+  "contract_fingerprint": "fbf779a0b8b453acd9b5867247746c51d6e5c6995e210f5ffc705f270b3c0cb7",
+  "corpus_fingerprint": "3c99f2a542920231117217a565000125296a0ef3e55cbedc65ca58c4ca0bd3ce",
+  "corpus_revision": "microsoft/ms_marco@ec570a8962845fb8/v2.1/validation/first-1000/chunks-400-50/docid-dedup-first-v1",
+  "corpus_size": 11436,
+  "dataset_provenance": {
+    "chunk_size_characters": 400,
+    "contract_corpus_documents": 11436,
+    "contract_fingerprint": "fbf779a0b8b453acd9b5867247746c51d6e5c6995e210f5ffc705f270b3c0cb7",
+    "corpus_fingerprint": "3c99f2a542920231117217a565000125296a0ef3e55cbedc65ca58c4ca0bd3ce",
+    "dataset": "microsoft/ms_marco",
+    "dataset_cache_revisions": [
+      "a47ee7aae8d7d466ba15f9f0bfac3b3681087b3a"
+    ],
+    "dataset_config": "v2.1",
+    "dataset_fingerprint": "ec570a8962845fb8",
+    "dataset_rows": 101093,
+    "dataset_split": "validation",
+    "duplicate_doc_ids_removed": 74,
+    "elapsed_seconds": 17.734,
+    "overlap_characters": 50,
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "provider_calls": 0,
+    "qrels_fingerprint": "847e5766b80fd5d69f7d04c089d7fc0c9277e2680e11b506c2e33dfa6797a074",
+    "query_count": 5,
+    "query_pool_size": 1000,
+    "query_selection": "numpy.default_rng(42).choice(first 1000 answerable QA, N, replace=False)",
+    "runtime": "3.12.14",
+    "selected_query_ids": [
+      "msmarco_771",
+      "msmarco_438",
+      "msmarco_653",
+      "msmarco_88",
+      "msmarco_433"
+    ],
+    "selected_query_ids_fingerprint": "f38ad377a4f997ea73dd2af7ea3c239b5fe9ac0cae2699a97a55df1380a386d9",
+    "source_chunks": 11510,
+    "source_passages": 9858,
+    "store_manifest_present": false,
+    "store_path": "data/chroma_db_full"
+  },
+  "execution": {
+    "model_downloads": 0,
+    "offline_only": true,
+    "provider_calls": 0
+  },
+  "filter": {
+    "allowed_doc_ids": null,
+    "allowed_query_ids": null,
+    "name": "doc-id-prefix-dedup-first-occurrence",
+    "revision": "v1"
+  },
+  "harness": {
+    "name": "controlled-retrieval-ablation",
+    "offline_only": true,
+    "provider_calls": 0,
+    "version": "1.0.0"
+  },
+  "metrics": {
+    "functions": [
+      "recall_at_k",
+      "precision_at_k",
+      "hit_rate",
+      "mrr_at_10",
+      "ndcg_at_10"
+    ],
+    "module": "module3.evaluation when available; stdlib-compatible fallback otherwise"
+  },
+  "model_revisions": {
+    "bm25": "bm25-okapi-local-v1:k1=1.5:b=0.75",
+    "dense": "sentence-transformers/all-MiniLM-L6-v2@1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "reranker": "BAAI/bge-reranker-base@2cfc18c9415c912f9d8155881c133215df768a70"
+  },
+  "model_revisions_fingerprint": "3a5d9a337f4ab1b2bdd518d51cb5ee7ae28ca4c21976413ac40df3301abe338c",
+  "package_metadata": {
+    "experiment": {
+      "contract_text_fingerprint": "59e9616a45bf5145b2c8cde30f9e7ed97dd466286f5ec28631fad8759e15cedc",
+      "dense_store_text_fingerprint": "59e9616a45bf5145b2c8cde30f9e7ed97dd466286f5ec28631fad8759e15cedc",
+      "protocol": "controlled-retrieval-ablation-local-v1",
+      "reranker_device": "mps",
+      "runner": "scripts/run_retrieval_ablation_local.py",
+      "store_path": "data/chroma_db_full"
+    },
+    "implementation": "CPython",
+    "packages": {
+      "chromadb": "1.5.9",
+      "langchain-chroma": "0.2.6",
+      "langchain-core": "0.3.86",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "rank-bm25": "0.2.2",
+      "sentence-transformers": "3.3.1",
+      "torch": "2.5.1",
+      "transformers": "4.46.3"
+    },
+    "python": "3.12.14",
+    "requirements_lock": {
+      "path": "requirements.lock",
+      "sha256": "be958d5d23cf7dba57fbca82c3bce46370187a5980d293e08a59494a551b7392"
+    }
+  },
+  "package_metadata_fingerprint": "968b48a73714c471ac53f0c84dc8121d6406dd4dd7726dee5c5916ddd69a6509",
+  "qrels_fingerprint": "847e5766b80fd5d69f7d04c089d7fc0c9277e2680e11b506c2e33dfa6797a074",
+  "qrels_revision": "ms-marco-is_selected-inherited-to-deduped-chunk-ids-v1",
+  "query_count": 5,
+  "query_ids": [
+    "msmarco_771",
+    "msmarco_438",
+    "msmarco_653",
+    "msmarco_88",
+    "msmarco_433"
+  ],
+  "query_ids_fingerprint": "f38ad377a4f997ea73dd2af7ea3c239b5fe9ac0cae2699a97a55df1380a386d9",
+  "rrf_k": 60,
+  "top_k": 5
+}

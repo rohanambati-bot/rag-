@@ -1,0 +1,212 @@
+# tests/test_audit_regressions.py
+"""
+Regression tests for issues found and fixed during the project audit.
+
+Each test maps to a confirmed defect:
+
+* ``compute_noise_fingerprint`` returned ``{"topical": ..}`` while
+  ``evaluate_sample`` extracts ``["topical_noise"]`` — a KeyError that silently
+  dropped every sample whose retrieval returned nothing.
+* ``main._store_dir`` mapped both ``--store full`` and ``--store train`` to the
+  same directory whenever VECTOR_STORE_DIR defaulted to the train store, so
+  `--store full` evaluated against the wrong corpus.
+* ``query.py`` bootstrapped hybrid/parent-child from SQuAD while the dense store
+  holds MS MARCO — a split-corpus serving stack.
+* New stores carry an index manifest so a stale/mismatched index is detectable.
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+
+# ── compute_noise_fingerprint (empty retrieval) ──────────────────────────────
+
+def test_noise_fingerprint_empty_retrieval_uses_expected_keys():
+    """Empty retrieved text must return the *_noise keys, not {'topical': ..}."""
+    from module3.evaluation import compute_noise_fingerprint
+
+    fp = compute_noise_fingerprint("", "Paris", "What is the capital of France?")
+    assert set(fp) == {"topical_noise", "peripheral_noise", "random_noise"}
+    assert fp == {"topical_noise": 0.0, "peripheral_noise": 0.0, "random_noise": 0.0}
+
+
+def test_noise_fingerprint_keys_match_evaluate_sample_extraction():
+    """The non-empty path must use the same key names (no cross-path drift)."""
+    from module3.evaluation import compute_noise_fingerprint
+
+    fp = compute_noise_fingerprint(
+        "Paris is the capital city of France.",
+        "Paris",
+        "What is the capital of France?",
+    )
+    for key in ("topical_noise", "peripheral_noise", "random_noise"):
+        assert key in fp
+        assert isinstance(fp[key], float)
+
+
+def test_evaluate_sample_tolerates_empty_retrieval():
+    """A sample whose retrieval returns nothing must be scored, not dropped.
+
+    Regression: the fingerprint KeyError propagated through evaluate_architecture's
+    per-sample try/except, so affected samples vanished from the results silently.
+    """
+    from module3.evaluation import EvaluationPipeline
+
+    class EmptyRAG:
+        name = "EmptyRAG"
+
+        def run(self, query: str):
+            return {"answer": "", "context_docs": [], "contexts": [],
+                    "latency_ms": 0.0}
+
+    pipeline = EvaluationPipeline(output_path=os.devnull)
+    df = pipeline.evaluate_architecture(
+        architecture_name="EmptyRAG",
+        rag_system=EmptyRAG(),
+        synthetic_dataset=[{"question": "q?", "ground_truth": "gt"}],
+    )
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row["num_docs_retrieved"] == 0
+    assert row["precision_omega"] == 0.0
+    assert row["noise_fingerprint_topical"] == 0.0
+
+
+# ── --store shorthand resolution ──────────────────────────────────────────────
+
+def test_store_shorthand_full_and_train_are_distinct_paths():
+    """`full` and `train` must resolve to different directories under DATA_DIR."""
+    from configs.config import DATA_DIR
+    import main as main_mod
+
+    full = main_mod._store_dir(SimpleNamespace(store="full"))
+    train = main_mod._store_dir(SimpleNamespace(store="train"))
+    both_exist = os.path.isdir(full) and os.path.isdir(train)
+    if not both_exist:
+        pytest.skip("Both full/train stores not present on this machine.")
+    assert full == os.path.join(DATA_DIR, "chroma_db_full")
+    assert train == os.path.join(DATA_DIR, "chroma_db_train")
+    assert full != train
+
+
+def test_store_shorthand_rejects_missing_custom_path(caplog):
+    """An explicit --store path that does not exist exits with a clear error."""
+    import logging
+
+    import main as main_mod
+
+    with caplog.at_level(logging.ERROR, logger="main"), pytest.raises(SystemExit):
+        main_mod._store_dir(SimpleNamespace(store="data/_definitely_missing_db_"))
+    assert any("Vector store not found" in rec.message for rec in caplog.records)
+
+
+def test_config_default_vector_store_is_the_full_store():
+    """configs default must match the documented eval/cicd contract."""
+    from configs.config import DATA_DIR, VECTOR_STORE_DIR
+
+    assert VECTOR_STORE_DIR == os.path.join(DATA_DIR, "chroma_db_full")
+
+
+# ── query.py corpus consistency ──────────────────────────────────────────────
+
+def test_query_cli_uses_msmarco_not_squad():
+    """query.py must build its BM25 corpus from MS MARCO, same as the dense store."""
+    root = Path(__file__).resolve().parent.parent
+    src = (root / "query.py").read_text(encoding="utf-8")
+    assert "load_msmarco_documents" in src
+    # The SQuAD fallback must no longer feed retrieval corpora.
+    assert "chunk_documents(load_squad_documents())" not in src
+
+
+# ── index manifest (stale/mismatched index detection) ────────────────────────
+
+def test_index_manifest_written_and_roundtrips(tmp_path):
+    from module1.data_preprocessing import (
+        _check_index_manifest,
+        _index_manifest_path,
+        write_index_manifest,
+    )
+
+    store_dir = tmp_path / "chroma_test_db"
+    store_dir.mkdir()
+    write_index_manifest(str(store_dir), num_chunks=42)
+
+    manifest_path = Path(_index_manifest_path(str(store_dir)))
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["num_chunks"] == 42
+    assert manifest["embedding_model"] == importlib.import_module(
+        "configs.config"
+    ).EMBEDDING_MODEL
+
+    # Compatible manifest → no warnings; incompatible → warning about the model.
+    _check_index_manifest(str(store_dir))  # must not raise
+
+
+def test_index_manifest_warns_on_embedding_model_mismatch(tmp_path, caplog):
+    import logging
+
+    import module1.data_preprocessing as dp
+
+    store_dir = tmp_path / "chroma_misc"
+    store_dir.mkdir()
+    dp.write_index_manifest(str(store_dir), num_chunks=1)
+
+    original = dp.EMBEDDING_MODEL
+    dp.EMBEDDING_MODEL = "sentence-transformers/some-other-model"
+    try:
+        with caplog.at_level(logging.WARNING, logger="module1.data_preprocessing"):
+            dp._check_index_manifest(str(store_dir))
+    finally:
+        dp.EMBEDDING_MODEL = original
+
+    assert any("embedding model" in rec.message.lower() for rec in caplog.records)
+
+
+# ── generation-grounding hardening ───────────────────────────────────────────
+
+def test_answer_prompt_treats_context_as_untrusted():
+    """Retrieved documents may contain hostile instructions; the prompt must say so."""
+    from module2.rag_architectures import ANSWER_PROMPT
+
+    assert "untrusted" in ANSWER_PROMPT.lower()
+    assert "ignore any instructions" in ANSWER_PROMPT.lower()
+    # The formatting contract must stay intact.
+    assert ANSWER_PROMPT.format(context="ctx", question="q?").startswith("You are a")
+
+
+# ── preprocess_full synthetic context quality ────────────────────────────────
+
+def test_selected_context_joins_only_annotated_passages():
+    from preprocess_full import selected_context
+
+    passage_texts = ["Alpha passage.", "Beta passage.", "Gamma passage."]
+    is_selected = [0, 1, 1]
+    ctx = selected_context(passage_texts, is_selected)
+    assert ctx == "Beta passage. Gamma passage."
+
+
+def test_selected_context_no_selected_passages_or_mismatched_lengths():
+    from preprocess_full import selected_context
+
+    assert selected_context(["A.", "B."], [0, 0]) == ""
+    # is_selected shorter than passage list must not raise.
+    assert selected_context(["A.", "B."], [1]) == "A."
+
+
+def test_preprocessing_rejects_invalid_limits_and_chunk_overlap():
+    """Invalid user/configuration bounds fail before a dataset or splitter call."""
+    from module1.data_preprocessing import chunk_documents, load_msmarco_documents
+
+    assert load_msmarco_documents(max_samples=0) == []
+    with pytest.raises(ValueError, match="non-negative"):
+        load_msmarco_documents(max_samples=-1)
+    with pytest.raises(ValueError, match="smaller than chunk_size"):
+        chunk_documents([], chunk_size=10, chunk_overlap=10)

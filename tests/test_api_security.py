@@ -33,7 +33,8 @@ def client_open(monkeypatch):
     The retrieval stack is stubbed because these tests are about request validation,
     not retrieval, and building the real stack needs a persisted vector store.
     """
-    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.setenv("API_KEY", "")
+    monkeypatch.setenv("HOST", "127.0.0.1")
     monkeypatch.setenv("ALLOW_UNAUTHENTICATED", "true")
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:8501")
     import configs.config
@@ -52,7 +53,7 @@ def client_open(monkeypatch):
 
     monkeypatch.setattr(api_mod.CONTEXT, "architectures", lambda: {"naive": _Arch()})
     monkeypatch.setattr(api_mod.CONTEXT, "is_ready", lambda: True)
-    return TestClient(api_mod.app)
+    return TestClient(api_mod.app, client=("127.0.0.1", 50000))
 
 
 class TestApiAuth:

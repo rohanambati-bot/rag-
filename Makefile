@@ -13,16 +13,21 @@ help:
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: install
-install: ## Install dependencies into the current environment
-	$(PY) -m pip install -r requirements.txt
+install: ## Create a project-local environment and install locked dependencies
+	test -x .venv/bin/python || python3.12 -m venv .venv
+	.venv/bin/python -m pip install --requirement requirements.lock
 
 .PHONY: test
-test: ## Run the full test suite
-	$(PY) -m pytest -q
+test: ## Run the full offline test suite without reading private .env files
+	PYTHON_DOTENV_DISABLED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1 GROQ_API_KEY= MISTRAL_API_KEY= OPENROUTER_API_KEY= OPENAI_API_KEY= $(PY) -m pytest -q
 
 .PHONY: lint
 lint: ## Run the CI lint checks (ruff)
 	$(PY) -m ruff check --select E,F,W --ignore E501 .
+
+.PHONY: ui
+ui: ## Run the unauthenticated local-only UI; do not tunnel or proxy
+	$(PY) -m streamlit run app.py --server.address=127.0.0.1 --server.port=8501
 
 .PHONY: eval-retrieval
 eval-retrieval: ## LLM-free retrieval eval, n=500, graded vs human labels (no API cost)

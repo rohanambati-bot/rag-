@@ -1,0 +1,302 @@
+[
+  {
+    "id": "msmarco_83",
+    "question": "does chocolate soothe cramps",
+    "ground_truth": "Yes, chocolate can even reduce pain from menstrual cramps.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_587",
+    "question": "telehealth quiz what is telehealth",
+    "ground_truth": "Telehealth encompasses telemedicine but is a broader term that emphasizes both the delivery of services and the provision of information and education to healthcare providers and consumers.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_967",
+    "question": "titan distance from earth",
+    "ground_truth": "The distance between Titan and Earth is 9.06 AU or 1,355,357,880 km.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_399",
+    "question": "can skilled nursing do cardiac rehabilitation",
+    "ground_truth": "Yes, When the patient is ready to leave the hospital, the cardiac rehabilitation program will continue at an outpatient facility or a skilled-nursing facility.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_653",
+    "question": "temperature sigonella sicily",
+    "ground_truth": "The average maximum temperature in July and August is 32 \u00b0C in sigonella, sicily.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_988",
+    "question": "tom garrett age",
+    "ground_truth": "The age of Tom Garrett is 75.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_836",
+    "question": "the respiratory system is also called what",
+    "ground_truth": "The respiratory system is also called the ventilator system.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_6",
+    "question": "symptoms of a gastric ulcer in women",
+    "ground_truth": "acidic and extremely painful is symptom of a gastric ulcer in women.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_211",
+    "question": "health benefits of greek yogurt",
+    "ground_truth": "Aid digestion and may even help prevent conditions such as irritable bowel syndrome and diarrhea.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_958",
+    "question": "time zones sanford fleming",
+    "ground_truth": "The time zone of Sandford Fleming is from 1827 to 1915.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_398",
+    "question": "difference between palliative and hospice care",
+    "ground_truth": "1 Palliative care is given at any stage of the disease, but hospice is given to terminally ill patients with life expectancy six months or less. 2 Palliative care may be given while the patient is on curative treatment, but hospice is given when no more medicine can do. 3 Palliative care is given usually at an institution such as in a hospital, but hospice is given where the patient prefers to stay, usually at home. 4 Palliative care is a multidisciplinary approach where several teams are involved, but hospice relies upon a family caregiver as well as on a visiting hospice nurse.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_349",
+    "question": "synonym of intersect",
+    "ground_truth": "The Synonyms for intersection is asymptote, axle, bottleneck, center, core, crossing, crux, epitome, essence, focus, forum, funnel, gathering, heart, hub, kernel, lodestar, lure, magnet, marrow, meat, nucleus, plenum, polestar, rally.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_546",
+    "question": "do walmart greeters get paid",
+    "ground_truth": "Yes, Walmart Greeters get paid a level one hourly wage.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_87",
+    "question": "how to cook sausage peppers onions",
+    "ground_truth": "Place the sausage in a large skillet over medium heat, and brown on all sides. Remove from skillet, and slice. Melt butter in the skillet. Stir in the yellow onion, red onion, and garlic, and cook 2 to 3 minutes. Mix in red bell pepper and green bell pepper. Season with basil, and oregano. Stir in white wine.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_310",
+    "question": "how does the cheetah run so fast (kids)",
+    "ground_truth": "Because, It is born with traits that let it run fast.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_955",
+    "question": "ani palmer",
+    "ground_truth": "Ani Palmer is a speech language pathologist in Livingston, MT. She specializes in speech language pathology.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_339",
+    "question": "average water use per household",
+    "ground_truth": "200 gallons per day",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_500",
+    "question": "why do puppies lick their owners",
+    "ground_truth": "Puppies lick their owners to communicate and to express their affection. The communication can include information, such as how hungry the dog is.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_95",
+    "question": "how caitriona balfe got role in outlander",
+    "ground_truth": "Caitriona Balfe\u2019s role in Outlander has brought her critical acclaim and several awards over the last two years. She\u2019s a two-time time winner of the Favourite Cable Sci-Fi/Fantasy TV Actress award at the People\u2019s Choice Awards and a two-time winner at the EWwy Awards for Best Actress in a Drama Series",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_353",
+    "question": "How long does it take to boil an egg",
+    "ground_truth": "10-12 minutes",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_868",
+    "question": "theoretical time definition",
+    "ground_truth": "A theoretical definition is an abstract concept that defines a term in an academic discipline.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_114",
+    "question": "how big is an ancient pyramids",
+    "ground_truth": "52,600 square metres of The Great Pyramid of Giza.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_551",
+    "question": "tamponade origin meaning",
+    "ground_truth": "The French verb tamponner means to plug up and, also, to smash into.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_439",
+    "question": "fashion define",
+    "ground_truth": "Fashion is defined as a popular way of dressing or speaking.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_755",
+    "question": "the elastic cartilage that shields the opening to the larynx during swallowing is the __________.",
+    "ground_truth": "The elastic cartilage that shield the opening to the larynx during swallowing is the epiglottis cartilage.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_925",
+    "question": "time in korea vs usa",
+    "ground_truth": "South Korea is 14:0 hours ahead of USA.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_473",
+    "question": "age for infant to hold up head",
+    "ground_truth": "Most of the babies do not require much head support at or around 4 months of age.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_391",
+    "question": "synonyms for lava",
+    "ground_truth": "Synonyms for lava are volcanic rock, pahoehoe, pillow lava.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_377",
+    "question": "how cold does shower water get",
+    "ground_truth": "10C",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_371",
+    "question": "definition of raa",
+    "ground_truth": "It represents north american regional airlines.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_900",
+    "question": "tidal zone definition",
+    "ground_truth": "The inter tidal zone, also known as the foreshore and seashore and sometimes referred to as the littoral zone, is the area that is above water at low tide and under water at high tide.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_489",
+    "question": "synonyms people",
+    "ground_truth": "People means any group of human beings.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_427",
+    "question": "definition of tenacity",
+    "ground_truth": "The act of holding fast, from tenax (gen. tenacis) tough, holding fast, from tenere to hold (see tenet).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_876",
+    "question": "things to drink when you have a cold",
+    "ground_truth": "When you have a cold, drink tea, soup, use spices like turmeric, ginger, and garlic, consume some honey.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_867",
+    "question": "the word said hello in swedish",
+    "ground_truth": "Hej is the Swedish word for hello.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_287",
+    "question": "how much does medical coders make",
+    "ground_truth": "$34,000 and $57,000 a year for certified medical coders.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_257",
+    "question": "how to cook string beans",
+    "ground_truth": "Cut the ends off of the string beans. Cut the beans in half or 1-inch slices, if desired. Bring the salt and water to a boil in the saucepan over high heat. Place the vegetable steamer above the boiling water so that the water does not enter the steamer. Fill the steamer with the prepared string beans.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_236",
+    "question": "circulation money definition",
+    "ground_truth": "Circulation of money is defined as a piece of writing circulates or is circulated, copies of it are passed round among a group of people.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_944",
+    "question": "time period of ancient ghana",
+    "ground_truth": "The time period of ancient Ghana is from the year 300 until around 1200.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_276",
+    "question": "syncopate meaning",
+    "ground_truth": "The meaning of syncopate is to modify or treat.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_665",
+    "question": "angela duckworth what is grit",
+    "ground_truth": "Angela Lee Duckworth is an American academic, psychologist and popular science author.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_74",
+    "question": "define asiatic cholera bacteria",
+    "ground_truth": "It is caused by bacteria and characterized by profuse diarrhea, intestinal pain, and dehydration.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_542",
+    "question": "how to become a resident of nc",
+    "ground_truth": "Have 12 months of physical presence in North Carolina. Have the financial and legal ability to establish a domicile. Demonstrate the intent to make North Carolina your home aside from attending school.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_321",
+    "question": "how many years do yu need to work on a job before you can retire form that job",
+    "ground_truth": "You can retire at the age of 65 years with five or more years of service credit, or at the age 60 with five or more years of service credit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_468",
+    "question": "can you return redbox anywhere",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_589",
+    "question": "telephone number for access insurance",
+    "ground_truth": "The customer support phone number of Access Insurance is plus 1 800-817-9744.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_254",
+    "question": "symptoms of whooping cough in adults webmd",
+    "ground_truth": "The symptoms of whooping cough in adults are Mild coughing, Sneezing, Runny nose, and Low fever.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_93",
+    "question": "how long does a woman's cycle last",
+    "ground_truth": "3-5 days",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_730",
+    "question": "the definition of bioclimate",
+    "ground_truth": "Bioclimate is a climate, as it influences, and is influenced by, biological organisms.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_840",
+    "question": "the role of the parasympathetic nervous system is to _____________.",
+    "ground_truth": "The roles of the parasympathetic nervous system are to Regulating digestion, Regulating sexual arousal and Slowing the heart rate and lowering the blood pressure after the sympathetic nervous system has activated the fight or flight response.",
+    "query_type": "DESCRIPTION"
+  }
+]

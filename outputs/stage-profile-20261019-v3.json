@@ -1,0 +1,103 @@
+{
+  "n": 10,
+  "initialization_seconds": 3.1933172079734504,
+  "device": "mps",
+  "individual": [
+    {
+      "question": "What is a corporation?",
+      "candidate_count": 90,
+      "dense_top5_ms": 12.140542035922408,
+      "first_stage_ms": 18.95704196067527,
+      "cross_encoder_ms": 2656.6242499975488
+    },
+    {
+      "question": "What is deep learning?",
+      "candidate_count": 88,
+      "dense_top5_ms": 19.57683399086818,
+      "first_stage_ms": 37.081916991155595,
+      "cross_encoder_ms": 1024.2692080209963
+    },
+    {
+      "question": "What is the capital of France?",
+      "candidate_count": 91,
+      "dense_top5_ms": 12.800749973393977,
+      "first_stage_ms": 32.91420795721933,
+      "cross_encoder_ms": 1305.30574999284
+    },
+    {
+      "question": "How long does a chicken bake?",
+      "candidate_count": 89,
+      "dense_top5_ms": 11.552582960575819,
+      "first_stage_ms": 25.943833985365927,
+      "cross_encoder_ms": 1067.5468749832362
+    },
+    {
+      "question": "What is a bank account?",
+      "candidate_count": 86,
+      "dense_top5_ms": 10.081416985485703,
+      "first_stage_ms": 26.94391697878018,
+      "cross_encoder_ms": 1304.34149998473
+    },
+    {
+      "question": "What is a corporation?",
+      "candidate_count": 90,
+      "dense_top5_ms": 8.943041961174458,
+      "first_stage_ms": 18.84370803600177,
+      "cross_encoder_ms": 876.2632080470212
+    },
+    {
+      "question": "What is deep learning?",
+      "candidate_count": 88,
+      "dense_top5_ms": 8.312500023748726,
+      "first_stage_ms": 17.48829201096669,
+      "cross_encoder_ms": 814.680999959819
+    },
+    {
+      "question": "What is the capital of France?",
+      "candidate_count": 91,
+      "dense_top5_ms": 8.861124981194735,
+      "first_stage_ms": 23.142832971643656,
+      "cross_encoder_ms": 1018.9091670326889
+    },
+    {
+      "question": "How long does a chicken bake?",
+      "candidate_count": 89,
+      "dense_top5_ms": 23.896832950413227,
+      "first_stage_ms": 20.04433301044628,
+      "cross_encoder_ms": 846.7025409918278
+    },
+    {
+      "question": "What is a bank account?",
+      "candidate_count": 86,
+      "dense_top5_ms": 8.222875010687858,
+      "first_stage_ms": 18.896916997618973,
+      "cross_encoder_ms": 990.7699160394259
+    }
+  ],
+  "summaries": {
+    "dense_top5_ms": {
+      "n": 10,
+      "mean_ms": 12.438850087346509,
+      "p50_ms": 10.81699997303076,
+      "p95_ms": 21.952833418617953,
+      "p99_ms": 23.508033044054173
+    },
+    "first_stage_ms": {
+      "n": 10,
+      "mean_ms": 24.025700089987367,
+      "p50_ms": 21.59358299104497,
+      "p95_ms": 35.20644792588427,
+      "p99_ms": 36.70682317810133
+    },
+    "cross_encoder_ms": {
+      "n": 10,
+      "mean_ms": 1190.5413415050134,
+      "p50_ms": 1021.5891875268426,
+      "p95_ms": 2048.5309249954284,
+      "p99_ms": 2535.005584997125
+    }
+  },
+  "peak_rss_mib": 995.46875,
+  "provider_calls": 0,
+  "scope": "One fresh process, cached model files, five fixed queries repeated twice; not production capacity"
+}

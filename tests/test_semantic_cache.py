@@ -59,15 +59,30 @@ class NearEmbedder:
         return (base / np.linalg.norm(base)).tolist()
 
 
+class ExpiryRankingEmbedder:
+    """Make one expired entry rank above a still-valid entry."""
+
+    def embed_query(self, text: str):
+        if text == "old":
+            vec = np.array([1.0, 0.0], dtype=np.float32)
+        elif text == "live":
+            vec = np.array([0.99, 0.1], dtype=np.float32)
+        else:
+            vec = np.array([1.0, 0.0], dtype=np.float32)
+        return (vec / np.linalg.norm(vec)).tolist()
+
+
 def _cache(embedder=None, **kwargs) -> SemanticCache:
     """Cache with Redis disabled, so tests exercise the in-process index only."""
-    return SemanticCache(
+    cache = SemanticCache(
         embedding_model=embedder or FakeEmbedder(),
         warm_start=False,
         redis_host="127.0.0.1",
         redis_port=1,          # nothing listens here → in-process only
         **kwargs,
     )
+    cache._redis, cache._use_redis, cache._generation_supported = None, False, False
+    return cache
 
 
 # ── Correctness ────────────────────────────────────────────────────────────────
@@ -112,6 +127,12 @@ class TestCorrectness:
         c = _cache()
         c.store("q", "a", ["ctx-1", "ctx-2"])
         assert c.lookup("q")["contexts"] == ["ctx-1", "ctx-2"]
+
+    def test_citations_round_trip(self):
+        c = _cache()
+        citations = [{"context_index": 1, "source": "fixture.txt", "page": 2}]
+        c.store("q", "a", ["ctx"], citations=citations)
+        assert c.lookup("q")["citations"] == citations
 
     def test_missing_embedder_degrades_to_miss(self):
         c = _cache()
@@ -248,6 +269,17 @@ class TestCapacityAndExpiry:
         time.sleep(1.1)
         assert c.lookup("q") is None
 
+    def test_expired_nearest_entry_does_not_hide_valid_next_match(self):
+        c = _cache(ExpiryRankingEmbedder(), ttl_seconds=60)
+        c.store("old", "old answer", [])
+        c.store("live", "live answer", [])
+        old_key = c._cache_key("old")
+        c._entries[c._key_to_row[old_key]].timestamp -= 120
+
+        hit = c.lookup("same topic")
+        assert hit is not None
+        assert hit["answer"] == "live answer"
+
     def test_zero_ttl_means_no_expiry(self):
         c = _cache(ttl_seconds=0)
         c.store("q", "a", [])
@@ -344,11 +376,15 @@ class TestScaling:
 
 class TestCacheEntry:
     def test_json_round_trip(self):
-        entry = CacheEntry(query="q", answer="a", contexts=["c"], embedding=[0.1, 0.2])
+        entry = CacheEntry(
+            query="q", answer="a", contexts=["c"],
+            citations=[{"context_index": 1}], embedding=[0.1, 0.2],
+        )
         restored = CacheEntry.from_json(entry.to_json())
         assert restored.query == "q"
         assert restored.answer == "a"
         assert restored.contexts == ["c"]
+        assert restored.citations == [{"context_index": 1}]
         assert restored.embedding == [0.1, 0.2]
 
     def test_expiry_predicate(self):
