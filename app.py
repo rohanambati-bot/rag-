@@ -209,16 +209,24 @@ def _get_architectures():
     return LazyArchitectureMap()
 
 
+def _cache_registry_key(architecture: str) -> str:
+    """Map a UI architecture display name to its registry/session-cache key."""
+    from module2.rag_architectures import ARCHITECTURE_REGISTRY
+    return next((key for key, meta in ARCHITECTURE_REGISTRY.items()
+                 if meta["name"] == architecture), architecture)
+
+
 def _get_cache(architecture: str = "naive"):
     from phase3.semantic_cache import SemanticCache
-    from module2.rag_architectures import ARCHITECTURE_REGISTRY
-    key = next((key for key, meta in ARCHITECTURE_REGISTRY.items()
-                if meta["name"] == architecture), architecture)
+    key = _cache_registry_key(architecture)
     from serving import CONTEXT
     identity = CONTEXT.generation_identity(key)
     # Never reuse API/shared-corpus answer caches for private browser queries.
+    # 'local' keeps the UI usable when Redis isn't running on this host: fencing
+    # then falls back to local-only epochs (fine for one Streamlit process),
+    # whereas 'miss' would fence every request off (fail closed for Redis).
     return session_cache(st.session_state, key, lambda namespace: SemanticCache(
-        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="miss",
+        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="local",
         index_identity=identity, identity_provider=lambda: CONTEXT._cache_namespace(key),
     ))
 
@@ -243,7 +251,7 @@ def _get_upload_generation_cache(uploader, architecture):
 
     current = identity()
     return session_cache(state, f"upload:{architecture}:{current}", lambda namespace: SemanticCache(
-        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="miss",
+        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="local",
         index_identity=current, identity_provider=identity,
     ))
 
@@ -343,9 +351,22 @@ def page_chat():
             placeholder = st.empty()
             placeholder.markdown("_Thinking…_")
             try:
-                from phase3.semantic_cache import require_generation_cache
-                cache = require_generation_cache(_get_cache(arch_choice))
-                token = cache.begin_generation()
+                from phase3.semantic_cache import (
+                    GenerationFencedError, require_generation_cache,
+                )
+                try:
+                    cache = require_generation_cache(_get_cache(arch_choice))
+                    token = cache.begin_generation()
+                except GenerationFencedError:
+                    # The index identity is re-stat'ed at request time, and simply
+                    # OPENING the store (Chroma catalog churn) can advance it while
+                    # this session is idle. Recovery is honest: the fence already
+                    # guarantees stale entries are not reused, so drop this
+                    # session's private cache and rebind to the fresh identity.
+                    session_key = _cache_registry_key(arch_choice)
+                    st.session_state.get("_private_answer_caches", {}).pop(session_key, None)
+                    cache = require_generation_cache(_get_cache(arch_choice))
+                    token = cache.begin_generation()
                 cached = cache.lookup_generation(token, query) if use_cache else None
 
                 if cached:

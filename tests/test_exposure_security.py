@@ -149,10 +149,11 @@ def test_actual_ui_resource_functions_keep_cache_and_uploads_in_session(monkeypa
     # No live Redis; actual semantic cache indexes and actual ephemeral upload stores.
     monkeypatch.setattr(SemanticCache, "_connect_redis", lambda *args: None)
     # Exercise private in-process session separation independently of Redis policy.
+    # The app requests the availability-retaining "local" policy for the local-only
+    # UI (fencing falls back to local-only epochs when Redis is absent).
     real_cache_init = SemanticCache.__init__
     def local_cache_init(self, *args, **kwargs):
-        assert kwargs["redis_failure_policy"] == "miss"
-        kwargs["redis_failure_policy"] = "local"
+        assert kwargs["redis_failure_policy"] == "local"
         real_cache_init(self, *args, **kwargs)
     monkeypatch.setattr(SemanticCache, "__init__", local_cache_init)
     from serving import CONTEXT
@@ -165,7 +166,7 @@ def test_actual_ui_resource_functions_keep_cache_and_uploads_in_session(monkeypa
     st = SimpleNamespace(session_state={})
     env = {"st": st, "session_cache": session_cache, "session_resource": session_resource,
            "_get_embedding_model": Embedder}
-    exec(_app_functions("_get_cache", "_get_uploader"), env)
+    exec(_app_functions("_get_cache", "_get_uploader", "_cache_registry_key"), env)
     alice_state = st.session_state
     alice_cache, alice = env["_get_cache"](), env["_get_uploader"]()
     assert isinstance(alice, uploads.DocumentUploader)
