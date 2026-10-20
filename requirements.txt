@@ -11,8 +11,8 @@ langchain-text-splitters>=0.3.9,<0.4
 langchain-huggingface==0.2.0
 sentence-transformers==3.3.1
 transformers==4.46.3
-torch==2.5.1
-torchvision==0.20.1
+torch==2.6.0
+torchvision==0.21.0
 
 # ─── Vector Stores ─────────────────────────────────────────────────────────────
 chromadb>=1.0.9

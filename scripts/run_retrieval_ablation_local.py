@@ -23,7 +23,6 @@ import json
 import os
 import platform
 from pathlib import Path
-import shutil
 import sys
 import tempfile
 import time
@@ -325,6 +324,7 @@ def _load_local_components(contract: Any, store_path: Path) -> Tuple[Any, Any, A
 
 def run(args: argparse.Namespace) -> int:
     _configure_offline_environment()
+    from module1.data_preprocessing import copy_vector_store
     from configs.config import RERANK_CANDIDATES, TOP_K
     from scripts.retrieval_ablation import AblationHarness
 
@@ -340,7 +340,7 @@ def run(args: argparse.Namespace) -> int:
     # copy preserves the source store, including its unknown legacy manifest.
     with tempfile.TemporaryDirectory(prefix="ablation-", dir=ROOT / "data") as temp_dir:
         copied_store = Path(temp_dir) / "store"
-        shutil.copytree(store_path, copied_store)
+        copy_vector_store(str(store_path), str(copied_store))
         dense, bm25, reranker, package_metadata = _load_local_components(contract, copied_store)
         package_metadata["experiment"]["store_path"] = _relative_or_name(store_path)
         harness = AblationHarness(

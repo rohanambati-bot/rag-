@@ -11,7 +11,6 @@ from pathlib import Path
 import platform
 import resource
 import secrets
-import shutil
 import socket
 import subprocess
 import sys
@@ -74,6 +73,7 @@ def profile_stages(store_path: Path) -> dict:
     """Time the actual first-stage and cross-encoder paths separately, n=10."""
     from module1.data_preprocessing import (
         get_embedding_model, load_vector_store, chunk_documents, load_msmarco_documents,
+        copy_vector_store,
     )
     from module2.rag_architectures import NaiveRAG, RerankRAG, _reranker
 
@@ -82,7 +82,7 @@ def profile_stages(store_path: Path) -> dict:
                  "What is a bank account?"] * 2
     with tempfile.TemporaryDirectory(prefix="stage-validation-", dir=ROOT / "data") as temp:
         copied = Path(temp) / "store"
-        shutil.copytree(store_path, copied)
+        copy_vector_store(str(store_path), str(copied))
         started = time.perf_counter()
         embedder = get_embedding_model()
         store = load_vector_store(embedder, str(copied))
@@ -143,6 +143,7 @@ async def batch(base, headers, questions, concurrency, use_cache, architecture="
 
 
 def run(args):
+    from module1.data_preprocessing import copy_vector_store
     out = ROOT / args.out
     if out.exists() or out.with_suffix(".log").exists():
         raise FileExistsError("Choose a new --out; existing receipts are never overwritten")
@@ -157,7 +158,7 @@ def run(args):
               "cache_microbenchmark": cache_workload(), "batches": []}
     with tempfile.TemporaryDirectory(prefix="serving-validation-", dir=ROOT / "data") as temp:
         copied = Path(temp) / "store"
-        shutil.copytree(ROOT / args.store, copied)
+        copy_vector_store(str(ROOT / args.store), str(copied))
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]

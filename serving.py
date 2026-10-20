@@ -35,9 +35,7 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from configs.config import (  # noqa: E402
-    DATASET_SUBSET_SIZE, VECTOR_STORE_DIR,
-)
+from configs.config import VECTOR_STORE_DIR  # noqa: E402
 from observability import METRICS, get_logger  # noqa: E402
 
 logger = get_logger(__name__)
@@ -70,10 +68,12 @@ class ServingContext:
         self._available_keys: Optional[List[str]] = None
         self._cache = None
         self._caches: Dict[str, Any] = {}
+        self._resource_identities: Dict[str, str] = {}
         self._ready = False
         self._degraded_reason: Optional[str] = None
         self._arch_count = 0
         self._cache_ready = False
+        self._lifecycle_generation = 0
         self.started_at = time.time()
 
     # ── resources ──────────────────────────────────────────────────────────────
@@ -114,6 +114,7 @@ class ServingContext:
                         "before serving."
                     )
                 logger.info("Loading vector store.", extra={"path": VECTOR_STORE_DIR})
+                self.generation_identity("naive")
                 self._vectorstore = load_vector_store(self.embedding())
             return self._vectorstore
 
@@ -129,11 +130,21 @@ class ServingContext:
         with self._lock:
             if self._chunks is None:
                 from module1.data_preprocessing import (
-                    chunk_documents, load_msmarco_documents,
+                    documents_from_vector_store, read_index_manifest,
+                    verify_corpus_side_data,
                 )
-                logger.info("Building chunk corpus (MS MARCO).",
-                            extra={"max_samples": DATASET_SUBSET_SIZE})
-                self._chunks = chunk_documents(load_msmarco_documents())
+                manifest = read_index_manifest(VECTOR_STORE_DIR)
+                if manifest["scope"] not in {"full", "dev"}:
+                    raise RuntimeError(
+                        f"Unsupported serving corpus scope {manifest['scope']!r}; "
+                        "build a full or development index explicitly."
+                    )
+                self._chunks = documents_from_vector_store(self.vectorstore())
+                verify_corpus_side_data(manifest, self._chunks, required=("bm25", "graph", "qrels"))
+                logger.info(
+                    "Using dense index corpus for sparse/graph side views.",
+                    extra={"scope": manifest["scope"], "chunks": len(self._chunks)},
+                )
             return self._chunks
 
     def architectures(self) -> Dict[str, Any]:
@@ -159,6 +170,7 @@ class ServingContext:
                     key for key in ARCHITECTURE_KEYS
                     if ARCHITECTURE_REGISTRY[key]["llm_free"]
                 ]
+                self.generation_identity("naive")
                 self._architectures = build_all_architectures(
                     vectorstore=self.vectorstore(),
                     chunks=self.chunks(),
@@ -213,6 +225,19 @@ class ServingContext:
     def architecture_names(self) -> List[str]:
         return self.available_keys()
 
+    def generation_identity(self, architecture: str) -> str:
+        """Bind every architecture to the resource contract before first use.
+
+        A worker that opens a new architecture cache after an index/config change
+        must not bless its already-loaded old resources with the new namespace.
+        """
+        with self._lock:
+            if not self._resource_identities:
+                self._resource_identities = {
+                    key: self._cache_namespace(key) for key in self.available_keys()
+                }
+            return self._resource_identities[architecture]
+
     def cache(self, architecture: str = "naive"):
         if architecture in self._caches:
             return self._caches[architecture]
@@ -221,9 +246,11 @@ class ServingContext:
                 if architecture not in self.available_keys():
                     raise KeyError(architecture)
                 from phase3.semantic_cache import SemanticCache
+                identity = self.generation_identity(architecture)
                 self._caches[architecture] = SemanticCache(
                     embedding_model=self.embedding(),
-                    namespace=self._cache_namespace(architecture),
+                    namespace=identity, index_identity=identity,
+                    identity_provider=lambda: self._cache_namespace(architecture),
                     redis_failure_policy="miss",
                 )
                 if architecture == "naive":
@@ -231,21 +258,27 @@ class ServingContext:
             return self._caches[architecture]
 
     def _cache_namespace(self, architecture: str) -> str:
-        """Version answers by restart-time source/model contract, not just query.
+        """Capture source/model identity and recheck it at request boundaries.
 
         The service does not hot-reload stores. Stop readers before rebuilding and
-        restart after publication. Legacy unscoped Redis entries are not reused.
+        restart after publication. A changed contract fences outstanding work and
+        refuses use of the old cache; legacy unscoped Redis entries are not reused.
         """
         from configs import config as cfg
         sqlite_path = os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3")
         stat = os.stat(sqlite_path)
-        source_key = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        manifest_path = os.path.join(VECTOR_STORE_DIR, "_index_manifest.json")
+        manifest_stat = os.stat(manifest_path) if os.path.isfile(manifest_path) else None
+        source_key = (stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns,
+                      None if manifest_stat is None else (
+                          manifest_stat.st_ino, manifest_stat.st_size,
+                          manifest_stat.st_mtime_ns, manifest_stat.st_ctime_ns,
+                      ))
         if getattr(self, "_source_key", None) != source_key:
             digest = hashlib.sha256()
             with open(sqlite_path, "rb") as source:
                 for block in iter(lambda: source.read(1024 * 1024), b""):
                     digest.update(block)
-            manifest_path = os.path.join(VECTOR_STORE_DIR, "_index_manifest.json")
             if os.path.isfile(manifest_path):
                 with open(manifest_path, "rb") as manifest:
                     digest.update(manifest.read())
@@ -279,7 +312,16 @@ class ServingContext:
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
-    def warmup(self) -> None:
+    def begin_warmup(self) -> int:
+        """Invalidate older warmups and return the generation they may publish."""
+        with self._state_lock:
+            self._lifecycle_generation += 1
+            self._ready = False
+            self._cache_ready = False
+            self._degraded_reason = None
+            return self._lifecycle_generation
+
+    def warmup(self, generation: Optional[int] = None) -> None:
         """
         Build everything up front and record readiness.
 
@@ -287,27 +329,41 @@ class ServingContext:
         will keep it out of the load-balancer rotation instead of routing traffic to a
         broken instance.
         """
-        try:
-            archs = self.architectures()
-            cache = self.cache()
+        if generation is None:
             with self._state_lock:
-                self._ready = True
-                self._degraded_reason = None
-                self._arch_count = len(archs)
-                self._cache_ready = bool(cache and cache.healthy())
+                generation = self._lifecycle_generation
+        # Keep shutdown from clearing resources between the final build and the
+        # readiness publication. Shutdown waits for this short critical section.
+        with self._lock:
+            with self._state_lock:
+                if generation != self._lifecycle_generation:
+                    return
+            try:
+                archs = self.architectures()
+                cache = self.cache()
+                with self._state_lock:
+                    if generation != self._lifecycle_generation:
+                        return
+                    self._ready = True
+                    self._degraded_reason = None
+                    self._arch_count = len(archs)
+                    self._cache_ready = bool(cache and cache.healthy())
+            except Exception as exc:  # noqa: BLE001
+                with self._state_lock:
+                    if generation == self._lifecycle_generation:
+                        self._ready = False
+                        self._degraded_reason = str(exc)
+                logger.error("Warmup failed — service NOT ready.", extra={"error": str(exc)})
+                return
             logger.info("Warmup complete — service ready.",
                         extra={"architectures": self._arch_count})
-        except Exception as exc:  # noqa: BLE001
-            with self._state_lock:
-                self._ready = False
-                self._degraded_reason = str(exc)
-            logger.error("Warmup failed — service NOT ready.", extra={"error": str(exc)})
 
     def shutdown(self) -> None:
         """Release references so Chroma/torch can free resources deterministically."""
         # Flip readiness first (cheap lock) so no new work is admitted while we tear
         # down, then release resources under the build lock.
         with self._state_lock:
+            self._lifecycle_generation += 1
             self._ready = False
             self._cache_ready = False
         with self._lock:
@@ -316,6 +372,7 @@ class ServingContext:
             self._chunks = None
             self._cache = None
             self._caches.clear()
+            self._resource_identities.clear()
         logger.info("Serving context shut down.")
 
     # ── health ─────────────────────────────────────────────────────────────────

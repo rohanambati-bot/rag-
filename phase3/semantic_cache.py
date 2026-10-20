@@ -19,7 +19,7 @@ This module instead keeps the hot path entirely in-process:
   lookup is one BLAS call rather than N Python iterations. When ``hnswlib`` is
   installed an approximate-nearest-neighbour index is used instead, giving
   sub-linear search for large caches.
-* **Redis is persistence, not the normal hot path.** It is read once at startup
+* **Redis persists entries and owns shared generation authority.** It is read at startup
   (via ``SCAN`` + batched ``MGET``, never ``KEYS``) and written through on store,
   so multiple workers share entries and survive restarts. A small generation token
   is polled to invalidate a warm local index after another worker clears or updates
@@ -31,11 +31,13 @@ This module instead keeps the hot path entirely in-process:
 * **Thread-safe.** A reentrant lock guards index mutation, because FastAPI serves
   requests from a thread pool.
 
-Generation polling is configurable. Setting ``generation_poll_interval=None``
-disables it for deployments that require a completely Redis-free lookup path; in
-that mode a warm worker cannot know that another process changed Redis until it is
-restarted or explicitly refreshed. That limitation is intentional and must not be
-treated as strong cross-worker invalidation.
+Legacy availability lookups can disable snapshot polling. Strict ``'miss'``
+lookups and the request-token API always verify shared revocation authority;
+polling opt-outs do not weaken the supported API/UI/wrapper boundary. Ordinary
+stores rotate the snapshot version only; atomic clear rotates a separate random
+revocation epoch. Request tokens are captured before generation and Redis Lua
+conditionally publishes against that epoch. Direct ``store`` is a compatibility
+operation and cannot fence work that happened before its call.
 
 Metrics (hits, misses, evictions, lookup latency) are exposed for scraping.
 """
@@ -51,7 +53,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -64,13 +66,75 @@ from configs.config import (  # noqa: E402
 logger = logging.getLogger(__name__)
 
 # Redis key namespace. The index set lets us enumerate entries without KEYS.
-_KEY_PREFIX = "rag_cache:v3:default:entry:"
-_INDEX_SET = "rag_cache:v3:default:index"
+_KEY_PREFIX = "rag_cache:v4:default:entry:"
+_INDEX_SET = "rag_cache:v4:default:index"
 _GENERATION_SUFFIX = "generation"
 
 # Cap the in-process matrix. 50k x 384 float32 is ~77 MB, a reasonable ceiling for
 # a single worker; beyond this the LRU evicts.
 DEFAULT_MAX_ENTRIES = int(os.getenv("CACHE_MAX_ENTRIES", "50000"))
+
+
+class GenerationFencedError(RuntimeError):
+    """Work was revoked, changed scope, or could not be verified. Do not serve it."""
+
+
+def require_generation_cache(cache):
+    """Reject old cache adapters at serving boundaries, rather than unsafe fallback."""
+    if not all(callable(getattr(cache, name, None)) for name in (
+        "begin_generation", "lookup_generation", "publish_generation", "validate_generation",
+    )):
+        raise GenerationFencedError("Cache adapter does not support generation fencing.")
+    return cache
+
+
+@dataclass(frozen=True)
+class GenerationToken:
+    """Request-start authority; snapshot versions deliberately are NOT authority.
+
+    Tokens are instance-bound and include the namespace and index/config identity.
+    A successful ordinary publication changes only the snapshot version, so other
+    outstanding generations remain valid. Clear rotates random revocation epochs.
+    """
+
+    instance: str
+    namespace: str
+    index_identity: str
+    local_epoch: str
+    shared_epoch: Optional[str]
+
+
+_BEGIN_GENERATION_LUA = """-- fencing:begin
+local epoch = redis.call('GET', KEYS[1])
+if not epoch then
+    epoch = ARGV[1]
+    redis.call('SET', KEYS[1], epoch)
+    redis.call('SET', KEYS[2], ARGV[2])
+end
+return epoch
+"""
+
+_PUBLISH_GENERATION_LUA = """-- fencing:publish
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+if tonumber(ARGV[4]) > 0 then
+    redis.call('SET', KEYS[3], ARGV[3], 'EX', ARGV[4])
+else
+    redis.call('SET', KEYS[3], ARGV[3])
+end
+redis.call('SADD', KEYS[4], ARGV[2])
+redis.call('SET', KEYS[2], ARGV[5])
+return 1
+"""
+
+_CLEAR_GENERATION_LUA = """-- fencing:clear
+for _, member in ipairs(redis.call('SMEMBERS', KEYS[1])) do
+    redis.call('DEL', ARGV[1] .. member)
+end
+redis.call('DEL', KEYS[1])
+redis.call('SET', KEYS[2], ARGV[2])
+redis.call('SET', KEYS[3], ARGV[3])
+return 1
+"""
 
 
 @dataclass
@@ -83,6 +147,7 @@ class CacheEntry:
     timestamp: float = field(default_factory=time.time)
     last_access: float = field(default_factory=time.time)
     hit_count: int = 0
+    revocation_epoch: Optional[str] = None
 
     def is_expired(self, ttl_seconds: int) -> bool:
         return ttl_seconds > 0 and (time.time() - self.timestamp) > ttl_seconds
@@ -97,6 +162,7 @@ class CacheEntry:
             "timestamp": self.timestamp,
             "last_access": self.last_access,
             "hit_count": self.hit_count,
+            "revocation_epoch": self.revocation_epoch,
         }).encode()
 
     @classmethod
@@ -111,6 +177,7 @@ class CacheEntry:
             timestamp=data.get("timestamp", time.time()),
             last_access=data.get("last_access", data.get("timestamp", time.time())),
             hit_count=data.get("hit_count", 0),
+            revocation_epoch=data.get("revocation_epoch"),
         )
 
 
@@ -266,6 +333,8 @@ class SemanticCache:
         namespace: str = "",
         generation_poll_interval: Optional[float] = 0.0,
         redis_failure_policy: str = "local",
+        index_identity: Optional[str] = None,
+        identity_provider: Optional[Callable[[], str]] = None,
     ):
         if max_entries <= 0:
             raise ValueError("max_entries must be positive")
@@ -286,12 +355,18 @@ class SemanticCache:
         # Never mix answers from different architectures, corpora, or generators.
         # Hash the public configuration namespace, not credentials or query text.
         scope = hashlib.sha256(namespace.encode()).hexdigest() if namespace else ""
-        self._key_prefix = f"rag_cache:v3:{scope}:entry:" if scope else _KEY_PREFIX
-        self._index_set = f"rag_cache:v3:{scope}:index" if scope else _INDEX_SET
+        self._namespace_identity = scope or "default"
+        self._instance_identity = uuid.uuid4().hex
+        self._local_epoch = uuid.uuid4().hex
+        self._index_identity = index_identity if index_identity is not None else namespace
+        self._identity_provider = identity_provider
+        self._key_prefix = f"rag_cache:v4:{scope}:entry:" if scope else _KEY_PREFIX
+        self._index_set = f"rag_cache:v4:{scope}:index" if scope else _INDEX_SET
         self._generation_key = (
-            f"rag_cache:v3:{scope}:{_GENERATION_SUFFIX}" if scope
-            else f"rag_cache:v3:default:{_GENERATION_SUFFIX}"
+            f"rag_cache:v4:{scope}:{_GENERATION_SUFFIX}" if scope
+            else f"rag_cache:v4:default:{_GENERATION_SUFFIX}"
         )
+        self._revocation_key = f"rag_cache:v4:{self._namespace_identity}:revocation"
         self._generation_poll_interval = generation_poll_interval
         self._generation: Optional[Any] = None
         self._generation_last_checked = 0.0
@@ -506,6 +581,12 @@ class SemanticCache:
         round-trips instead of O(n).
         """
         try:
+            epoch = None
+            if callable(getattr(self._redis, "eval", None)):
+                raw_epoch = self._redis.get(self._revocation_key)
+                if raw_epoch is None:
+                    return False
+                epoch = raw_epoch.decode() if isinstance(raw_epoch, bytes) else str(raw_epoch)
             members = list(self._redis.sscan_iter(self._index_set, count=500))
             if not members:
                 return True
@@ -525,6 +606,8 @@ class SemanticCache:
                     except Exception:  # noqa: BLE001
                         continue
                     if entry.is_expired(self.ttl_seconds):
+                        continue
+                    if epoch is not None and entry.revocation_epoch != epoch:
                         continue
                     self._insert_local(self._cache_key(entry.query), entry)
                     loaded += 1
@@ -613,7 +696,140 @@ class SemanticCache:
 
     # ── public API ─────────────────────────────────────────────────────────────
 
+    def _check_identity(self) -> None:
+        if self._identity_provider is not None:
+            try:
+                current = self._identity_provider()
+            except Exception as exc:
+                raise GenerationFencedError("Index/config identity is unavailable.") from exc
+            if current != self._index_identity:
+                self._clear_local()
+                raise GenerationFencedError("Index/config identity changed; restart serving resources.")
+
+    def begin_generation(self) -> GenerationToken:
+        """Capture BEFORE retrieval, lazy construction, embedding or generation.
+
+        Strict shared fencing requires Redis EVAL. Local-only fencing is available
+        only with the explicit availability policy and no configured Redis client;
+        legacy adapters never silently become a supported serving boundary.
+        """
+        with self._lock:
+            self._check_identity()
+            shared_epoch = None
+            if self._use_redis:
+                try:
+                    raw = self._redis.eval(
+                        _BEGIN_GENERATION_LUA, 2, self._revocation_key,
+                        self._generation_key, uuid.uuid4().hex, uuid.uuid4().hex,
+                    )
+                    if not raw:
+                        raise ValueError("missing revocation epoch")
+                    shared_epoch = raw.decode() if isinstance(raw, bytes) else str(raw)
+                except Exception as exc:
+                    self._generation_verified = False
+                    self._reload_required = True
+                    self._stats["errors"] += 1
+                    raise GenerationFencedError("Shared generation authority unavailable.") from exc
+            elif self._redis_failure_policy != "local":
+                raise GenerationFencedError("Shared generation authority unavailable.")
+            return GenerationToken(f"{self._instance_identity}:{os.getpid()}", self._namespace_identity,
+                                   self._index_identity, self._local_epoch, shared_epoch)
+
+    def validate_generation(self, token: GenerationToken) -> None:
+        """Fail closed; a read is the response-validation linearization point.
+
+        This cannot retract bytes already returned before a concurrent clear. A
+        clear ordered before this check must fence even a non-cached response.
+        """
+        with self._lock:
+            self._check_identity()
+            if not isinstance(token, GenerationToken) or (
+                token.instance != f"{self._instance_identity}:{os.getpid()}"
+                or token.namespace != self._namespace_identity
+                or token.index_identity != self._index_identity
+                or token.local_epoch != self._local_epoch
+            ):
+                raise GenerationFencedError("Generation scope was revoked or does not match.")
+            if token.shared_epoch is not None:
+                try:
+                    raw = self._redis.get(self._revocation_key)
+                    current = raw.decode() if isinstance(raw, bytes) else raw
+                except Exception as exc:
+                    self._generation_verified = False
+                    self._reload_required = True
+                    raise GenerationFencedError("Shared generation verification unavailable.") from exc
+                if current != token.shared_epoch:
+                    self._clear_local()
+                    self._reload_required = True
+                    raise GenerationFencedError("Generation was revoked.")
+            elif self._use_redis or self._redis_failure_policy != "local":
+                raise GenerationFencedError("Generation authority changed.")
+
+    def lookup_generation(self, token: GenerationToken, query: str) -> Optional[Dict[str, Any]]:
+        """Request-bound lookup; polling opt-outs cannot bypass revocation checks."""
+        with self._lock:
+            self.validate_generation(token)
+            self._sync_generation(force=True)
+            if token.shared_epoch is not None and not self._generation_verified:
+                raise GenerationFencedError("Shared cache snapshot is unavailable.")
+            result = self._lookup(query)
+            self.validate_generation(token)
+            return result
+
+    def publish_generation(
+        self, token: GenerationToken, query: str, answer: str,
+        contexts: List[str], citations: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
+        """Atomically compare revocation and publish, or raise; never false success.
+
+        In shared mode local rows are loaded only from a verified snapshot, not
+        optimistically inserted before the conditional Redis commit. An ambiguous
+        write may have committed; it is never retried or acknowledged as success.
+        """
+        self.validate_generation(token)
+        vector = self._embed(query)
+        if vector is None:
+            raise GenerationFencedError("Generation cache embedding unavailable.")
+        entry = CacheEntry(query=query, answer=answer, contexts=contexts,
+                           citations=citations or [], embedding=vector.tolist(),
+                           revocation_epoch=token.shared_epoch)
+        key = self._cache_key(query)
+        with self._lock:
+            self.validate_generation(token)
+            if token.shared_epoch is None:
+                self._insert_local(key, entry)
+            else:
+                try:
+                    accepted = self._redis.eval(
+                        _PUBLISH_GENERATION_LUA, 4, self._revocation_key,
+                        self._generation_key, self._key_prefix + key, self._index_set,
+                        token.shared_epoch, key, entry.to_json(), self.ttl_seconds,
+                        uuid.uuid4().hex,
+                    )
+                except Exception as exc:
+                    self._clear_local()
+                    self._generation_verified = False
+                    self._reload_required = True
+                    self._stats["errors"] += 1
+                    raise GenerationFencedError("Shared publication could not be confirmed.") from exc
+                self._reload_required = True
+                if accepted != 1:
+                    self._clear_local()
+                    raise GenerationFencedError("Generation was revoked before publication.")
+            self.validate_generation(token)
+            return True
+
     def lookup(self, query: str) -> Optional[Dict[str, Any]]:
+        """Strict policies bracket even standalone lookups with request authority."""
+        if self._redis_failure_policy == "miss":
+            try:
+                return self.lookup_generation(self.begin_generation(), query)
+            except GenerationFencedError:
+                self._stats["misses"] += 1
+                return None
+        return self._lookup(query)
+
+    def _lookup(self, query: str) -> Optional[Dict[str, Any]]:
         """Return a cached result for a semantically similar query, or None."""
         started = time.perf_counter()
         vector = self._embed(query)
@@ -622,7 +838,12 @@ class SemanticCache:
             return None
 
         with self._lock:
-            self._sync_generation()
+            try:
+                self._check_identity()
+            except GenerationFencedError:
+                self._stats["misses"] += 1
+                return None
+            self._sync_generation(force=self._redis_failure_policy == "miss")
             if self._redis_failure_policy == "miss" and not self._generation_verified:
                 self._stats["misses"] += 1
                 return None
@@ -681,7 +902,21 @@ class SemanticCache:
         contexts: List[str],
         citations: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Write a query/answer pair through to the local index and Redis."""
+        """Legacy immediate store, NOT a request-start generation boundary.
+
+        Kept for the CLI/demo and old adapters. Supported serving callers MUST use
+        begin_generation/lookup_generation/publish_generation instead. Capturing a
+        token here cannot revoke generation that happened before this call.
+        """
+        if self._use_redis and callable(getattr(self._redis, "eval", None)):
+            try:
+                token = self.begin_generation()
+                self.publish_generation(token, query, answer, contexts, citations)
+                with self._lock:
+                    self._warm_start()
+            except GenerationFencedError:
+                return
+            return
         vector = self._embed(query)
         if vector is None:
             return
@@ -742,6 +977,7 @@ class SemanticCache:
                 "avg_lookup_ms": round(self._stats["lookup_ms_total"] / total, 3) if total else 0.0,
                 "backend": "redis+memory" if self._use_redis and self._generation_verified else "memory",
                 "generation": self._generation,
+                "fencing": "atomic-redis" if self._use_redis and callable(getattr(self._redis, "eval", None)) else "legacy-local",
                 "generation_verified": self._generation_verified,
                 "redis_failure_policy": self._redis_failure_policy,
                 "generation_polling": bool(
@@ -755,25 +991,28 @@ class SemanticCache:
     def clear(self) -> bool:
         """Clear this namespace; False means shared revocation was NOT confirmed."""
         with self._lock:
+            self._local_epoch = uuid.uuid4().hex
             self._clear_local()
+            self._generation_verified = False
             if self._use_redis:
                 try:
                     if callable(getattr(self._redis, "eval", None)):
                         token = uuid.uuid4().hex
                         # Atomic with concurrent stores: scanning outside the
                         # transaction can strand a newly added index member.
-                        self._redis.eval("""
-                            for _, member in ipairs(redis.call('SMEMBERS', KEYS[1])) do
-                                redis.call('DEL', ARGV[1] .. member)
-                            end
-                            redis.call('DEL', KEYS[1])
-                            redis.call('SET', KEYS[2], ARGV[2])
-                            return 1
-                        """, 2, self._index_set, self._generation_key,
-                            self._key_prefix, token)
-                        self._generation = token
+                        receipt = self._redis.eval(
+                            _CLEAR_GENERATION_LUA, 3, self._index_set,
+                            self._generation_key, self._revocation_key,
+                            self._key_prefix, token, uuid.uuid4().hex,
+                        )
+                        if receipt != 1:
+                            raise RuntimeError("Shared clear was not acknowledged")
+                        # Do not adopt our token: another clear/write may already
+                        # have committed. The next read reloads shared state.
                         self._reload_required = True
                         return True
+                    if self._redis_failure_policy == "miss":
+                        raise RuntimeError("Shared clear requires atomic Redis support")
                     members = list(self._redis.sscan_iter(self._index_set, count=500))
                     pipe = self._redis.pipeline()
                     for m in members:
@@ -789,7 +1028,7 @@ class SemanticCache:
                     self._reload_required = True
                     logger.warning("SemanticCache: Redis clear failed: %s", exc)
                     return False
-            return True
+            return self._redis_failure_policy == "local" or self._use_redis
 
     def refresh_generation(self) -> bool:
         """Force a shared-generation check and reload local state if it changed."""

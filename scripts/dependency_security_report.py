@@ -87,7 +87,7 @@ TRIAGE = {
     "torch": (
         "Torch device/model stack is used. Checkpoint and native-operation advisories require "
         "individual feature review; absence of torch.load in project code is not an exemption.",
-        "torchvision 0.20.1 requires torch==2.5.1. Supplied fixes span later versions and some "
+        "torchvision 0.21.0 requires torch==2.6.0. Supplied fixes span later versions and some "
         "are empty; no single patch-only clean solution follows from this receipt. "
         "Coordinate Torch/vision (or verify removal) and run native/model checks.",
     ),
@@ -103,7 +103,7 @@ TRIAGE = {
 REVIEWED_VERSIONS = {
     "chromadb": "1.5.9", "datasets": "3.1.0", "fsspec": "2024.9.0", "langchain": "0.3.30",
     "langchain-core": "0.3.86", "langchain-text-splitters": "0.3.11", "sentence-transformers": "3.3.1",
-    "torch": "2.5.1", "transformers": "4.46.3",
+    "torch": "2.6.0", "transformers": "4.46.3",
 }
 
 

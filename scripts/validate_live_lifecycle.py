@@ -83,20 +83,32 @@ def _worker(connection, kind, options):
                 elif kind == "cache":
                     result = getattr(resource, command)(*args)
                 elif command == "build":
-                    from langchain_chroma import Chroma
                     from langchain_core.documents import Document
-                    from module1.data_preprocessing import write_index_manifest
+                    from module1.data_preprocessing import build_vector_store, build_lock_for
                     path, text = args
-                    resource = Chroma.from_documents([Document(page_content=text)],
-                                                    DeterministicEmbeddings(),
-                                                    persist_directory=path)
-                    write_index_manifest(path, num_chunks=1)
+                    with build_lock_for(path, timeout=0) as lock:
+                        resource = build_vector_store([Document(page_content=text)],
+                                                      DeterministicEmbeddings(), path, lock=lock)
                     result = resource.get()["documents"]
                 elif command == "read":
                     from module1.data_preprocessing import load_vector_store
-                    if resource is None:
-                        resource = load_vector_store(DeterministicEmbeddings(), args[0])
+                    resource = load_vector_store(DeterministicEmbeddings(), args[0])
                     result = resource.get()["documents"]
+                elif command == "rebuild":
+                    from langchain_core.documents import Document
+                    from module1.data_preprocessing import rebuild_vector_store_safely
+                    path, text = args
+                    resource = rebuild_vector_store_safely(
+                        [Document(page_content=text)], DeterministicEmbeddings(), path,
+                    )
+                    result = resource.get()["documents"]
+                elif command == "recover":
+                    from preprocess_full import _recover_previous_vector_store
+                    _recover_previous_vector_store(args[0])
+                    result = True
+                elif command == "snapshot":
+                    from module1.data_preprocessing import copy_vector_store
+                    result = copy_vector_store(*args)
                 else:
                     raise ValueError(command)
                 connection.send({"result": result})
@@ -272,13 +284,16 @@ def _paused_publisher(connection, staged, final, fail_promotion):
     original = os.replace
 
     def replace(source, destination):
-        if Path(source) == Path(final):
+        source_path = os.path.realpath(os.fspath(source))
+        final_path = os.path.realpath(final)
+        staged_path = os.path.realpath(staged)
+        if source_path == final_path:
             original(source, destination)
             connection.send("rename-gap-held")
             assert connection.poll(30), "publisher release timeout"
             assert connection.recv() == "release"
             return
-        if Path(source) == Path(staged) and fail_promotion:
+        if source_path == staged_path and fail_promotion:
             raise OSError("injected promotion failure")
         original(source, destination)
 
@@ -288,6 +303,8 @@ def _paused_publisher(connection, staged, final, fail_promotion):
         connection.send("published")
     except OSError:
         connection.send("rolled-back")
+    except BaseException as exc:
+        connection.send(f"publisher-error:{type(exc).__name__}:{exc}")
     finally:
         connection.close()
 
@@ -330,7 +347,12 @@ def validate_index_readers():
                 process.start()
                 child.close()
                 try:
-                    assert parent.poll(40) and parent.recv() == "rename-gap-held"
+                    assert parent.poll(40), (
+                        f"publisher produced no receipt (alive={process.is_alive()}, "
+                        f"exitcode={process.exitcode})"
+                    )
+                    receipt = parent.recv()
+                    assert receipt == "rename-gap-held", f"unexpected publisher receipt: {receipt!r}"
                     # Readers arriving during either rename gap fail BEFORE
                     # touching Chroma; no mixed corpus or missing-path load.
                     arrivals = [worker(), worker()]

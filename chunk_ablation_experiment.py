@@ -52,7 +52,9 @@ for size in chunk_sizes:
     # Re-chunk with this size
     chunks = chunk_documents(docs, chunk_size=size, chunk_overlap=min(50, size//4))
 
-    # Build temp vectorstore
+    # Each variant owns a unique temporary path. The shared builder guards its
+    # first native open and pins it for this process; paths are never reused or
+    # published. Only this owned TemporaryDirectory is cleaned afterwards.
     with tempfile.TemporaryDirectory() as tmpdir:
         vectorstore = build_vector_store(chunks, embedding_model, persist_dir=tmpdir)
         rag = NaiveRAG(vectorstore=vectorstore, top_k=5)

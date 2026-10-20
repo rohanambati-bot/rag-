@@ -1,0 +1,79 @@
+{
+  "schema": "reranker-depth-benchmark/v1",
+  "status": "passed",
+  "protocol_valid": false,
+  "manifest_present": false,
+  "store": "/Users/rohanambati/Projects/cap/rag_project/data/chroma_db_full",
+  "query_count": 8,
+  "candidate_depths": [
+    20,
+    50,
+    100,
+    200
+  ],
+  "top_k": 5,
+  "reranker_model": "BAAI/bge-reranker-base",
+  "device": "mps",
+  "peak_rss_mib": 1440.89,
+  "results": [
+    {
+      "candidate_depth": 20,
+      "mean_pool_size": 32.12,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.7292,
+      "ndcg_at_5": 0.6837,
+      "ndcg_at_10": 0.7092,
+      "median_total_ms": 574.17,
+      "p95_total_ms": 673.85,
+      "median_pool_ms": 12.5,
+      "median_rerank_ms": 537.27,
+      "p95_rerank_ms": 654.78
+    },
+    {
+      "candidate_depth": 50,
+      "mean_pool_size": 87.5,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.7292,
+      "ndcg_at_5": 0.6837,
+      "ndcg_at_10": 0.7092,
+      "median_total_ms": 1301.15,
+      "p95_total_ms": 1579.27,
+      "median_pool_ms": 10.74,
+      "median_rerank_ms": 1279.09,
+      "p95_rerank_ms": 1550.06
+    },
+    {
+      "candidate_depth": 100,
+      "mean_pool_size": 180.38,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.7292,
+      "ndcg_at_5": 0.6837,
+      "ndcg_at_10": 0.7092,
+      "median_total_ms": 2418.07,
+      "p95_total_ms": 2670.93,
+      "median_pool_ms": 10.45,
+      "median_rerank_ms": 2388.82,
+      "p95_rerank_ms": 2637.67
+    },
+    {
+      "candidate_depth": 200,
+      "mean_pool_size": 362.38,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.7292,
+      "ndcg_at_5": 0.6837,
+      "ndcg_at_10": 0.7092,
+      "median_total_ms": 4615.11,
+      "p95_total_ms": 4941.77,
+      "median_pool_ms": 11.14,
+      "median_rerank_ms": 4507.38,
+      "p95_rerank_ms": 4891.68
+    }
+  ],
+  "limitations": [
+    "Legacy store has no index manifest; metrics are not release-valid corpus evidence."
+  ]
+}

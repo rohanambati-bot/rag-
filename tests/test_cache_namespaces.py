@@ -101,6 +101,12 @@ def test_api_uses_architecture_specific_answer_cache(monkeypatch, cache_factory)
     make_cache, _ = cache_factory
     ctx = ServingContext()
     ctx._caches = {name: make_cache(name) for name in ("naive", "rerank")}
+    # This API boundary requires the atomic adapter, unlike the legacy direct-store
+    # compatibility cases above that deliberately exercise an older adapter.
+    from tests.test_cache_index_lifecycle import _SharedRedis
+    shared = _SharedRedis()
+    for cache in ctx._caches.values():
+        cache._redis, cache._generation_supported = shared, True
 
     class Arch:
         def __init__(self, name):

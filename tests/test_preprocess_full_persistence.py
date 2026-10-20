@@ -163,6 +163,18 @@ def test_full_build_keeps_completed_store_and_preserves_it_on_rebuild_error(
     monkeypatch.setattr(splitters, "RecursiveCharacterTextSplitter", FakeSplitter)
     monkeypatch.setattr(embeddings, "HuggingFaceEmbeddings", FakeEmbeddings)
     monkeypatch.setattr(vectorstores, "Chroma", FakeChroma)
+    # Keep this orchestration test model-free. Real process/native writer
+    # lifecycle is exercised separately in test_index_lifecycle_coverage.py.
+    import module1.data_preprocessing as preprocessing
+
+    def fake_isolated_build(builder, docs_file, stage, *options):
+        if FakeChroma.fail:
+            raise RuntimeError("simulated embedding failure")
+        Path(stage, "chroma.sqlite3").write_text("completed build")
+        preprocessing.write_index_manifest(stage, num_chunks=2)
+        return 2
+
+    monkeypatch.setattr(preprocessing, "run_isolated_index_builder", fake_isolated_build)
 
     final_dir = tmp_path / "chroma_db_full"
     monkeypatch.setattr(preprocess_full, "DATA_DIR", str(tmp_path))

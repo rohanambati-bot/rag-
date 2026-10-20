@@ -15,7 +15,6 @@ import os
 from pathlib import Path
 import platform
 import resource
-import shutil
 import sys
 import tempfile
 import time
@@ -100,7 +99,7 @@ def run(args) -> None:
     )
     from module1.data_preprocessing import (
         chunk_documents, get_embedding_model, load_msmarco_documents,
-        load_msmarco_qa_pairs, load_vector_store,
+        load_msmarco_qa_pairs, load_vector_store, copy_vector_store,
     )
     import module2.rag_architectures as rag
     from module3.evaluation import EvaluationPipeline, build_qrels, doc_id_for
@@ -154,7 +153,7 @@ def run(args) -> None:
     # Chroma queries may write SQLite metadata. Query a private copy, not user data.
     with tempfile.TemporaryDirectory(prefix="validation-", dir=DATA_DIR) as temp:
         copied = Path(temp) / "store"
-        shutil.copytree(ROOT / args.store, copied)
+        copy_vector_store(str(ROOT / args.store), str(copied))
         t0 = time.perf_counter()
         store = load_vector_store(embedder, str(copied))
         provenance["timings_seconds"]["store_load"] = time.perf_counter() - t0

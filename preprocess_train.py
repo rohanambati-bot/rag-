@@ -64,9 +64,8 @@ def load_checkpoint():
 
 
 def save_checkpoint(data):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CHECKPOINT_FILE, "w") as f:
-        json.dump(data, f)
+    from module1.data_preprocessing import atomic_write_json
+    atomic_write_json(CHECKPOINT_FILE, data)
 
 
 def phase_extract():
@@ -182,140 +181,28 @@ def phase_extract():
 
 
 def phase_embed():
-    """Phase 2: Chunk + embed + index."""
-    checkpoint = load_checkpoint()
-    start_line = checkpoint.get("lines_done", 0)
-    chunks_done = checkpoint.get("chunks_done", 0)
+    """Build a fresh private stage; never clear/resume a published native store.
 
-    # Count total lines
-    print("\n[3/3] Chunking and embedding...")
-    total_lines = 0
-    with open(DOCS_FILE) as f:
-        for _ in f:
-            total_lines += 1
-    print(f"       Total passages to process: {total_lines:,}")
-    print(f"       Resuming from line: {start_line:,} ({chunks_done:,} chunks already done)")
-    print(f"       Batch size: {BATCH_SIZE}")
-    print(f"       Embedding model: {EMBEDDING_MODEL}")
-
-    from langchain_core.documents import Document
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    from langchain_community.vectorstores import Chroma
-
-    # Embed on the fastest available local device. On Apple Silicon, MPS is ~2.4x
-    # faster than CPU for all-MiniLM-L6-v2, which matters a lot across ~4M passages.
-    # Override with EMBEDDING_DEVICE=cpu if MPS ever misbehaves.
-    device = os.getenv("EMBEDDING_DEVICE") or _best_device()
-    print(f"       Embedding device: {device}")
-
-    embedding_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL,
-        model_kwargs={"device": device},
-        encode_kwargs={"normalize_embeddings": True, "batch_size": 64},
+    Legacy in-place embedding checkpoints are deliberately not replayed: they
+    cannot distinguish an acknowledged batch from a partially committed one.
+    Extracted JSONL data and the last published corpus are retained. An interrupted
+    embedding pass restarts in a new stage; extraction remains resumable.
+    """
+    from module1.data_preprocessing import (
+        build_lock_for, create_staging_dir, run_isolated_index_builder,
     )
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-
-    # Setup vector store
-    import shutil
-    if start_line == 0:
-        if os.path.exists(VECTOR_STORE_DIR):
-            shutil.rmtree(VECTOR_STORE_DIR, ignore_errors=True)
-        os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
-
-    vectorstore = None
-    batch_docs = []
-    batch_num = chunks_done // BATCH_SIZE
-    total_chunks = chunks_done
-    t0 = time.time()
-
-    with open(DOCS_FILE) as f:
-        for line_num, line in enumerate(f):
-            if line_num < start_line:
-                continue
-
-            try:
-                data = json.loads(line)
-            except Exception:
-                continue
-
-            doc = Document(
-                page_content=data["content"],
-                metadata={"is_selected": data.get("is_selected", 0)},
-            )
-            chunks = splitter.split_documents([doc])
-            batch_docs.extend(chunks)
-
-            if len(batch_docs) >= BATCH_SIZE:
-                batch_num += 1
-                try:
-                    if vectorstore is None:
-                        vectorstore = Chroma.from_documents(
-                            documents=batch_docs,
-                            embedding=embedding_model,
-                            persist_directory=VECTOR_STORE_DIR,
-                        )
-                    else:
-                        vectorstore.add_documents(batch_docs)
-                except Exception as exc:
-                    print(f"       ERROR at batch {batch_num}: {exc}")
-                    print("       Saving checkpoint and exiting. Re-run to resume.")
-                    save_checkpoint({
-                        "phase": "embedding",
-                        "queries_done": checkpoint.get("queries_done", 0),
-                        "chunks_done": total_chunks,
-                        "lines_done": line_num,
-                    })
-                    return total_chunks
-
-                total_chunks += len(batch_docs)
-                batch_docs = []
-                gc.collect()  # Free memory
-
-                elapsed = time.time() - t0
-                rate = (total_chunks - chunks_done) / max(elapsed, 1)
-                remaining_lines = total_lines - line_num
-                eta = remaining_lines / max(rate, 0.1)
-
-                print(
-                    f"       Batch {batch_num}: {total_chunks:,} chunks — "
-                    f"{rate:.0f}/sec — ETA: {eta/60:.0f} min"
-                )
-
-                # Checkpoint every 10 batches
-                if batch_num % 10 == 0:
-                    save_checkpoint({
-                        "phase": "embedding",
-                        "queries_done": checkpoint.get("queries_done", 0),
-                        "chunks_done": total_chunks,
-                        "lines_done": line_num + 1,
-                    })
-
-    # Final batch
-    if batch_docs and vectorstore:
-        vectorstore.add_documents(batch_docs)
-        total_chunks += len(batch_docs)
-    elif batch_docs:
-        vectorstore = Chroma.from_documents(
-            documents=batch_docs,
-            embedding=embedding_model,
-            persist_directory=VECTOR_STORE_DIR,
+    from preprocess_full import _embed_full_index, _publish_vector_store
+    with build_lock_for(VECTOR_STORE_DIR) as lock:
+        stage = create_staging_dir(DATA_DIR, ".chroma_db_train.", VECTOR_STORE_DIR, lock)
+        total_chunks = run_isolated_index_builder(
+            _embed_full_index, DOCS_FILE, stage, EMBEDDING_MODEL,
+            CHUNK_SIZE, CHUNK_OVERLAP, BATCH_SIZE,
         )
-        total_chunks += len(batch_docs)
-
-    try:
-        vectorstore.persist()
-    except Exception:
-        pass
-
-    save_checkpoint({"phase": "done", "chunks_done": total_chunks, "lines_done": total_lines})
-    print(f"       Done: {total_chunks:,} chunks indexed")
-    return total_chunks
+        _publish_vector_store(stage, VECTOR_STORE_DIR, lock=lock)
+        with open(DOCS_FILE) as source:
+            total_lines = sum(1 for _ in source)
+        save_checkpoint({"phase": "done", "chunks_done": total_chunks, "lines_done": total_lines})
+        return total_chunks
 
 
 def main():
@@ -324,7 +211,7 @@ def main():
     print("=" * 70)
     print("  MS MARCO v2.1 TRAIN SET — FULL PREPROCESSING")
     print("  808,731 queries · ~4M passages · ~14 hours")
-    print("  RESUMABLE — safe to interrupt and re-run")
+    print("  Extraction resumes; interrupted embedding restarts in a private stage")
     print("=" * 70)
 
     checkpoint = load_checkpoint()

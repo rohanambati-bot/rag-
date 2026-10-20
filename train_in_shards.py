@@ -39,11 +39,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from configs.config import (
     CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL, DATA_DIR,
+    DATASET_NAME, DATASET_CONFIG, DATASET_REVISION, INDEX_REVISION,
 )
 
 logging.basicConfig(
@@ -118,8 +118,8 @@ def save_shard_checkpoint(shard_id: int, data: Dict[str, Any]):
     """Save checkpoint for a shard."""
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     path = os.path.join(CHECKPOINT_DIR, f"shard_{shard_id}.json")
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+    from module1.data_preprocessing import atomic_write_json
+    atomic_write_json(path, data)
 
 
 def get_embedding_model() -> HuggingFaceEmbeddings:
@@ -135,14 +135,22 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
 # ─── Core Processing ─────────────────────────────────────────────────────────
 
 def process_shard(shard_id: int) -> None:
-    """Process a single shard: load → chunk → embed → store."""
+    """Publish one complete private stage; legacy partial shards are preserved."""
+    from module1.data_preprocessing import build_lock_for
+    shard_db_path = os.path.join(SHARDS_DIR, f"shard_{shard_id}")
+    with build_lock_for(shard_db_path) as lock:
+        _process_shard_locked(shard_id, shard_db_path, lock)
+
+
+def _process_shard_locked(shard_id, shard_db_path, lock):
+    from module1.data_preprocessing import create_staging_dir, run_isolated_index_builder
+    from preprocess_full import _publish_vector_store
     checkpoint = get_shard_checkpoint(shard_id)
     if checkpoint["status"] == "done":
+        if checkpoint["total_chunks"] and not os.path.isfile(os.path.join(shard_db_path, "chroma.sqlite3")):
+            raise FileNotFoundError("Completed shard checkpoint has no persisted index")
         logger.info("Shard %d already completed (%d chunks). Skipping.", shard_id, checkpoint["total_chunks"])
         return
-
-    shard_db_path = os.path.join(SHARDS_DIR, f"shard_{shard_id}")
-    os.makedirs(shard_db_path, exist_ok=True)
 
     # Step 1: Load documents for this shard
     logger.info("═══ Processing Shard %d ═══", shard_id)
@@ -164,51 +172,9 @@ def process_shard(shard_id: int) -> None:
     chunks = splitter.split_documents(docs)
     logger.info("Shard %d: %d docs → %d chunks.", shard_id, len(docs), len(chunks))
 
-    # Step 3: Embed and index in batches
-    embedding_model = get_embedding_model()
-
-    chunks_done = checkpoint.get("chunks_done", 0)
-    remaining_chunks = chunks[chunks_done:]
-
-    if not remaining_chunks:
-        logger.info("Shard %d: all chunks already embedded.", shard_id)
-        save_shard_checkpoint(shard_id, {"status": "done", "chunks_done": len(chunks), "total_chunks": len(chunks)})
-        return
-
-    logger.info("Shard %d: embedding %d chunks (resuming from %d)…", shard_id, len(remaining_chunks), chunks_done)
-
-    # Process in batches
-    for batch_start in range(0, len(remaining_chunks), EMBED_BATCH_SIZE):
-        batch_end = min(batch_start + EMBED_BATCH_SIZE, len(remaining_chunks))
-        batch = remaining_chunks[batch_start:batch_end]
-
-        if batch_start == 0 and chunks_done == 0:
-            # First batch — create the vector store
-            vectorstore = Chroma.from_documents(
-                documents=batch,
-                embedding=embedding_model,
-                persist_directory=shard_db_path,
-            )
-        else:
-            # Subsequent batches — add to existing
-            vectorstore = Chroma(
-                persist_directory=shard_db_path,
-                embedding_function=embedding_model,
-            )
-            vectorstore.add_documents(batch)
-
-        vectorstore.persist()
-
-        chunks_done += len(batch)
-        save_shard_checkpoint(shard_id, {
-            "status": "in_progress",
-            "chunks_done": chunks_done,
-            "total_chunks": len(chunks),
-        })
-        logger.info(
-            "  Shard %d: %d / %d chunks embedded (%.1f%%)",
-            shard_id, chunks_done, len(chunks), 100 * chunks_done / len(chunks),
-        )
+    stage = create_staging_dir(SHARDS_DIR, f".shard_{shard_id}.", shard_db_path, lock)
+    chunks_done = run_isolated_index_builder(_embed_shard_stage, chunks, stage)
+    _publish_vector_store(stage, shard_db_path, lock=lock)
 
     elapsed = time.time() - start_time
     save_shard_checkpoint(shard_id, {
@@ -220,12 +186,63 @@ def process_shard(shard_id: int) -> None:
     logger.info("═══ Shard %d COMPLETE: %d chunks in %.1f min ═══", shard_id, chunks_done, elapsed / 60)
 
 
+def _embed_shard_stage(chunks, stage):
+    from module1.data_preprocessing import (
+        corpus_identity, persistent_index_writer, write_index_manifest,
+    )
+    with persistent_index_writer(stage, get_embedding_model(), create=True) as store:
+        for start in range(0, len(chunks), EMBED_BATCH_SIZE):
+            store.add_documents(chunks[start:start + EMBED_BATCH_SIZE])
+        write_index_manifest(
+            stage, num_chunks=len(chunks), dataset_name=DATASET_NAME,
+            dataset_config=DATASET_CONFIG, dataset_revision=DATASET_REVISION,
+            split="train", scope="train-shard", document_count=len(chunks),
+            corpus_id=corpus_identity(chunks)["corpus_id"], index_revision=INDEX_REVISION,
+        )
+    return len(chunks)
+
+
 def merge_shards() -> None:
-    """Merge all completed shard vector stores into the final chroma_db_train."""
+    """Replace the train index from completed shards without touching live files."""
+    from module1.data_preprocessing import (
+        atomic_write_json, build_lock_for, create_staging_dir, run_isolated_index_builder,
+    )
+    from preprocess_full import _publish_vector_store
+    with build_lock_for(FINAL_TRAIN_DB) as lock:
+        stage = create_staging_dir(DATA_DIR, ".merged_train.", FINAL_TRAIN_DB, lock)
+        total_merged = run_isolated_index_builder(_merge_shards_stage, stage)
+        _publish_vector_store(stage, FINAL_TRAIN_DB, lock=lock)
+        atomic_write_json(os.path.join(DATA_DIR, "_train_checkpoint.json"), {
+            "phase": "done", "queries_done": 808731,
+            "chunks_done": total_merged, "lines_done": total_merged,
+        })
+
+
+def _merge_shards_stage(stage):
+    from module1.data_preprocessing import (
+        corpus_identity, documents_from_vector_store, persistent_index_writer,
+        write_index_manifest,
+    )
+    with persistent_index_writer(stage, get_embedding_model(), create=True) as final_vs:
+        total = _merge_shards_into(final_vs)
+        if not total:
+            raise RuntimeError("No completed nonempty shards; refusing empty publication")
+        documents = documents_from_vector_store(final_vs)
+        identity = corpus_identity(documents)
+        write_index_manifest(
+            stage, num_chunks=total, dataset_name=DATASET_NAME,
+            dataset_config=DATASET_CONFIG, dataset_revision=DATASET_REVISION,
+            split="train", scope="full", document_count=total,
+            corpus_id=identity["corpus_id"], index_revision=INDEX_REVISION,
+        )
+    return total
+
+
+def _merge_shards_into(final_vs):
+    from module1.data_preprocessing import load_vector_store
     logger.info("═══ MERGING SHARDS ═══")
 
     embedding_model = get_embedding_model()
-    os.makedirs(FINAL_TRAIN_DB, exist_ok=True)
 
     total_merged = 0
     shard_id = 0
@@ -234,25 +251,25 @@ def merge_shards() -> None:
         checkpoint = get_shard_checkpoint(shard_id)
         if checkpoint["status"] == "pending" and shard_id > 0:
             break
+        if checkpoint["status"] == "pending":
+            raise RuntimeError("No completed shards found")
         if checkpoint["status"] != "done":
-            logger.warning("Shard %d not done (status: %s). Skipping.", shard_id, checkpoint["status"])
-            shard_id += 1
-            continue
+            raise RuntimeError(f"Shard {shard_id} is incomplete; refusing partial-corpus publication")
 
         shard_db_path = os.path.join(SHARDS_DIR, f"shard_{shard_id}")
-        if not os.path.exists(shard_db_path):
-            logger.warning("Shard %d directory not found. Skipping.", shard_id)
+        if checkpoint.get("total_chunks") == 0:
             shard_id += 1
             continue
+        if not os.path.exists(shard_db_path):
+            raise FileNotFoundError(f"Completed shard {shard_id} is missing; refusing partial corpus")
 
         # Load shard's vector store and get all documents
-        shard_vs = Chroma(
-            persist_directory=shard_db_path,
-            embedding_function=embedding_model,
-        )
+        shard_vs = load_vector_store(embedding_model, shard_db_path)
 
         # Get all documents from this shard
         shard_data = shard_vs.get(include=["documents", "metadatas", "embeddings"])
+        if len(shard_data["documents"]) != checkpoint["total_chunks"]:
+            raise RuntimeError(f"Shard {shard_id} count differs from its completion checkpoint")
 
         if shard_data["documents"]:
             docs_count = len(shard_data["documents"])
@@ -266,12 +283,6 @@ def merge_shards() -> None:
                 batch_metas = shard_data["metadatas"][batch_start:batch_end]
                 batch_embeds = shard_data["embeddings"][batch_start:batch_end]
 
-                if total_merged == 0 and batch_start == 0:
-                    final_vs = Chroma(
-                        persist_directory=FINAL_TRAIN_DB,
-                        embedding_function=embedding_model,
-                    )
-
                 final_vs._collection.add(
                     documents=batch_docs,
                     metadatas=batch_metas,
@@ -280,22 +291,13 @@ def merge_shards() -> None:
                 )
 
             total_merged += docs_count
-            final_vs.persist()
             logger.info("  Merged shard %d. Total so far: %d", shard_id, total_merged)
 
         shard_id += 1
 
     logger.info("═══ MERGE COMPLETE: %d total vectors in chroma_db_train ═══", total_merged)
 
-    # Update the train checkpoint
-    checkpoint_path = os.path.join(DATA_DIR, "_train_checkpoint.json")
-    with open(checkpoint_path, "w") as f:
-        json.dump({
-            "phase": "done",
-            "queries_done": 808731,
-            "chunks_done": total_merged,
-            "lines_done": total_merged,
-        }, f, indent=2)
+    return total_merged
 
 
 def show_status() -> None:

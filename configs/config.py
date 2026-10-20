@@ -31,10 +31,19 @@ EVAL_RESULTS_PATH = os.path.join(OUTPUTS_DIR, "eval_results.csv")
 DATASET_NAME = "microsoft/ms_marco"
 DATASET_CONFIG = "v2.1"
 DATASET_SPLIT = "validation"
+# Dataset revisions are part of the on-disk index contract.  The default is the
+# dataset/config revision used by this project; deployments that pin a Hub
+# revision can override it without changing source code.
+DATASET_REVISION = os.getenv("DATASET_REVISION", DATASET_CONFIG)
 # Number of validation queries whose passages form the retrieval corpus for the
 # in-tree `--mode full` build (data/chroma_db_full: 9858 passages / 11510 chunks).
 # The complete 101,093-query validation set is built by `preprocess_full.py`.
 DATASET_SUBSET_SIZE = 1000
+
+# Persistent-index schema revision.  This is deliberately separate from the
+# random build_id in _index_manifest.json: readers can reject indexes produced
+# by an incompatible writer while still retaining every last-good build.
+INDEX_REVISION = os.getenv("INDEX_REVISION", "rag-index-v2")
 
 # Legacy SQuAD settings (kept for backward compat / smoke tests)
 SQUAD_SPLIT = "validation"

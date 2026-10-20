@@ -189,3 +189,35 @@ def test_unowned_default_and_external_collections_are_preserved(
     assert collection_name in _collection_names(chroma_client)
     assert external._collection.count() == 1
     assert external.similarity_search("external", k=20)[0].metadata["source"] == "external.txt"
+
+
+@pytest.mark.parametrize("failure", ["timeout", "crash", "output", "memory"])
+def test_isolated_worker_failure_preserves_active_index(chroma_client, failure, tmp_path, monkeypatch):
+    import module5.parser_isolation as isolation
+
+    uploader = DocumentUploader(DeterministicEmbeddings())
+    uploader.index_documents(b"The previous document remains queryable.", "previous.txt")
+    previous_store, previous_chunks = uploader.vectorstore, uploader.chunks
+    previous_receipt = uploader._last_parser_receipt
+    previous_names = _collection_names(chroma_client)
+    worker = tmp_path / "finite_failure.py"
+    actions = {
+        "timeout": "time.sleep(5)",
+        "crash": "os._exit(23)",
+        "output": "os.write(1, b'x' * 8192)",
+        "memory": "allocation = bytearray(64 * 1024 * 1024); time.sleep(5)",
+    }
+    worker.write_text("import os, time\n" + actions[failure] + "\n")
+    monkeypatch.setattr(isolation, "_WORKER_PATH", worker)
+    uploader._parser_limits = isolation.IsolationLimits(wall_seconds=0.6, output_bytes=1024, memory_bytes=32 * 1024 * 1024)
+    try:
+        with pytest.raises(UploadValidationError):
+            uploader.index_documents(b"This replacement must not be published.", "failed.txt")
+        assert uploader.vectorstore is previous_store
+        assert uploader.chunks == previous_chunks
+        assert uploader._last_parser_receipt is previous_receipt
+        assert uploader.filename == "previous.txt"
+        assert _sources(uploader) == {"previous.txt"}
+        assert _collection_names(chroma_client) == previous_names
+    finally:
+        uploader.clear()

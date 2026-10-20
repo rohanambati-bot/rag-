@@ -155,6 +155,8 @@ def test_actual_ui_resource_functions_keep_cache_and_uploads_in_session(monkeypa
         kwargs["redis_failure_policy"] = "local"
         real_cache_init(self, *args, **kwargs)
     monkeypatch.setattr(SemanticCache, "__init__", local_cache_init)
+    from serving import CONTEXT
+    monkeypatch.setattr(CONTEXT, "_cache_namespace", lambda key: "fixture-index:" + key)
     # Match the explicit no-telemetry settings of the other real ephemeral tests.
     # Chroma shares one ephemeral system per process, including its settings.
     client = chromadb.EphemeralClient(Settings(anonymized_telemetry=False))

@@ -174,7 +174,7 @@ rag_project/
 
 ### Prerequisites
 - **Python 3.12.14** is required. The resolved dependencies in
-  `requirements.lock` (e.g. `numpy==2.1.3`, `torch==2.5.1`) target Python 3.12 —
+   `requirements.lock` (e.g. `numpy==2.1.3`, `torch==2.6.0`) target Python 3.12 —
   both the `Dockerfile` (`python:3.12.14-slim`) and the CI workflow
   (`PYTHON_VERSION: "3.12.14"`) build on it.
 

@@ -151,13 +151,20 @@ class TestRerankRAG:
         assert "RerankRAG" in dir(rag)
 
     def test_run_emits_metadata_backed_citations(self, monkeypatch):
-        monkeypatch.setattr(rag, "_llm", lambda: _RecordingLLM(["grounded answer"]))
+        class InvalidAnswerInvocation:
+            def complete_answer(self, payload):
+                return "grounded answer"  # Free-form answers now fail closed.
+
+        monkeypatch.setattr(rag, "_llm", lambda: InvalidAnswerInvocation())
         doc = _Doc("source passage", {"source": "fixture.txt", "page": 2})
         vs = _StubVectorStore([doc])
-        result = rag.NaiveRAG(vectorstore=vs, top_k=1).run("q")
+        result = rag.NaiveRAG(vectorstore=vs, top_k=1).run("What does the source say?")
         assert result["citations"] == [
             {"context_index": 1, "source": "fixture.txt", "page": 2}
         ]
+        assert result["answer"] == rag._ABSTENTION_ANSWER
+        assert result["answer_citations"] == []
+        assert result["answer_validation"]["reason"] == "malformed_json"
 
 
 # ── CorrectiveRAG fidelity ──────────────────────────────────────────────────────

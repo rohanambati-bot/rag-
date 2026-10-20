@@ -22,7 +22,6 @@ import argparse
 import json
 import logging
 import os
-import shutil
 import sys
 
 import pandas as pd
@@ -178,7 +177,7 @@ def run_full_pipeline(args) -> None:
 
     # Module 2 — build all architectures
     from module2.rag_architectures import build_all_architectures
-    from langchain_community.vectorstores import Chroma
+    from module1.data_preprocessing import load_vector_store, rebuild_vector_store_safely
 
     # Build child vectorstore for Parent-Child RAG — persist + reuse across runs.
     # Path is anchored to DATA_DIR, not CWD, so the pipeline behaves identically
@@ -207,62 +206,13 @@ def run_full_pipeline(args) -> None:
 
     if _child_store_is_reusable():
         logger.info("Found existing child vector store at %s — loading instead of rebuilding.", _child_dir)
-        child_vectorstore = Chroma(
-            persist_directory=_child_dir,
-            embedding_function=artifacts["embedding_model"],
-        )
+        child_vectorstore = load_vector_store(artifacts["embedding_model"], _child_dir)
     else:
         logger.warning("Child vector store is missing or stale; rebuilding %s.", _child_dir)
-        from module1.data_preprocessing import build_lock_for, create_staging_dir
-        from module1.data_preprocessing import write_index_manifest
-        from preprocess_full import _cleanup_staged_vector_stores, _publish_vector_store
-
-        with build_lock_for(_child_dir) as child_lock:
-            # Another process may have completed the same rebuild while this one
-            # waited. Re-read the manifest only after acquiring the lock.
-            if _child_store_is_reusable():
-                child_vectorstore = Chroma(
-                    persist_directory=_child_dir,
-                    embedding_function=artifacts["embedding_model"],
-                )
-            else:
-                _cleanup_staged_vector_stores(
-                    DATA_DIR,
-                    target_dir=_child_dir,
-                    prefix=".chroma_db_children.",
-                    lock=child_lock,
-                )
-                staged_child_dir = create_staging_dir(
-                    DATA_DIR,
-                    ".chroma_db_children.",
-                    _child_dir,
-                    lock=child_lock,
-                )
-                try:
-                    Chroma.from_documents(
-                        documents=pc["children"],
-                        embedding=artifacts["embedding_model"],
-                        persist_directory=staged_child_dir,
-                    )
-                    write_index_manifest(
-                        staged_child_dir,
-                        embedding_model=EMBEDDING_MODEL,
-                        chunk_size=CHILD_CHUNK_SIZE,
-                        chunk_overlap=CHUNK_OVERLAP,
-                        num_chunks=len(pc["children"]),
-                    )
-                    _publish_vector_store(
-                        staged_child_dir, _child_dir, lock=child_lock
-                    )
-                except Exception:
-                    shutil.rmtree(staged_child_dir, ignore_errors=True)
-                    raise
-                # The staged directory was renamed during publication; reopen it
-                # at the stable path rather than retaining an old pathname handle.
-                child_vectorstore = Chroma(
-                    persist_directory=_child_dir,
-                    embedding_function=artifacts["embedding_model"],
-                )
+        child_vectorstore = rebuild_vector_store_safely(
+            pc["children"], artifacts["embedding_model"], _child_dir,
+            chunk_size=CHILD_CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP,
+        )
 
     # Build knowledge graph for GRACE-Ω
     from module1.data_preprocessing import KnowledgeGraphBuilder
@@ -305,14 +255,40 @@ def run_eval_mode(args) -> None:
     if not retrieval_only:
         _require_api_key()
 
-    from module1.data_preprocessing import load_vector_store, get_embedding_model, chunk_documents, load_msmarco_documents
+    from module1.data_preprocessing import (
+        chunk_documents, get_embedding_model, load_msmarco_documents,
+        load_vector_store,
+    )
     from module2.rag_architectures import build_all_architectures
     from module3.evaluation import build_qrels
 
     embedding_model = get_embedding_model()
-    vectorstore = load_vector_store(embedding_model, persist_dir=_store_dir(args))
+    store_path = _store_dir(args)
+    vectorstore = load_vector_store(embedding_model, persist_dir=store_path)
+
+    # Keep the historical development protocol (MS MARCO's configured subset),
+    # but never pair it with a full dense store. Full indexes reconstruct their
+    # exact chunk view from the persisted store instead of silently using 1,000
+    # freshly loaded passages as BM25/graph side data.
     docs = load_msmarco_documents()
-    chunks = chunk_documents(docs)
+    loaded_chunks = chunk_documents(docs)
+    from module1 import data_preprocessing as preprocessing
+    read_manifest = getattr(preprocessing, "read_index_manifest", None)
+    dense_chunks = getattr(preprocessing, "documents_from_vector_store", None)
+    manifest = read_manifest(store_path) if read_manifest else None
+    if manifest is None:
+        chunks = loaded_chunks
+    elif manifest["scope"] == "full":
+        if dense_chunks is None:
+            raise RuntimeError("Full index requires its persisted chunk corpus for side-data construction")
+        chunks = dense_chunks(vectorstore)
+    elif manifest["scope"] == "dev":
+        chunks = loaded_chunks
+    else:
+        raise RuntimeError(f"Unsupported evaluation corpus scope: {manifest['scope']!r}")
+    if manifest is not None:
+        from module1.data_preprocessing import verify_corpus_side_data
+        verify_corpus_side_data(manifest, chunks, required=("bm25", "graph", "qrels"))
 
     # Human relevance judgements (MS MARCO is_selected) → rank-aware IR metrics.
     qrels = build_qrels(chunks)
