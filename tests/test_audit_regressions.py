@@ -234,3 +234,40 @@ def test_preprocessing_rejects_invalid_limits_and_chunk_overlap():
         load_msmarco_documents(max_samples=-1)
     with pytest.raises(ValueError, match="smaller than chunk_size"):
         chunk_documents([], chunk_size=10, chunk_overlap=10)
+
+
+# ── judge pacing (shared provider scheduler) ─────────────────────────────────
+
+def test_judge_call_is_paced_by_shared_provider_scheduler(monkeypatch):
+    """RAGASEvaluator._call must reserve a provider slot before hitting the API.
+
+    The 2026-10-18 judged run made 866 unpaced 429s against Groq's judge model
+    (judge had its own un-paced client) and died with the whole eval — delayed
+    back to the generator's LLM_RATE_LIMIT_SECONDS pacing, then real API call.
+    """
+    import module3.evaluation as ev
+
+    calls = []
+
+    def fake_wait(provider, *, max_wait=None):
+        calls.append((provider, max_wait))
+        return True
+
+    class FakeClient:
+        class chat:  # noqa: N801
+            class completions:
+                @staticmethod
+                def create(model, messages, temperature, max_tokens):
+                    return type("R", (), {"choices": [
+                        type("C", (), {"message": type(
+                            "M", (), {"content": "1.0"})()})()
+                    ]})()
+
+    monkeypatch.setattr(ev, "_judge_wait", fake_wait, raising=True)
+    evaluator = ev.RAGASEvaluator(provider="groq", model="test/model")
+    evaluator._client = FakeClient()
+
+    score = evaluator._score("probe")
+    assert score == 1.0
+    # Pacing happened BEFORE the API call, and the judge waits (never abstains).
+    assert calls and calls[0][0] == "groq" and calls[0][1] is None

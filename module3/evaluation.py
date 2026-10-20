@@ -291,6 +291,28 @@ def build_qrels(docs: List[Any]) -> Dict[str, set]:
 # RAGAS-STYLE LLM-JUDGED METRICS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _judge_wait(provider: str) -> None:
+    """
+    Reserve one shared provider slot before a judge call.
+
+    The judge previously had its own un-paced client, so it fired ~4 calls per
+    evaluated sample back-to-back, exhausted the provider's rate budget (866
+    HTTP 429s in a 2026-10-18 Groq run) and nullified its own metrics. Judge
+    calls now go through the same scheduler as generator calls
+    (``module2._wait_for_provider``), pacing ALL LLM traffic per provider at
+    ``LLM_RATE_LIMIT_SECONDS``.
+
+    Resolved lazily so importing module3 does not pull module2's heavier
+    import graph, and kept as a module attribute so tests can monkeypatch it.
+    """
+    from module2.rag_architectures import _wait_for_provider
+
+    # max_wait=None: the judge waits for a slot instead of abstaining — a
+    # missing judge score silently degrades the metrics this whole module
+    # exists to produce.
+    _wait_for_provider(provider, max_wait=None)
+
+
 class RAGASEvaluator:
     """
     LLM-judged evaluation similar to RAGAS, but with a JUDGE LLM that is
@@ -395,7 +417,12 @@ class RAGASEvaluator:
         logger.info("Judge LLM: Mistral / %s", self.model)
 
     def _call(self, prompt: str) -> str:
-        # OpenRouter and Groq both expose the OpenAI-style chat.completions API.
+        # The judge must WAIT rather than abstain — a missing judge score is
+        # worse than a slow one — hence max_wait=None (unlike the answer gate,
+        # which may return "" when the slot is busy).
+        if self._mode in ("groq", "openrouter"):
+            _judge_wait(self._mode)
+            # OpenRouter and Groq both expose the OpenAI-style chat.completions API.
         if self._mode in ("groq", "openrouter"):
             resp = self._client.chat.completions.create(
                 model=self.model,
@@ -405,6 +432,7 @@ class RAGASEvaluator:
             )
             return resp.choices[0].message.content or ""
         if self._mode == "mistral":
+            _judge_wait("mistral")
             resp = self._client.chat.complete(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
