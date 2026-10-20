@@ -244,6 +244,9 @@ def test_judge_call_is_paced_by_shared_provider_scheduler(monkeypatch):
     The 2026-10-18 judged run made 866 unpaced 429s against Groq's judge model
     (judge had its own un-paced client) and died with the whole eval — delayed
     back to the generator's LLM_RATE_LIMIT_SECONDS pacing, then real API call.
+
+    The judge is constructed with a fake key so this passes in CI, where no
+    provider key exists (the FakeClient replaces the transport entirely).
     """
     import module3.evaluation as ev
 
@@ -263,6 +266,7 @@ def test_judge_call_is_paced_by_shared_provider_scheduler(monkeypatch):
                             "M", (), {"content": "1.0"})()})()
                     ]})()
 
+    monkeypatch.setattr(ev, "GROQ_API_KEY", "fake-key-for-tests", raising=True)
     monkeypatch.setattr(ev, "_judge_wait", fake_wait, raising=True)
     evaluator = ev.RAGASEvaluator(provider="groq", model="test/model")
     evaluator._client = FakeClient()
