@@ -50,8 +50,15 @@ def test_selected_architectures_construct_only_requested_keys(monkeypatch):
     assert calls == ["NaiveRAG", "GRACEOmegaRAG"]
 
 
-def test_serving_eager_set_uses_advertised_llm_free_architectures(monkeypatch):
+def test_serving_eager_set_uses_advertised_llm_free_architectures(monkeypatch, tmp_path):
     """Eager serving must not introduce the legacy ``crag_lexical`` key."""
+    # CI (and any fresh clone) has no vector store; the cache-namespace layer
+    # must see *some* store to hash. Point the contract at a synthetic one.
+    fake_store = tmp_path / "chroma_db_full"
+    fake_store.mkdir()
+    fake_store.joinpath("chroma.sqlite3").write_bytes(b"fake store bytes")
+    monkeypatch.setattr(serving, "VECTOR_STORE_DIR", str(fake_store), raising=True)
+
     context = serving.ServingContext()
     vectorstore = object()
     chunks = [object()]
