@@ -95,6 +95,11 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small-latest")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_RATE_LIMIT_SECONDS = float(os.getenv("LLM_RATE_LIMIT_SECONDS", "3.0"))
+# Reasoning-family models (gpt-oss) spend hidden "reasoning" completion tokens
+# BEFORE the answer; a 512 cap truncates them mid-reasoning (finish_reason=
+# "length", empty content) and the answer gate honestly abstains every time.
+# The answer contract therefore gets its own headroom independent of LLM_MAX_TOKENS.
+LLM_ANSWER_MAX_TOKENS = int(os.getenv("LLM_ANSWER_MAX_TOKENS", "2048"))
 # Bound on how long a generation call may wait for a provider slot before the
 # answer gate abstains (""). Kept at 2 s for serving latency guarantees.
 # OFFLINE EVALUATION must NOT abstain — abstention makes faithfulness an

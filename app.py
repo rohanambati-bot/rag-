@@ -220,7 +220,11 @@ def _get_cache(architecture: str = "naive"):
     from phase3.semantic_cache import SemanticCache
     key = _cache_registry_key(architecture)
     from serving import CONTEXT
-    identity = CONTEXT.generation_identity(key)
+    # Bind to the LIVE namespace capture, not the eager architectures' map:
+    # _check_identity compares construction-time index_identity against this same
+    # capture at request time, so binding a stale map value would fence every
+    # cache built after a store touch (Chroma catalog churn) before its first use.
+    identity = CONTEXT._cache_namespace(key)
     # Never reuse API/shared-corpus answer caches for private browser queries.
     # 'local' keeps the UI usable when Redis isn't running on this host: fencing
     # then falls back to local-only epochs (fine for one Streamlit process),

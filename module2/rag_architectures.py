@@ -38,7 +38,7 @@ from configs.config import (
     TOP_K, GROQ_API_KEY, GROQ_MODEL,
     MISTRAL_API_KEY, LLM_MODEL,
     LLM_MAX_TOKENS, LLM_TEMPERATURE, LLM_RATE_LIMIT_SECONDS,
-    LLM_ANSWER_MAX_WAIT_SECONDS,
+    LLM_ANSWER_MAX_WAIT_SECONDS, LLM_ANSWER_MAX_TOKENS,
     MAX_CONTEXT_CHARS,
     OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
     RERANKER_MODEL, RERANK_CANDIDATES, RERANK_DEVICE, EMBEDDING_MODEL,
@@ -185,9 +185,16 @@ class _LLM:
         try:
             if self._provider in {"openrouter", "groq"}:
                 client = self._openrouter_client if self._provider == "openrouter" else self._groq_client
+                answer_tokens = max(LLM_ANSWER_MAX_TOKENS, LLM_MAX_TOKENS)
+                extra = {}
+                if GROQ_MODEL.startswith("openai/gpt-oss"):
+                    # Reasoning-family models spend hidden tokens before the answer;
+                    # cap their deliberation so the answer survives the token budget.
+                    extra["extra_body"] = {"reasoning_effort": "low"}
                 response = client.with_options(timeout=_ANSWER_TIMEOUT_SECONDS, max_retries=0).chat.completions.create(
                     model=GROQ_MODEL, messages=messages,
-                    max_tokens=min(LLM_MAX_TOKENS, 1600), temperature=LLM_TEMPERATURE,
+                    max_tokens=answer_tokens, temperature=LLM_TEMPERATURE,
+                    **extra,
                 )
             elif self._provider == "mistral":
                 response = self._mistral_client.chat.complete(
