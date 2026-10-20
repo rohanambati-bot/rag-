@@ -96,6 +96,30 @@ def whole_spans(text: str, truncated: bool = False):
             yield start, end, text[start:end]
 
 
+def line_spans(text: str, truncated: bool = False):
+    """Yield trimmed whole-line spans; a truncated trailing fragment is omitted.
+
+    The return protocol promises "an entire sentence or line": lines may contain
+    several sentences, so a verbatim whole-line quote is as extractively safe as
+    a verbatim whole-sentence quote and neither may be a partial fragment.
+    """
+    for line in re.finditer(r"[^\n]+", text):
+        start, end = line.start(), line.end()
+        while start < end and text[start].isspace():
+            start += 1
+        while end > start and text[end - 1].isspace():
+            end -= 1
+        if start == end:
+            continue
+        if truncated and end == len(text.rstrip()) and text[end - 1] not in ".!?":
+            continue
+        yield start, end, text[start:end]
+
+
+def _allowed_claim_spans(text: str, truncated: bool):
+    return set(whole_spans(text, truncated)) | set(line_spans(text, truncated))
+
+
 def make_payload(question: str, evidence: list[dict], docs) -> dict:
     return {"question": question, "evidence": [
         {"evidence_id": f"E{item['context_index']}", **item,
@@ -182,9 +206,17 @@ def validate_output(raw: Any, payload: dict) -> ValidatedAnswer:
                 or any(0xD800 <= ord(c) <= 0xDFFF for c in quote)):
             return abstain("invalid_span")
         item = visible[evidence_id]
-        if item["text"][start:end] != quote:
-            return abstain("quote_mismatch")
-        if (start, end, quote) not in set(whole_spans(item["text"], item["truncated"])):
+        text = item["text"]
+        if text[start:end] != quote:
+            # Models routinely mis-label their own span indices while the quote
+            # itself is verbatim-accurate. Relocate the exact quote within the
+            # visible slice; only if it does not occur verbatim does this abstain.
+            # Nothing is accepted that is not already present in the evidence.
+            found = text.find(quote)
+            if found == -1:
+                return abstain("quote_mismatch")
+            start, end = found, found + len(quote)
+        if (start, end, quote) not in _allowed_claim_spans(text, item["truncated"]):
             return abstain("not_whole_visible_span")
         if not meaningful_tokens(payload["question"]) & meaningful_tokens(quote):
             return abstain("no_claim_lexical_anchor")
