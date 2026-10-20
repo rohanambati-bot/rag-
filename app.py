@@ -316,15 +316,15 @@ def page_chat():
                 unsafe_allow_html=True)
 
     arch_names = list(_get_architectures().keys())
-    # Default to the lightest chat arch ("Rerank RAG", index varies by registry
-    # order): the multi-stage GRACE arms spend 3+ provider calls per question,
-    # which a free tier's per-minute token budget rejects mid-pipeline, so the
-    # default chat experience should not be the most API-hungry one.
+    # Default back to the flagship GRACE-Ω + Rerank per user preference.
+    # Note: the multi-stage GRACE arms spend 3+ provider calls per question, so
+    # on a free tier they can trip per-minute token budgets mid-pipeline (an
+    # honest gate abstention); lighter arms (Rerank/Naive) are the fallback.
     arch_choice = st.selectbox(
         "Architecture",
         arch_names,
-        index=min(arch_names.index("Rerank RAG"), len(arch_names) - 1)
-        if "Rerank RAG" in arch_names else min(3, len(arch_names) - 1),
+        index=min(arch_names.index("GRACE-Ω + Rerank"), len(arch_names) - 1)
+        if "GRACE-Ω + Rerank" in arch_names else min(3, len(arch_names) - 1),
     )
     use_cache = st.toggle("Use semantic cache", value=True,
                            help="Skip retrieval if a similar query is cached.")
