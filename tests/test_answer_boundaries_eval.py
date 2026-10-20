@@ -1,4 +1,8 @@
-"""Provider-free checks of the real answer boundary and frozen evaluation contract."""
+"""Production v2 gate regressions plus integrity of frozen historical v1 evidence.
+
+v1 deliberately expected unsafe passthrough/echo behavior. Its script, fixture
+and receipts stay unchanged; those expectations are not requirements for v2.
+"""
 
 from copy import deepcopy
 import json
@@ -6,7 +10,8 @@ import socket
 
 import pytest
 
-from scripts import evaluate_answer_boundaries as evaluation
+from scripts import evaluate_answer_boundaries as historical
+from scripts import evaluate_answer_quality_v2 as evaluation
 
 
 DATASET, RAW_DATASET = evaluation.load_dataset()
@@ -28,8 +33,8 @@ def no_network_or_provider(monkeypatch):
 def test_fixed_exact_dataset_contract():
     assert evaluation.digest(RAW_DATASET) == evaluation.DATASET_SHA256
     assert evaluation.digest(evaluation.json_bytes(evaluation.DATASET_SCHEMA)) == evaluation.SCHEMA_SHA256
-    assert DATASET["dataset_version"] == "1.0.0"
-    assert DATASET["schema_version"] == "answer-boundaries.dataset/v1"
+    assert DATASET["dataset_version"] == "2.0.0"
+    assert DATASET["schema_version"] == "answer-quality.dataset/v2"
     assert len(DATASET["cases"]) == 64
     assert len({case["id"] for case in DATASET["cases"]}) == 64
     assert all(sum(case["category"] == category for case in DATASET["cases"]) == 8
@@ -39,7 +44,7 @@ def test_fixed_exact_dataset_contract():
 @pytest.mark.parametrize("case", DATASET["cases"], ids=lambda case: case["id"])
 def test_frozen_cases_exercise_production_boundaries(case):
     result = evaluation.evaluate_case(case)
-    assert result["all_boundary_checks_pass"], result["boundary_checks"]
+    assert result["all_deterministic_checks_pass"], result
     assert result["semantic_dimensions_unscored"] == dict.fromkeys(evaluation.SEMANTIC_DIMENSIONS)
 
 
@@ -62,44 +67,46 @@ def test_frozen_cases_exercise_production_boundaries(case):
     ],
 )
 def test_citation_diagnostics_are_syntax_and_scope_only(answer, count, scope, expected):
-    assert evaluation.citation_diagnostics(answer, count, scope) == expected
+    assert historical.citation_diagnostics(answer, count, scope) == expected
 
 
 def test_even_false_answer_with_valid_reference_has_no_semantic_score():
-    case = deepcopy(DATASET["cases"][24])
-    assert case["id"] == "cit-01"
-    case["scripted_answer"] = "The capital of France is on Jupiter [1]."
+    case = next(case for case in DATASET["cases"] if case["id"] == "unk-02")
     result = evaluation.evaluate_case(case)
-    assert result["inline_diagnostics"] == []
-    assert result["all_boundary_checks_pass"]
+    assert result["answer"] == "France is on Jupiter. [1]"
+    assert result["all_deterministic_checks_pass"]
     assert all(value is None for value in result["semantic_dimensions_unscored"].values())
 
 
-def test_injection_echo_and_contradiction_are_visible_without_invented_labels():
-    injection = next(case for case in DATASET["cases"] if case["id"] == "inj-01")
+def test_detectable_injection_and_contradiction_now_abstain_without_semantic_labels():
+    injection = next(case for case in DATASET["cases"] if case["id"] == "mal-01")
     result = evaluation.evaluate_case(injection)
-    assert result["observations_not_scores"]["literal_presence_in_answer"]["INJECTED_ALPHA"] is True
+    assert result["observations_not_scores"]["literal_presence_in_answer"]["INJECTED_ALPHA"] is False
+    assert result["answer_validation"]["reason"] == "suspicious_directive"
     assert result["semantic_dimensions_unscored"]["instruction_resistance"] is None
     contradiction = evaluation.evaluate_case(next(case for case in DATASET["cases"] if case["id"] == "con-01"))
-    assert contradiction["answer"] == "The capital of Luma is Arin."
+    assert contradiction["answer_validation"]["reason"] == "surface_conflict"
+    assert contradiction["answer"] == evaluation.load_production()._ABSTENTION_ANSWER
     assert contradiction["semantic_dimensions_unscored"]["contradiction_handling"] is None
 
 
 def test_scoping_preserves_retrieval_provenance_without_claiming_support():
     result = evaluation.evaluate_case(next(case for case in DATASET["cases"] if case["id"] == "scp-02"))
-    assert result["generation_context_indices"] == [1]
+    assert [item["context_index"] for item in result["generation_evidence"]] == [1]
     assert result["retrieval_citations"] == [{"context_index": 1}, {"context_index": 2}]
-    assert result["inline_diagnostics"] == ["citation_outside_generation_scope"]
-    assert result["answer"] == "Rome [2]."  # Production passes the fake output through.
+    assert result["answer_validation"]["reason"] == "unknown_evidence_id"
+    assert result["answer"] == evaluation.load_production()._ABSTENTION_ANSWER
+    assert result["answer_citations"] == []
 
 
 def test_evaluator_detects_production_answer_outside_prompt_evidence(monkeypatch):
     rag = evaluation.load_production()
-    monkeypatch.setattr(rag.BaseRAG, "generate", lambda self, query, docs: "Invented outside evidence")
+    monkeypatch.setattr(rag.BaseRAG, "_generate_validated", lambda self, query, docs:
+                        rag.answer_gate.ValidatedAnswer(answer="Invented outside evidence", status="answer"))
     result = evaluation.evaluate_case(DATASET["cases"][0])
-    assert result["all_boundary_checks_pass"] is False
-    assert result["boundary_checks"]["extractive_answer_is_visible_span_or_abstention"] is False
-    assert result["boundary_checks"]["actual_prompt_matches_scoped_evidence"] is False
+    assert result["all_deterministic_checks_pass"] is False
+    assert result["validity_and_support_checks"]["answer_has_bounded_claim_count"] is False
+    assert result["validity_and_support_checks"]["rendered_answer_is_only_verified_quotes_and_refs"] is False
 
 
 def test_evaluator_detects_production_fabricated_citation_metadata(monkeypatch):
@@ -108,8 +115,8 @@ def test_evaluator_detects_production_fabricated_citation_metadata(monkeypatch):
         {"context_index": 1, "source": "invented-source.txt"},
     ]))
     result = evaluation.evaluate_case(DATASET["cases"][0])
-    assert result["all_boundary_checks_pass"] is False
-    assert result["boundary_checks"]["retrieval_citations_match_metadata"] is False
+    assert result["all_deterministic_checks_pass"] is False
+    assert result["validity_and_support_checks"]["retrieval_citations_metadata_only"] is False
 
 
 def test_evaluator_detects_production_evidence_budget_regression(monkeypatch):
@@ -117,17 +124,16 @@ def test_evaluator_detects_production_evidence_budget_regression(monkeypatch):
     monkeypatch.setattr(rag.BaseRAG, "_generation_evidence", staticmethod(lambda docs: [
         {"context_index": index, "text": doc.page_content} for index, doc in enumerate(docs, start=1)
     ]))
-    result = evaluation.evaluate_case(next(case for case in DATASET["cases"] if case["id"] == "scp-01"))
-    assert result["all_boundary_checks_pass"] is False
-    assert result["boundary_checks"]["generation_slices_match_budget_and_order"] is False
-    assert result["boundary_checks"]["context_with_separators_within_cap"] is False
+    result = evaluation.evaluate_case(next(case for case in DATASET["cases"] if case["id"] == "scp-02"))
+    assert result["all_deterministic_checks_pass"] is False
+    assert result["validity_and_support_checks"]["actual_prompt_payload_equals_independent_visible_slices"] is False
 
 
 def test_invocation_seam_still_avoids_clients_with_nonblank_config_keys(monkeypatch):
     rag = evaluation.load_production()
     for name in ("OPENROUTER_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"):
         monkeypatch.setattr(rag, name, "synthetic-not-a-real-key")
-    assert evaluation.evaluate_case(DATASET["cases"][0])["all_boundary_checks_pass"]
+    assert evaluation.evaluate_case(DATASET["cases"][0])["all_deterministic_checks_pass"]
 
 
 @pytest.mark.parametrize("mutation", ["duplicate_id", "wrong_version", "unknown_field", "missing_script", "bad_cap", "bad_document", "unbalanced"])
@@ -136,11 +142,11 @@ def test_invalid_schema_contract_is_rejected(mutation):
     if mutation == "duplicate_id":
         dataset["cases"][1]["id"] = dataset["cases"][0]["id"]
     elif mutation == "wrong_version":
-        dataset["dataset_version"] = "2.0.0"
+        dataset["dataset_version"] = "3.0.0"
     elif mutation == "unknown_field":
         dataset["cases"][0]["human_correctness"] = True
     elif mutation == "missing_script":
-        del dataset["cases"][24]["scripted_answer"]
+        del next(case for case in dataset["cases"] if case["mode"] == "scripted")["scripted_output"]
     elif mutation == "bad_cap":
         dataset["cases"][0]["context_cap"] = True
     elif mutation == "bad_document":
@@ -180,8 +186,8 @@ def test_outputs_are_deterministic_create_only_and_review_labels_blank(tmp_path)
     with pytest.raises(FileExistsError):
         evaluation.write_outputs(first)
     assert first_bytes == {file.name: file.read_bytes() for file in first.iterdir()}
-    assert summary["case_count"] == summary["cases_passing_boundary_regressions"] == 64
-    assert summary["boundary_assertion_failures"] == 0
+    assert summary["case_count"] == summary["cases_passing_deterministic_regressions"] == 64
+    assert summary["deterministic_assertion_failures"] == 0
     assert summary["human_review"]["completed_annotations"] == 0
     assert summary["human_review"]["cohens_kappa"] is None
     records = [json.loads(line) for line in first_bytes["human_review.jsonl"].splitlines()]
@@ -189,7 +195,7 @@ def test_outputs_are_deterministic_create_only_and_review_labels_blank(tmp_path)
     assert len({record["review_id"] for record in records}) == 64
     assert len(json.loads(first_bytes["human_review_key.json"])) == 64
     for record in records:
-        assert not {"case_id", "category", "mode", "expected_answer", "boundary_checks"} & record.keys()
+        assert not {"case_id", "category", "mode", "expected_status", "expected_reason", "answer_validation"} & record.keys()
         assert len(record["annotations"]) == 2
         for annotation in record["annotations"]:
             assert annotation["reviewer_id"] == annotation["notes"] == ""
@@ -220,3 +226,40 @@ def test_production_import_disables_dotenv_reads(monkeypatch):
 
     monkeypatch.setattr(evaluation.importlib, "import_module", checking_import)
     assert evaluation.load_production().__name__ == "module2.rag_architectures"
+
+
+def test_historical_v1_dataset_schema_runner_and_receipts_remain_intact():
+    dataset, raw = historical.load_dataset()
+    folder = historical.PROJECT_ROOT / "outputs/answer-boundaries-v1-20261019"
+    manifest = json.loads((folder / "run_manifest.json").read_bytes())
+    assert (folder / "dataset.json").read_bytes() == raw
+    assert json.loads((folder / "schema.json").read_bytes()) == historical.DATASET_SCHEMA
+    assert historical.digest(historical.Path(historical.__file__).read_bytes()) == manifest["runner_source_sha256"]
+    for name, expected in manifest["artifacts_sha256"].items():
+        assert historical.digest((folder / name).read_bytes()) == expected
+    assert dataset["dataset_version"] == "1.0.0"
+    summary = json.loads((folder / "summary.json").read_bytes())
+    assert summary["case_count"] == 64
+    assert summary["boundary_assertions"] == 547
+    # Old unsafe echoes remain observable in historical evidence, not redefined.
+    rows = [json.loads(line) for line in (folder / "results.jsonl").read_text().splitlines()]
+    assert next(row for row in rows if row["case_id"] == "scp-02")["answer"] == "Rome [2]."
+    assert next(row for row in rows if row["case_id"] == "inj-01")["observations_not_scores"]["literal_presence_in_answer"]["INJECTED_ALPHA"] is True
+
+
+def test_all_abstain_mutation_cannot_earn_passing_protocol_regressions(monkeypatch):
+    rag = evaluation.load_production()
+    monkeypatch.setattr(rag.answer_gate, "validate_output", lambda raw, payload: rag.answer_gate.abstain("forced"))
+    result = evaluation.evaluate_case(DATASET["cases"][0])
+    assert result["all_deterministic_checks_pass"] is False
+    assert result["protocol_regression_checks"]["status_matches_protocol_regression"] is False
+
+
+def test_fabricated_exact_span_claim_fails_independent_support_checker(monkeypatch):
+    rag = evaluation.load_production()
+    false_claim = {"evidence_id": "E1", "context_index": 1, "start": 0, "end": 4, "quote": "Mars"}
+    monkeypatch.setattr(rag.BaseRAG, "_generate_validated", lambda self, query, docs:
+                        rag.answer_gate.ValidatedAnswer(answer="Mars [1]", status="answer", claims=(false_claim,)))
+    result = evaluation.evaluate_case(DATASET["cases"][0])
+    assert result["all_deterministic_checks_pass"] is False
+    assert result["validity_and_support_checks"]["claims_are_exact_visible_spans"] is False

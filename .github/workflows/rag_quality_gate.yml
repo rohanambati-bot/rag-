@@ -79,3 +79,37 @@ jobs:
         with:
           name: benchmark-plots-${{ github.sha }}
           path: outputs/plots/
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Stage 3 — bounded clean Linux container smoke test
+  # ──────────────────────────────────────────────────────────────────────────
+  container-smoke:
+    name: Linux Container Smoke Test
+    runs-on: ubuntu-latest
+    needs: lint-test
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production image
+        run: docker build --file Dockerfile --tag rag-framework:${{ github.sha }} .
+
+      - name: Start the API without a corpus
+        run: |
+          docker run --detach --name rag-framework-smoke \
+            --publish 18000:8000 \
+            --env API_KEY=ci-smoke-key \
+            --env ALLOW_UNAUTHENTICATED=false \
+            --env HOST=0.0.0.0 \
+            --env PYTHON_DOTENV_DISABLED=1 \
+            rag-framework:${{ github.sha }}
+
+      - name: Check liveness and authentication boundaries
+        run: |
+          trap 'docker logs rag-framework-smoke || true; docker rm --force rag-framework-smoke || true' EXIT
+          curl --fail --retry 20 --retry-delay 2 http://127.0.0.1:18000/healthz
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST --header 'content-type: application/json' \
+            --data '{"question":"smoke"}' http://127.0.0.1:18000/query)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'X-API-Key: ci-smoke-key' http://127.0.0.1:18000/readyz)" = "503"

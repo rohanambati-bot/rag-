@@ -27,7 +27,7 @@ import uuid
 import atexit
 import threading
 from contextlib import contextmanager
-from typing import List, Dict, Any, Optional
+from typing import Iterable, List, Dict, Any, Optional
 from pathlib import Path
 
 import re
@@ -40,7 +40,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from configs.config import (
-    DATASET_NAME, DATASET_CONFIG, DATASET_SPLIT, DATASET_SUBSET_SIZE,
+    DATASET_NAME, DATASET_CONFIG, DATASET_SPLIT, DATASET_REVISION,
+    DATASET_SUBSET_SIZE, INDEX_REVISION,
     SQUAD_SPLIT, SQUAD_SUBSET_SIZE,
     CHUNK_SIZE, CHUNK_OVERLAP,
     EMBEDDING_MODEL, EMBEDDING_DEVICE, EMBEDDING_DIM, VECTOR_STORE_DIR,
@@ -70,6 +71,16 @@ class BuildLockError(RuntimeError):
 
 _READER_LEASES = {}
 _LEASE_LOCK = threading.RLock()
+_LEASE_PID = os.getpid()
+_NATIVE_PATHS = set()
+_FAILED_NATIVE_PATHS = set()
+_PUBLICATION_GUARDS = {}
+
+
+def _check_index_process() -> None:
+    """Native Chroma handles/locks cannot safely be inherited across fork."""
+    if os.getpid() != _LEASE_PID:
+        raise BuildLockError("Inherited index state after fork; use a fresh process (spawn)")
 
 
 def _lease_file(target_path: str):
@@ -80,7 +91,7 @@ def _lease_file(target_path: str):
     return open(path, "a+b")
 
 
-def _acquire_reader_lease(target_path: str) -> None:
+def _acquire_reader_lease(target_path: str) -> bool:
     """Pin an embedded Chroma pathname until process exit.
 
     Chroma retains native clients beyond a Python wrapper's lifetime, so dropping
@@ -88,10 +99,15 @@ def _acquire_reader_lease(target_path: str) -> None:
     Stop all participating reader processes before publishing a replacement.
     """
     import fcntl
+    _check_index_process()
     path = os.path.realpath(target_path)
     with _LEASE_LOCK:
+        if path in _FAILED_NATIVE_PATHS:
+            raise BuildLockError("Failed index writer still owns this path; use a fresh process")
         if path in _READER_LEASES:
-            return
+            return False
+        if path in _PUBLICATION_GUARDS:
+            raise BuildLockError("Reader refused inside an index publication guard")
         lease = _lease_file(path)
         try:
             fcntl.flock(lease, fcntl.LOCK_SH | fcntl.LOCK_NB)
@@ -99,6 +115,7 @@ def _acquire_reader_lease(target_path: str) -> None:
             lease.close()
             raise BuildLockError("Index publication in progress; reader refused") from exc
         _READER_LEASES[path] = lease
+        return True
 
 
 @atexit.register
@@ -116,23 +133,99 @@ def index_publication_guard(target_path: str, *, pin_reader: bool = False):
     support for direct Chroma clients or network filesystems.
     """
     import fcntl
-    lease = _lease_file(target_path)
+    _check_index_process()
+    path = os.path.realpath(target_path)
+    with _LEASE_LOCK:
+        if path in _READER_LEASES or path in _NATIVE_PATHS:
+            raise BuildLockError("Stop this Chroma reader; rebuild from a fresh process")
+        if path in _PUBLICATION_GUARDS:
+            raise BuildLockError("Nested index publication guard refused")
+        _PUBLICATION_GUARDS[path] = threading.get_ident()
+    lease = None
     try:
+        lease = _lease_file(target_path)
         try:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             raise BuildLockError(
                 "Stop existing Chroma readers before publishing; restart after publication"
             ) from exc
-        yield
-        if pin_reader:
-            with _LEASE_LOCK:
-                fcntl.flock(lease, fcntl.LOCK_SH)
-                _READER_LEASES[os.path.realpath(target_path)] = lease
-                lease = None
+        try:
+            yield
+        except BaseException:
+            # Even a failed native constructor can cache the path. Keep EX until
+            # exit: no reader may treat a partially written index as complete.
+            if path in _NATIVE_PATHS:
+                with _LEASE_LOCK:
+                    _FAILED_NATIVE_PATHS.add(path)
+                    _READER_LEASES[path] = lease
+                    lease = None
+            raise
+        else:
+            if pin_reader and path in _NATIVE_PATHS:
+                with _LEASE_LOCK:
+                    fcntl.flock(lease, fcntl.LOCK_SH)
+                    _READER_LEASES[path] = lease
+                    lease = None
     finally:
+        with _LEASE_LOCK:
+            _PUBLICATION_GUARDS.pop(path, None)
         if lease is not None:
             lease.close()
+
+
+def copy_vector_store(source: str, destination: str) -> str:
+    """Copy a quiescent index, including SQLite WAL, under the same barrier.
+
+    A filesystem copy is not a transactional SQLite backup. Stop participating
+    readers/writers before snapshotting; never silently copy a changing corpus.
+    Destination must be new. No native source client is opened or cached.
+    """
+    source, destination = os.path.realpath(source), os.path.realpath(destination)
+    with build_lock_for(source), index_publication_guard(source):
+        if not os.path.isfile(os.path.join(source, "chroma.sqlite3")):
+            raise FileNotFoundError(f"Vector store directory not found: {source}")
+        with build_lock_for(destination), index_publication_guard(destination):
+            shutil.copytree(source, destination)
+    return destination
+
+
+def run_isolated_index_builder(builder, *args):
+    """Run a top-level build function in spawn; join before any publication.
+
+    Chroma retains path-keyed native clients. A staging writer must exit before
+    its directory can be renamed. Never try to clear Chroma's private cache.
+    """
+    import multiprocessing
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(target=_isolated_index_worker, args=(child, builder, args))
+    try:
+        process.start()
+        child.close()
+        while not parent.poll(0.1):
+            if not process.is_alive() and not parent.poll():
+                raise RuntimeError(f"Index builder exited without receipt ({process.exitcode})")
+        receipt = parent.recv()
+        process.join()
+        if process.exitcode != 0 or not receipt[0]:
+            raise RuntimeError(f"Isolated index build failed: {receipt[1]}")
+        return receipt[1]
+    finally:
+        child.close()
+        parent.close()
+        if process.pid is not None and process.is_alive():
+            process.terminate()
+            process.join()
+
+
+def _isolated_index_worker(connection, builder, args):
+    try:
+        connection.send((True, builder(*args)))
+    except BaseException as exc:
+        connection.send((False, f"{type(exc).__name__}: {exc}"))
+    finally:
+        connection.close()
 
 
 def atomic_write_json(path: str, data: Any) -> None:
@@ -169,11 +262,11 @@ def atomic_write_json(path: str, data: Any) -> None:
 
 
 class BuildLock:
-    """Cross-process lock implemented with an exclusive lock file.
+    """Bounded POSIX builder lock with a stable inode and ownership receipt.
 
-    The lock is intentionally based only on stdlib filesystem primitives.  A
-    bounded wait avoids hanging a service forever behind a crashed or forgotten
-    builder; the lock file is never removed by a process that did not acquire it.
+    The never-unlinked .builders.lock inode releases automatically on process
+    death. The historical .build.lock JSON is an ownership receipt, not the lock
+    primitive. A dead owner's receipt is archived, never silently deleted.
     """
 
     def __init__(
@@ -182,7 +275,7 @@ class BuildLock:
         timeout: Optional[float] = None,
         poll_interval: float = DEFAULT_BUILD_LOCK_POLL_SECONDS,
     ):
-        self.target_path = os.path.abspath(target_path)
+        self.target_path = os.path.realpath(target_path)
         self.lock_path = f"{self.target_path}.build.lock"
         self.timeout = (
             DEFAULT_BUILD_LOCK_TIMEOUT_SECONDS if timeout is None else max(0.0, timeout)
@@ -190,21 +283,22 @@ class BuildLock:
         self.poll_interval = max(0.001, poll_interval)
         self._token: Optional[str] = None
         self._owned = False
+        self._file = None
 
     def acquire(self) -> "BuildLock":
+        import fcntl
+        _check_index_process()
         if self._owned:
             return self
         os.makedirs(os.path.dirname(self.lock_path), exist_ok=True)
         deadline = time.monotonic() + self.timeout
+        lease = open(f"{self.target_path}.builders.lock", "a+b")
         while True:
             try:
-                fd = os.open(
-                    self.lock_path,
-                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                    0o644,
-                )
-            except FileExistsError:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
                 if self.timeout <= 0 or time.monotonic() >= deadline:
+                    lease.close()
                     raise BuildLockError(
                         f"Index build lock is held for {self.target_path}: "
                         f"{self.lock_path} (waited {self.timeout:.2f}s)"
@@ -220,23 +314,38 @@ class BuildLock:
                 "token": token,
             }
             try:
+                if os.path.exists(self.lock_path):
+                    with open(self.lock_path, encoding="utf-8") as previous:
+                        abandoned = json.load(previous)
+                    if (not isinstance(abandoned, dict)
+                            or not isinstance(abandoned.get("pid"), int)
+                            or abandoned["pid"] <= 0
+                            or _process_is_alive(abandoned["pid"])):
+                        raise BuildLockError("Existing legacy builder receipt has a live/unknown owner")
+                    os.replace(self.lock_path, f"{self.lock_path}.abandoned.{uuid.uuid4().hex}")
+                fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
                 with os.fdopen(fd, "w", encoding="utf-8") as output:
                     json.dump(metadata, output)
                     output.flush()
                     os.fsync(output.fileno())
             except Exception:
-                try:
-                    os.unlink(self.lock_path)
-                except OSError:
-                    pass
+                lease.close()
                 raise
             self._token = token
             self._owned = True
+            self._file = lease
             return self
 
     def release(self) -> None:
         if not self._owned:
             return
+        try:
+            self._release_receipt()
+        finally:
+            self._file.close()
+            self._file = None
+
+    def _release_receipt(self) -> None:
         self._owned = False
         token = self._token
         self._token = None
@@ -324,7 +433,7 @@ def cleanup_stale_staging_dirs(
     protected_paths: Optional[List[str]] = None,
     active_lock_token: Optional[str] = None,
 ) -> List[str]:
-    """Remove only marked, non-active staging directories for one target.
+    """Archive only marked, non-active staging directories for one target.
 
     Callers must hold ``build_lock_for(target_path)``.  The marker and target
     match are required, and a live owner PID is preserved as a final guard
@@ -358,10 +467,13 @@ def cleanup_stale_staging_dirs(
         ):
             continue
         try:
-            shutil.rmtree(candidate)
+            # Preserve failed/interrupted build artifacts for inspection. Moving
+            # them out of the active-stage prefix prevents repeated cleanup.
+            with index_publication_guard(str(candidate)):
+                candidate.rename(Path(data_dir) / f"preserved-index-staging.{uuid.uuid4().hex}")
             removed.append(str(candidate))
-        except OSError as exc:
-            logger.warning("Could not remove stale staging directory %s: %s", candidate, exc)
+        except (OSError, BuildLockError) as exc:
+            logger.warning("Could not archive stale staging directory %s: %s", candidate, exc)
     return removed
 
 
@@ -610,12 +722,239 @@ def _index_manifest_path(persist_dir: str) -> str:
     return os.path.join(persist_dir, "_index_manifest.json")
 
 
+class IndexManifestError(RuntimeError):
+    """The persisted index cannot be proven compatible with its side data."""
+
+
+class CorpusIdentityError(IndexManifestError):
+    """The dense index and a derived corpus/side-data view disagree."""
+
+
+INDEX_MANIFEST_VERSION = 2
+_SIDE_DATA_KINDS = ("bm25", "graph", "qrels")
+
+
+def _json_safe_metadata(metadata: Any) -> Dict[str, Any]:
+    """Keep only deterministic corpus fields used by sparse/graph/qrels views."""
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return {
+        "query": str(metadata.get("query", "")),
+        "query_type": str(metadata.get("query_type", "")),
+        "is_selected": int(bool(metadata.get("is_selected", 0))),
+        "source": str(metadata.get("source", "")),
+    }
+
+
+def _corpus_record(doc: Any) -> Dict[str, Any]:
+    return {
+        "text": str(getattr(doc, "page_content", "")),
+        "metadata": _json_safe_metadata(getattr(doc, "metadata", {})),
+    }
+
+
+def corpus_identity(docs: Iterable[Any]) -> Dict[str, Any]:
+    """Return a stable identity for the ordered chunk corpus.
+
+    The text and the metadata fields consumed by BM25, graph traversal and qrels
+    are included.  Hashing the same canonical records for a dense build and for
+    reconstructed side data prevents a full dense index from being paired with
+    the historical 1,000-query development subset (or with another split).
+    """
+    import hashlib
+
+    digest = hashlib.sha256()
+    count = 0
+    for doc in docs:
+        payload = json.dumps(
+            _corpus_record(doc), sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+        count += 1
+    return {"corpus_id": digest.hexdigest(), "chunk_count": count}
+
+
+class _CorpusIdentityBuilder:
+    """Streaming equivalent of :func:`corpus_identity` for full/train builds."""
+
+    def __init__(self) -> None:
+        import hashlib
+        self._digest = hashlib.sha256()
+        self.chunk_count = 0
+
+    def update(self, docs: Iterable[Any]) -> None:
+        for doc in docs:
+            payload = json.dumps(
+                _corpus_record(doc), sort_keys=True, ensure_ascii=False, separators=(",", ":")
+            ).encode("utf-8")
+            self._digest.update(len(payload).to_bytes(8, "big"))
+            self._digest.update(payload)
+            self.chunk_count += 1
+
+    def finish(self) -> Dict[str, Any]:
+        return {"corpus_id": self._digest.hexdigest(), "chunk_count": self.chunk_count}
+
+
+def read_index_manifest(persist_dir: str) -> Dict[str, Any]:
+    """Read and structurally validate a manifest; never infer a legacy contract."""
+    path = _index_manifest_path(os.path.realpath(persist_dir))
+    if not os.path.isfile(path):
+        raise IndexManifestError(f"Index manifest is missing: {path}")
+    try:
+        with open(path, encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise IndexManifestError(f"Index manifest is malformed: {path}") from exc
+    if not isinstance(manifest, dict):
+        raise IndexManifestError(f"Index manifest must be a JSON object: {path}")
+
+    required = (
+        "manifest_version", "index_revision", "build_id", "embedding_model",
+        "embedding_dim", "chunk_size", "chunk_overlap", "num_chunks",
+        "dataset_name", "dataset_config", "dataset_revision", "split", "scope",
+        "query_count", "document_count", "corpus_id", "corpus_fingerprint",
+        "side_data",
+    )
+    missing = [key for key in required if key not in manifest]
+    if missing:
+        raise IndexManifestError(
+            f"Index manifest is incomplete ({', '.join(missing)}): {path}"
+        )
+    if manifest.get("manifest_version") != INDEX_MANIFEST_VERSION:
+        raise IndexManifestError(f"Unsupported index manifest version: {path}")
+    if manifest.get("index_revision") != INDEX_REVISION:
+        raise IndexManifestError(
+            f"Index revision mismatch: {manifest.get('index_revision')!r} != {INDEX_REVISION!r}"
+        )
+    for key in ("embedding_model", "dataset_name", "dataset_config", "dataset_revision",
+                "split", "scope", "corpus_id", "corpus_fingerprint"):
+        if not isinstance(manifest.get(key), str) or not manifest[key].strip():
+            raise IndexManifestError(f"Index manifest field {key!r} is invalid: {path}")
+    if manifest["corpus_id"] != manifest["corpus_fingerprint"]:
+        raise IndexManifestError(f"Index manifest corpus identity aliases disagree: {path}")
+    for key in ("embedding_dim", "chunk_size", "chunk_overlap", "num_chunks",
+                "query_count", "document_count"):
+        value = manifest.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise IndexManifestError(f"Index manifest count/setting {key!r} is invalid: {path}")
+    if manifest["num_chunks"] <= 0:
+        raise IndexManifestError(f"Index manifest num_chunks must be positive: {path}")
+    side_data = manifest.get("side_data")
+    if not isinstance(side_data, list) or set(side_data) != set(_SIDE_DATA_KINDS):
+        raise IndexManifestError(f"Index manifest side_data is invalid: {path}")
+    return manifest
+
+
+def _manifest_expected_values(
+    *,
+    split: Optional[str] = None,
+    scope: Optional[str] = None,
+    index_revision: Optional[str] = None,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
+) -> Dict[str, Any]:
+    expected = {
+        "embedding_model": EMBEDDING_MODEL,
+        "embedding_dim": EMBEDDING_DIM,
+        "dataset_name": DATASET_NAME,
+        "dataset_config": DATASET_CONFIG,
+        "dataset_revision": DATASET_REVISION,
+        "split": split,
+        "scope": scope,
+        "index_revision": index_revision or INDEX_REVISION,
+        "chunk_size": CHUNK_SIZE if chunk_size is None else chunk_size,
+        "chunk_overlap": CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap,
+    }
+    return {key: value for key, value in expected.items() if value is not None}
+
+
+def verify_index_manifest(
+    persist_dir: str,
+    *,
+    expected_chunks: Optional[int] = None,
+    split: Optional[str] = None,
+    scope: Optional[str] = None,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Fail closed on missing, malformed, stale or internally inconsistent metadata."""
+    manifest = read_index_manifest(persist_dir)
+    expected = _manifest_expected_values(
+        split=split, scope=scope, chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+    )
+    mismatches = {
+        key: (manifest.get(key), value)
+        for key, value in expected.items()
+        if manifest.get(key) != value
+    }
+    if expected_chunks is not None and manifest["num_chunks"] != expected_chunks:
+        mismatches["num_chunks"] = (manifest["num_chunks"], expected_chunks)
+    if mismatches:
+        detail = ", ".join(f"{key}={actual!r} (expected {wanted!r})"
+                           for key, (actual, wanted) in mismatches.items())
+        raise IndexManifestError(f"Index manifest mismatch at {persist_dir}: {detail}")
+    return manifest
+
+
+def verify_corpus_side_data(
+    manifest: Dict[str, Any],
+    chunks: Iterable[Any],
+    *,
+    qrels: Optional[Dict[str, Any]] = None,
+    required: Iterable[str] = _SIDE_DATA_KINDS,
+) -> Dict[str, Any]:
+    """Verify that every requested in-memory side view is present and same-corpus."""
+    if not isinstance(manifest, dict):
+        raise IndexManifestError("Side-data verification requires a manifest object")
+    required_set = set(required)
+    if required_set - set(_SIDE_DATA_KINDS):
+        raise ValueError("Unknown side-data kind")
+    if not required_set.issubset(set(manifest.get("side_data", []))):
+        raise IndexManifestError("Manifest does not declare all required side data")
+    chunk_list = list(chunks)
+    identity = corpus_identity(chunk_list)
+    if identity["chunk_count"] != manifest["num_chunks"]:
+        raise CorpusIdentityError(
+            f"Side-data chunk count {identity['chunk_count']} != dense index {manifest['num_chunks']}"
+        )
+    if identity["corpus_id"] != manifest["corpus_id"]:
+        raise CorpusIdentityError("Dense index and sparse/graph/qrels corpus identities differ")
+    if "qrels" in required_set and qrels is not None and not isinstance(qrels, dict):
+        raise IndexManifestError("Required qrels side data is missing or malformed")
+    return identity
+
+
+def documents_from_vector_store(vectorstore: Any) -> List[Document]:
+    """Reconstruct the exact ordered chunk view represented by a dense store."""
+    stored = vectorstore.get(include=["documents", "metadatas"])
+    documents = stored.get("documents") or []
+    metadatas = stored.get("metadatas") or [{} for _ in documents]
+    if len(metadatas) != len(documents):
+        raise CorpusIdentityError("Dense index documents and metadata counts differ")
+    return [
+        Document(page_content=text, metadata=metadata or {})
+        for text, metadata in zip(documents, metadatas)
+    ]
+
+
 def write_index_manifest(
     persist_dir: str,
     embedding_model: str = EMBEDDING_MODEL,
     chunk_size: int = CHUNK_SIZE,
     chunk_overlap: int = CHUNK_OVERLAP,
     num_chunks: int = 0,
+    *,
+    dataset_name: str = DATASET_NAME,
+    dataset_config: str = DATASET_CONFIG,
+    dataset_revision: str = DATASET_REVISION,
+    split: str = DATASET_SPLIT,
+    scope: str = "dev",
+    query_count: int = 0,
+    document_count: int = 0,
+    corpus_id: Optional[str] = None,
+    index_revision: str = INDEX_REVISION,
+    documents_path: Optional[str] = None,
 ) -> None:
     """
     Persist a small JSON manifest beside a newly built Chroma store.
@@ -629,19 +968,45 @@ def write_index_manifest(
     """
     from datetime import datetime, timezone
 
+    if num_chunks <= 0:
+        raise ValueError("num_chunks must be positive")
+    # Generic callers (including deterministic lifecycle fixtures) may not have
+    # the source documents available at write time. They still get a complete,
+    # structurally valid manifest; corpus equality is verified when side data is
+    # reconstructed from an actual chunk list.
+    identity = corpus_id or f"unavailable:{num_chunks}"
     manifest = {
+        "manifest_version": INDEX_MANIFEST_VERSION,
+        "index_revision": index_revision,
+        "revision": index_revision,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "build_id": uuid.uuid4().hex,
+        "dataset_name": dataset_name,
+        "dataset_config": dataset_config,
+        "dataset_revision": dataset_revision,
+        "split": split,
+        "scope": scope,
+        "query_count": query_count,
+        "document_count": document_count,
         "embedding_model": embedding_model,
         "embedding_dim": EMBEDDING_DIM,
         "chunk_size": chunk_size,
         "chunk_overlap": chunk_overlap,
         "num_chunks": num_chunks,
-        "build_id": uuid.uuid4().hex,
+        "corpus_id": identity,
+        "corpus_fingerprint": identity,
+        "counts": {
+            "queries": query_count, "documents": document_count, "chunks": num_chunks,
+        },
+        "settings": {
+            "embedding_model": embedding_model, "embedding_dim": EMBEDDING_DIM,
+            "chunk_size": chunk_size, "chunk_overlap": chunk_overlap,
+        },
+        "side_data": list(_SIDE_DATA_KINDS),
     }
-    try:
-        atomic_write_json(_index_manifest_path(persist_dir), manifest)
-    except Exception as exc:  # noqa: BLE001 — manifest is a safety net, not a gate
-        logger.warning("Could not write index manifest for %s: %s", persist_dir, exc)
+    if documents_path is not None:
+        manifest["documents_path"] = documents_path
+    atomic_write_json(_index_manifest_path(persist_dir), manifest)
 
 
 def _check_index_manifest(persist_dir: str) -> None:
@@ -654,7 +1019,7 @@ def _check_index_manifest(persist_dir: str) -> None:
     """
     path = _index_manifest_path(persist_dir)
     if not os.path.exists(path):
-        logger.debug("No index manifest at %s — build parameters unknown.", persist_dir)
+        logger.warning("No index manifest at %s — build parameters unknown.", persist_dir)
         return
     try:
         with open(path) as f:
@@ -686,120 +1051,127 @@ def _check_index_manifest(persist_dir: str) -> None:
 def _manifest_matches_current(persist_dir: str, num_chunks: int) -> bool:
     """Return whether a known manifest matches the current index contract.
 
-    Legacy stores without a manifest are treated as unknown rather than forcibly
-    rebuilt; stores with a manifest are safe to invalidate when their model,
-    chunking, or recorded vector count changed.
+    Missing/invalid manifests are never treated as reusable. Callers must fail
+    closed and leave the existing store untouched rather than silently rebuilding.
     """
-    path = _index_manifest_path(persist_dir)
-    if not os.path.exists(path):
-        return True
     try:
-        with open(path, encoding="utf-8") as manifest_file:
-            manifest = json.load(manifest_file)
-    except (OSError, json.JSONDecodeError):
+        manifest = verify_index_manifest(
+            persist_dir, expected_chunks=num_chunks, split=DATASET_SPLIT, scope="dev",
+        )
+    except (IndexManifestError, OSError):
         return False
-    if not isinstance(manifest, dict):
-        return False
-    return (
-        manifest.get("embedding_model") == EMBEDDING_MODEL
-        and manifest.get("chunk_size") == CHUNK_SIZE
-        and manifest.get("chunk_overlap") == CHUNK_OVERLAP
-        and manifest.get("num_chunks") == num_chunks
-    )
+    return manifest.get("query_count") == DATASET_SUBSET_SIZE
 
 
 def build_vector_store(
     chunks: List[Document],
     embedding_model: HuggingFaceEmbeddings,
     persist_dir: str = VECTOR_STORE_DIR,
+    *,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+    lock=None,
 ) -> Chroma:
-    """Index chunks into Chroma and persist to disk."""
+    """Create a NEW index under an exclusive writer barrier, then pin its path.
+
+    Existing stores are never appended to or cleared. Use the staged replacement
+    helper from a fresh process to rebuild. The returned handle is read-only by
+    contract; mutations belong inside ``persistent_index_writer``.
+    """
     if not chunks:
         raise ValueError("Cannot build a vector store from an empty chunk list")
-    os.makedirs(persist_dir, exist_ok=True)
-    logger.info("Building Chroma vector store at %s (%d chunks)…", persist_dir, len(chunks))
-    vectorstore = Chroma.from_documents(
-        documents=chunks,
-        embedding=embedding_model,
-        persist_directory=persist_dir,
-    )
-    # NOTE: chromadb >= 0.4 persists automatically; explicit persist() is a no-op.
-    logger.info("Vector store built and persisted (%d vectors).", len(chunks))
-    write_index_manifest(
-        persist_dir,
-        embedding_model=EMBEDDING_MODEL,
-        num_chunks=len(chunks),
-    )
+    with persistent_index_writer(persist_dir, embedding_model, create=True, lock=lock) as vectorstore:
+        vectorstore.add_documents(chunks)
+        write_index_manifest(
+            persist_dir, num_chunks=len(chunks),
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+            scope="dev", query_count=DATASET_SUBSET_SIZE,
+            document_count=len(chunks), corpus_id=corpus_identity(chunks)["corpus_id"],
+        )
     return vectorstore
+
+
+@contextmanager
+def persistent_index_writer(persist_dir, embedding_model, *, create=False, lock=None):
+    """Exclusive native writer session; opening is guarded even on first build.
+
+    The native path remains pinned for process lifetime after the session. A
+    failed write retains EX until exit. Callers must not mutate the returned
+    handle after this context exits. Resumable legacy stores are opened only
+    explicitly (``create=False``), never by an unguarded raw constructor.
+    """
+    persist_dir = os.path.realpath(persist_dir)
+    if lock is None:
+        with build_lock_for(persist_dir) as owned_lock:
+            with persistent_index_writer(
+                persist_dir, embedding_model, create=create, lock=owned_lock,
+            ) as store:
+                yield store
+        return
+    if not lock._owned or lock.target_path != os.path.realpath(persist_dir):
+        raise BuildLockError("Writer requires the matching owned build lock")
+    with index_publication_guard(persist_dir, pin_reader=True):
+        exists = os.path.isfile(os.path.join(persist_dir, "chroma.sqlite3"))
+        if create and exists:
+            raise FileExistsError("Index already exists; use a staged rebuild from a fresh process")
+        if not create and not exists:
+            raise FileNotFoundError(f"Vector store directory not found: {persist_dir}")
+        os.makedirs(persist_dir, exist_ok=True)
+        _NATIVE_PATHS.add(os.path.realpath(persist_dir))
+        store = Chroma(persist_directory=persist_dir, embedding_function=embedding_model)
+        yield store
+
+
+class _FrozenEmbeddings:
+    """Spawn-safe precomputed vectors; no model/client serialization needed."""
+    def __init__(self, texts, vectors):
+        self.vectors = dict(zip(texts, vectors))
+
+    def embed_documents(self, texts):
+        return [self.vectors[text] for text in texts]
+
+
+def _build_frozen_index(chunks, vectors, staged_dir, chunk_size, chunk_overlap):
+    store = build_vector_store(
+        chunks, _FrozenEmbeddings([doc.page_content for doc in chunks], vectors),
+        staged_dir, chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+    )
+    from collections import Counter
+    if Counter(store.get(include=["documents"])["documents"]) != Counter(
+        doc.page_content for doc in chunks
+    ):
+        raise RuntimeError("Staged vector store did not match replacement corpus")
+    return len(chunks)
 
 
 def rebuild_vector_store_safely(
     chunks: List[Document],
     embedding_model: HuggingFaceEmbeddings,
     persist_dir: str = VECTOR_STORE_DIR,
+    *,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
 ) -> Chroma:
-    """Build a replacement index beside the live one, then publish atomically."""
+    """Stop-serving replacement; isolated staging writer exits before rename."""
+    if not chunks:
+        raise ValueError("Cannot build a vector store from an empty chunk list")
+    persist_dir = os.path.realpath(persist_dir)
     with build_lock_for(persist_dir) as build_lock, index_publication_guard(persist_dir, pin_reader=True):
         parent_dir = os.path.dirname(os.path.abspath(persist_dir))
-        cleanup_stale_staging_dirs(
-            parent_dir,
-            prefix=".vector_store.",
-            target_path=persist_dir,
-            active_lock_token=build_lock._token,
-        )
         staged_dir = create_staging_dir(
             parent_dir, ".vector_store.", persist_dir, lock=build_lock
         )
-        backup_dir = f"{os.path.abspath(persist_dir)}.previous"
-        moved_previous = False
         try:
-            build_vector_store(chunks, embedding_model, persist_dir=staged_dir)
-            if not os.path.exists(persist_dir) and os.path.exists(backup_dir):
-                os.replace(backup_dir, persist_dir)
-            if os.path.exists(backup_dir):
-                shutil.rmtree(backup_dir)
-            if os.path.exists(persist_dir):
-                os.replace(persist_dir, backup_dir)
-                moved_previous = True
-            os.replace(staged_dir, persist_dir)
-            try:
-                vectorstore = Chroma(
-                    persist_directory=persist_dir, embedding_function=embedding_model
-                )
-                # Chroma caches clients by persistence path. If this process already
-                # opened the old directory, reopening the pathname may return OLD
-                # handles or a collection that no longer exists. Never report that
-                # as a successful rebuild or delete its backup. A fresh process is
-                # required in that case.
-                from collections import Counter
-                actual = Counter(vectorstore.get(include=["documents"])["documents"])
-            except Exception as exc:  # noqa: BLE001
-                raise RuntimeError(
-                    "Published vector store could not be validated. "
-                    "Stop existing Chroma readers and rebuild from a fresh process."
-                ) from exc
-            if actual != Counter(doc.page_content for doc in chunks):
-                raise RuntimeError(
-                    "Published vector store did not match the replacement corpus. "
-                    "Stop existing Chroma readers and rebuild from a fresh process."
-                )
-            if os.path.exists(backup_dir):
-                try:
-                    shutil.rmtree(backup_dir)
-                except OSError as exc:
-                    logger.warning("Could not remove previous vector store %s: %s", backup_dir, exc)
-            marker = os.path.join(persist_dir, STAGING_METADATA_FILE)
-            try:
-                os.unlink(marker)
-            except FileNotFoundError:
-                pass
-            # The returned native client still pins the path. Downgrading the
-            # publication guard occurs on exit; subsequent publishers are refused.
+            vectors = embedding_model.embed_documents([doc.page_content for doc in chunks])
+            run_isolated_index_builder(
+                _build_frozen_index, chunks, vectors, staged_dir, chunk_size, chunk_overlap,
+            )
+            from preprocess_full import _publish_vector_store_without_readers
+            _publish_vector_store_without_readers(staged_dir, persist_dir)
+            # This process has never opened this final path: no stale native cache.
+            _NATIVE_PATHS.add(os.path.realpath(persist_dir))
+            vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embedding_model)
         except Exception:
-            if moved_previous and os.path.exists(backup_dir):
-                if os.path.exists(persist_dir):
-                    shutil.rmtree(persist_dir, ignore_errors=True)
-                os.replace(backup_dir, persist_dir)
             shutil.rmtree(staged_dir, ignore_errors=True)
             raise
     return vectorstore
@@ -808,19 +1180,40 @@ def rebuild_vector_store_safely(
 def load_vector_store(
     embedding_model: HuggingFaceEmbeddings,
     persist_dir: str = VECTOR_STORE_DIR,
+    *,
+    allow_unmanifested_legacy: bool = False,
 ) -> Chroma:
-    """Load an already-persisted Chroma vector store."""
-    _acquire_reader_lease(persist_dir)
-    if not os.path.isfile(os.path.join(persist_dir, "chroma.sqlite3")):
-        raise FileNotFoundError(f"Vector store directory not found: {persist_dir}")
-    _check_index_manifest(persist_dir)
-    vectorstore = Chroma(
-        persist_directory=persist_dir,
-        embedding_function=embedding_model,
-    )
-    if vectorstore._collection.count() == 0:
-        raise ValueError(f"Vector store is empty: {persist_dir}")
-    return vectorstore
+    """Load an already-persisted Chroma vector store.
+
+    ``allow_unmanifested_legacy`` is only for explicitly labelled, non-release
+    measurements against old stores. Normal application loads remain fail-closed.
+    """
+    persist_dir = os.path.realpath(persist_dir)
+    acquired = _acquire_reader_lease(persist_dir)
+    try:
+        if not os.path.isfile(os.path.join(persist_dir, "chroma.sqlite3")):
+            raise FileNotFoundError(f"Vector store directory not found: {persist_dir}")
+        manifest = None if allow_unmanifested_legacy else read_index_manifest(persist_dir)
+        _NATIVE_PATHS.add(os.path.realpath(persist_dir))
+        vectorstore = Chroma(
+            persist_directory=persist_dir,
+            embedding_function=embedding_model,
+        )
+        count = vectorstore._collection.count()
+        if count == 0:
+            raise ValueError(f"Vector store is empty: {persist_dir}")
+        if manifest is not None and count != manifest["num_chunks"]:
+            raise CorpusIdentityError(
+                f"Dense index count {count} != manifest {manifest['num_chunks']}"
+            )
+        return vectorstore
+    except BaseException:
+        if acquired:
+            with _LEASE_LOCK:
+                lease = _READER_LEASES.pop(persist_dir, None)
+            if lease is not None:
+                lease.close()
+        raise
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1059,28 +1452,28 @@ def run_module1(
         vectorstore = load_vector_store(embedding_model)
     else:
         if existing_store:
-            logger.warning(
-                "Existing vector store at %s does not match the current index contract; rebuilding.",
-                VECTOR_STORE_DIR,
+            raise IndexManifestError(
+                f"Existing vector store at {VECTOR_STORE_DIR} does not match the configured "
+                "development corpus. Refusing an implicit rebuild; run the intended "
+                "preprocessing workflow into a new staging path and publish only after "
+                "its manifest and side data are verified."
             )
-            vectorstore = rebuild_vector_store_safely(chunks, embedding_model)
         else:
             # A first build is also serialized: two workers starting with no
             # directory must not both write Chroma's persistent files. Recheck
             # after acquiring the lock because another worker may have finished
             # while this one was waiting.
-            rebuild_after_lock = False
-            with build_lock_for(VECTOR_STORE_DIR):
+            with build_lock_for(VECTOR_STORE_DIR) as first_build_lock:
                 if os.path.exists(os.path.join(VECTOR_STORE_DIR, "chroma.sqlite3")):
                     if _manifest_matches_current(VECTOR_STORE_DIR, len(chunks)):
                         vectorstore = load_vector_store(embedding_model)
                     else:
-                        rebuild_after_lock = True
-                        vectorstore = None
+                        raise IndexManifestError(
+                            f"Existing vector store at {VECTOR_STORE_DIR} is incompatible; "
+                            "refusing an implicit rebuild."
+                        )
                 else:
-                    vectorstore = build_vector_store(chunks, embedding_model)
-            if rebuild_after_lock:
-                vectorstore = rebuild_vector_store_safely(chunks, embedding_model)
+                    vectorstore = build_vector_store(chunks, embedding_model, lock=first_build_lock)
 
     # Synthetic data
     synthetic_data: List[Dict] = []
@@ -1203,6 +1596,9 @@ class KnowledgeGraphBuilder:
                 for e2 in entities[i+1:]:
                     if e2 not in self.graph[e1]:
                         self.graph[e1].append(e2)
+                    self.graph.setdefault(e2, [])
+                    if e1 not in self.graph[e2]:
+                        self.graph[e2].append(e1)
 
         logger.info(
             "KG built: %d entities, %d edges",

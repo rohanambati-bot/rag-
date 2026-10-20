@@ -20,7 +20,8 @@ import os
 import json
 import hashlib
 import logging
-from dataclasses import dataclass, asdict
+import math
+from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -49,7 +50,9 @@ logger = logging.getLogger(__name__)
 # command whose cost grew with cache size. The replacement keeps an in-process vector
 # index (hnswlib ANN, or a single vectorised matrix product as fallback) and treats
 # Redis purely as write-through persistence read once at startup via SCAN.
-from phase3.semantic_cache import CacheEntry, SemanticCache  # noqa: E402,F401
+from phase3.semantic_cache import (  # noqa: E402,F401
+    CacheEntry, SemanticCache, require_generation_cache,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -62,14 +65,21 @@ class CachedRAG:
     Cache hits skip the retrieval + generation pipeline entirely.
     """
 
-    def __init__(self, rag_system: Any, cache: SemanticCache):
+    def __init__(self, rag_system: Any, cache: SemanticCache, *, allow_legacy_cache: bool = False):
         self.rag = rag_system
         self.cache = cache
+        # Compatibility is opt-in and outside the revocation guarantee. Serving
+        # never enables it; callers migrating old adapters can select it explicitly.
+        self.allow_legacy_cache = allow_legacy_cache
         self.name = f"{getattr(rag_system, 'name', 'RAG')} + SemanticCache"
 
     def run(self, query: str) -> Dict[str, Any]:
-        # Check cache first
-        cached = self.cache.lookup(query)
+        token = None
+        if not self.allow_legacy_cache:
+            require_generation_cache(self.cache)
+            token = self.cache.begin_generation()
+        cached = (self.cache.lookup_generation(token, query) if token is not None
+                  else self.cache.lookup(query))
         if cached:
             return {
                 "architecture": self.name,
@@ -80,7 +90,11 @@ class CachedRAG:
         # Cache miss: run full pipeline
         result = self.rag.run(query)
         store_with_citations = getattr(self.cache, "store_with_citations", None)
-        if store_with_citations is not None:
+        if token is not None:
+            self.cache.publish_generation(token, query, result.get("answer", ""),
+                                          result.get("contexts", []), result.get("citations", []))
+            self.cache.validate_generation(token)
+        elif store_with_citations is not None:
             store_with_citations(
                 query=query,
                 answer=result.get("answer", ""),
@@ -111,6 +125,11 @@ class CICDReport:
     thresholds: Dict[str, float]
     passed: bool
     failure_reasons: List[str]
+    metric_status: Dict[str, bool] = field(default_factory=dict)
+    successful_samples: int = 0
+    failed_samples: int = 0
+    skipped_samples: int = 0
+    evaluation_valid: bool = False
     commit_hash: str = ""
 
     def to_dict(self) -> Dict:
@@ -128,9 +147,11 @@ class CICDReport:
         print(f"  CI/CD Quality Gate: {status}")
         print("─" * 60)
         for k, v in self.metrics.items():
+            if k not in self.thresholds:
+                continue
             threshold = self.thresholds.get(k)
             direction = "≥" if k != "noise_ratio" else "≤"
-            ok = "✓" if self.passed or k not in self.failure_reasons else "✗"
+            ok = "✓" if self.metric_status.get(k, False) else "✗"
             print(f"  {ok}  {k:<25} {v:.4f}  ({direction} {threshold})")
         if self.failure_reasons:
             print("\n  Failure reasons:")
@@ -193,41 +214,58 @@ def run_quality_gate(
         max_samples=max_samples,
     )
 
-    metrics: Dict[str, float] = {}
+    passed, gate_metrics = pipeline.check_quality_gate(df)
+    metrics: Dict[str, float] = {
+        name: round(float(gate_metrics[name]), 4)
+        for name in THRESHOLDS
+        if isinstance(gate_metrics.get(name), (int, float))
+    }
+    metrics.update({
+        name: gate_metrics[name]
+        for name in ("expected_samples", "successful_samples", "failed_samples", "skipped_samples")
+        if name in gate_metrics
+    })
+    metric_status: Dict[str, bool] = {}
     failure_reasons: List[str] = []
-
-    for col in ["faithfulness", "context_precision", "answer_relevance", "noise_ratio"]:
-        if col in df.columns:
-            metrics[col] = round(float(df[col].mean()), 4)
-
-    # Gate checks
-    def _check(metric: str, threshold: float, higher_is_better: bool = True) -> None:
-        val = metrics.get(metric, 0.0 if higher_is_better else 1.0)
-        if higher_is_better and val < threshold:
-            failure_reasons.append(
-                f"{metric} = {val:.4f} < {threshold} (required ≥ {threshold})"
-            )
-        elif not higher_is_better and val > threshold:
-            failure_reasons.append(
-                f"{metric} = {val:.4f} > {threshold} (required ≤ {threshold})"
-            )
-
-    _check("faithfulness", FAITHFULNESS_THRESHOLD, higher_is_better=True)
-    _check("context_precision", CONTEXT_PRECISION_THRESHOLD, higher_is_better=True)
-    _check("answer_relevance", ANSWER_RELEVANCE_THRESHOLD, higher_is_better=True)
-    _check("noise_ratio", NOISE_RATIO_MAX, higher_is_better=False)
-
-    passed = len(failure_reasons) == 0
+    for metric, threshold in THRESHOLDS.items():
+        value = gate_metrics.get(metric)
+        higher = metric != "noise_ratio"
+        ok = isinstance(value, (int, float)) and math.isfinite(float(value)) and (
+            float(value) >= threshold if higher else float(value) <= threshold
+        )
+        metric_status[metric] = ok
+        if not ok:
+            direction = "<" if higher else ">"
+            requirement = "≥" if higher else "≤"
+            shown = "missing/non-finite" if not isinstance(value, (int, float)) or not math.isfinite(float(value)) else f"{float(value):.4f}"
+            failure_reasons.append(f"{metric} = {shown} {direction} {threshold} (required {requirement} {threshold})")
+    if not passed:
+        coverage = ", ".join(
+            f"{name}={gate_metrics.get(name, 0)}"
+            for name in ("expected_samples", "successful_samples", "failed_samples", "skipped_samples")
+        )
+        if gate_metrics.get("failed_samples", 0) or gate_metrics.get("skipped_samples", 0):
+            failure_reasons.append(f"incomplete sample coverage ({coverage})")
 
     report = CICDReport(
         run_id=datetime.utcnow().strftime("%Y%m%d_%H%M%S"),
         timestamp=datetime.utcnow().isoformat(),
         architecture=architecture_name,
-        num_samples=len(df),
+        num_samples=int(gate_metrics.get("expected_samples", len(df))),
         metrics=metrics,
         thresholds=THRESHOLDS,
         passed=passed,
         failure_reasons=failure_reasons,
+        metric_status=metric_status,
+        successful_samples=int(gate_metrics.get("successful_samples", 0)),
+        failed_samples=int(gate_metrics.get("failed_samples", 0)),
+        skipped_samples=int(gate_metrics.get("skipped_samples", 0)),
+        evaluation_valid=(
+            int(gate_metrics.get("successful_samples", 0))
+            == int(gate_metrics.get("expected_samples", 0))
+            and not gate_metrics.get("failed_samples", 0)
+            and not gate_metrics.get("skipped_samples", 0)
+        ),
         commit_hash=commit_hash or os.getenv("GITHUB_SHA", "local"),
     )
 

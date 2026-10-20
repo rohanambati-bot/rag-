@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import json
+import hashlib
 import time
 import logging
 import threading
@@ -31,21 +32,54 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from langchain_core.documents import Document
 
+from module2 import answer_validation as answer_gate
+
 from configs.config import (
     TOP_K, GROQ_API_KEY, GROQ_MODEL,
     MISTRAL_API_KEY, LLM_MODEL,
     LLM_MAX_TOKENS, LLM_TEMPERATURE, LLM_RATE_LIMIT_SECONDS,
     MAX_CONTEXT_CHARS,
     OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
-    RERANKER_MODEL, RERANK_CANDIDATES, RERANK_DEVICE,
+    RERANKER_MODEL, RERANK_CANDIDATES, RERANK_DEVICE, EMBEDDING_MODEL,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-_ABSTENTION_ANSWER = (
-    "Based on the retrieved context, I could not find a relevant answer to this question."
-)
+_ABSTENTION_ANSWER = answer_gate.ABSTENTION_ANSWER
+_ANSWER_TIMEOUT_SECONDS = 20.0
+
+
+class _ProviderSlotScheduler:
+    """Reserve spaced provider slots without holding a lock during network I/O."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._next_allowed: Dict[str, float] = {}
+
+    def reserve(self, provider: str, interval: float, max_wait: Optional[float] = None) -> Optional[float]:
+        if interval <= 0:
+            return 0.0
+        with self._lock:
+            now = time.monotonic()
+            slot = max(now, self._next_allowed.get(provider, now))
+            delay = max(0.0, slot - now)
+            if max_wait is not None and delay > max_wait:
+                return None
+            self._next_allowed[provider] = slot + interval
+            return delay
+
+
+_PROVIDER_SLOTS = _ProviderSlotScheduler()
+
+
+def _wait_for_provider(provider: str, *, max_wait: Optional[float] = None) -> bool:
+    delay = _PROVIDER_SLOTS.reserve(provider, LLM_RATE_LIMIT_SECONDS, max_wait)
+    if delay is None:
+        return False
+    if delay > 0:
+        time.sleep(delay)
+    return True
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -118,15 +152,58 @@ class _LLM:
             return self._mistral_complete(prompt, max_tokens)
         return self._extractive_fallback(prompt)
 
+    def complete_answer(self, payload: Dict[str, Any]) -> str:
+        """One bounded answer attempt; failures never become raw or legacy fallback.
+
+        Retrieval/rewriting calls keep their existing interface and model choices.
+        Here trusted instructions have their own system role, and evidence and
+        question remain JSON-encoded untrusted data in a separate user message.
+        SDK timeouts bound network operations, not a hard process wall deadline.
+        """
+        if self._provider == "extractive":
+            return answer_gate.extractive_output(payload)
+        messages = [
+            {"role": "system", "content": answer_gate.SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=True)},
+        ]
+        # Keep the legacy per-instance check for old adapters, then use the shared
+        # scheduler so concurrent instances cannot reserve the same provider slot.
+        previous = getattr(self, "_last_answer_call", 0)
+        delay = LLM_RATE_LIMIT_SECONDS - (time.monotonic() - previous)
+        if previous and delay > 2:
+            return ""  # Controlled abstention through the production gate.
+        if delay > 0:
+            time.sleep(delay)
+        if not _wait_for_provider(self._provider, max_wait=2):
+            return ""
+        self._last_answer_call = time.monotonic()
+        try:
+            if self._provider in {"openrouter", "groq"}:
+                client = self._openrouter_client if self._provider == "openrouter" else self._groq_client
+                response = client.with_options(timeout=_ANSWER_TIMEOUT_SECONDS, max_retries=0).chat.completions.create(
+                    model=GROQ_MODEL, messages=messages,
+                    max_tokens=min(LLM_MAX_TOKENS, 1600), temperature=LLM_TEMPERATURE,
+                )
+            elif self._provider == "mistral":
+                response = self._mistral_client.chat.complete(
+                    model=LLM_MODEL, messages=messages,
+                    max_tokens=min(LLM_MAX_TOKENS, 1600), temperature=LLM_TEMPERATURE,
+                    timeout_ms=int(_ANSWER_TIMEOUT_SECONDS * 1000), retries=None,
+                )
+            else:
+                return ""
+            choice = response.choices[0]
+            if choice.finish_reason != "stop":
+                return ""  # Includes token truncation, tool calls, content filters.
+            return choice.message.content or ""
+        except Exception:
+            # Do not log provider text, prompts, credentials or evidence.
+            logger.warning("Answer provider failed; returning controlled abstention.")
+            return ""
+
     def _openrouter_complete(self, prompt: str, max_tokens: int) -> str:
         try:
-            import time as _time
-            # Rate limit: configurable via LLM_RATE_LIMIT_SECONDS
-            if not hasattr(self, '_last_or_call'):
-                self._last_or_call = 0
-            elapsed = _time.time() - self._last_or_call
-            if elapsed < LLM_RATE_LIMIT_SECONDS:
-                _time.sleep(LLM_RATE_LIMIT_SECONDS - elapsed)
+            _wait_for_provider("openrouter")
 
             resp = self._openrouter_client.chat.completions.create(
                 model=GROQ_MODEL,
@@ -134,7 +211,6 @@ class _LLM:
                 max_tokens=max_tokens,
                 temperature=LLM_TEMPERATURE,
             )
-            self._last_or_call = _time.time()
             return (resp.choices[0].message.content or "").strip()
         except Exception as exc:
             logger.warning("OpenRouter call failed (%s) — using extractive.", exc)
@@ -142,13 +218,7 @@ class _LLM:
 
     def _groq_complete(self, prompt: str, max_tokens: int) -> str:
         try:
-            import time as _time
-            # Rate limit: configurable via LLM_RATE_LIMIT_SECONDS
-            if not hasattr(self, '_last_groq_call'):
-                self._last_groq_call = 0
-            elapsed = _time.time() - self._last_groq_call
-            if elapsed < LLM_RATE_LIMIT_SECONDS:
-                _time.sleep(LLM_RATE_LIMIT_SECONDS - elapsed)
+            _wait_for_provider("groq")
 
             resp = self._groq_client.chat.completions.create(
                 model=GROQ_MODEL,
@@ -156,7 +226,6 @@ class _LLM:
                 max_tokens=max_tokens,
                 temperature=LLM_TEMPERATURE,
             )
-            self._last_groq_call = _time.time()
             return resp.choices[0].message.content.strip()
         except Exception as exc:
             logger.warning("Groq call failed (%s) — trying fallback.", exc)
@@ -166,6 +235,7 @@ class _LLM:
 
     def _mistral_complete(self, prompt: str, max_tokens: int) -> str:
         try:
+            _wait_for_provider("mistral")
             resp = self._mistral_client.chat.complete(
                 model=LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
@@ -179,7 +249,11 @@ class _LLM:
 
     @staticmethod
     def _extractive_fallback(prompt: str) -> str:
-        """Pick the most relevant sentence from the context block of the prompt."""
+        """Compatibility for old string callers, using the same strict span gate.
+
+        New generation uses complete_answer with a JSON envelope instead of text
+        headers. Non-answer retrieval prompts abstain as before in keyless mode.
+        """
         # Match actual headers, never the words "context"/"question" in the
         # instructions. Greedy context capture keeps header-like text inside the
         # evidence, ending at the final Question section before the Answer suffix.
@@ -192,51 +266,10 @@ class _LLM:
             return _ABSTENTION_ANSWER
 
         context, question = (part.strip() for part in match.groups())
-        if not context:
-            return _ABSTENTION_ANSWER
-
-        # Score sentences by keyword overlap with the question
-        sentences = re.split(r"(?<=[.!?])\s+", context)
-        # Also split on newlines (MS MARCO passages are often one-liners)
-        expanded = []
-        for s in sentences:
-            expanded.extend(s.split("\n"))
-        sentences = [s.strip() for s in expanded if s.strip()]
-
-        q_tokens = set(re.findall(r"\w+", question.lower())) - {
-            "the", "a", "an", "is", "are", "was", "were", "of", "to",
-            "in", "on", "at", "and", "or", "what", "who", "where",
-            "when", "why", "how", "which", "do", "does", "did", "can",
-            "could", "would", "should", "will", "it", "its", "this",
-            "that", "these", "those", "be", "been", "being", "have",
-            "has", "had", "for", "with", "from", "by", "about",
-        }
-        if not sentences:
-            return _ABSTENTION_ANSWER
-
-        if not q_tokens:
-            # If question has no meaningful keywords, return first substantial sentence
-            for s in sentences:
-                if len(s) > 30:
-                    return s[:500]
-            return sentences[0][:300]
-
-        scored = []
-        for s in sentences:
-            s_tokens = set(re.findall(r"\w+", s.lower()))
-            overlap = len(s_tokens & q_tokens)
-            # Bonus for shorter, more focused sentences (likely direct answers)
-            length_penalty = max(0.5, 1.0 - len(s) / 1000)
-            score = overlap * (1 + length_penalty)
-            scored.append((score, s))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        # Return the best sentence only (not a jumble of multiple)
-        best_score, best_sentence = scored[0]
-        if best_score == 0:
-            return _ABSTENTION_ANSWER
-        return best_sentence[:500]
+        docs = [Document(page_content=context)]
+        evidence = BaseRAG._generation_evidence(docs)
+        payload = answer_gate.make_payload(question, evidence, docs)
+        return answer_gate.validate_output(answer_gate.extractive_output(payload), payload).answer
 
 
 _GLOBAL_LLM: Optional[_LLM] = None
@@ -301,7 +334,7 @@ class BaseRAG:
         Indices refer to the original returned documents, including blank/skipped
         documents. This is evidence scoping, not claim-level citation support.
         """
-        remaining = MAX_CONTEXT_CHARS
+        remaining = min(MAX_CONTEXT_CHARS, answer_gate.MAX_EVIDENCE_CHARS)
         evidence = []
         for index, doc in enumerate(docs, start=1):
             if not doc.page_content.strip():
@@ -314,12 +347,20 @@ class BaseRAG:
             remaining -= len(text) + separator_chars
         return evidence
 
+    def _generate_validated(self, query: str, docs: List[Document]) -> answer_gate.ValidatedAnswer:
+        payload = answer_gate.make_payload(query, self._generation_evidence(docs), docs)
+        problem = answer_gate.evidence_problem(payload)
+        if problem:
+            return answer_gate.abstain(problem)
+        try:
+            raw = _llm().complete_answer(payload)
+        except Exception:
+            return answer_gate.abstain("provider_failure")
+        return answer_gate.validate_output(raw, payload)
+
     def generate(self, query: str, docs: List[Document]) -> str:
-        context = "\n\n".join(item["text"] for item in self._generation_evidence(docs))
-        if not context.strip():
-            return _ABSTENTION_ANSWER
-        prompt = ANSWER_PROMPT.format(context=context, question=query)
-        return _llm().complete(prompt)
+        """Return strictly verified extractive claims, or the controlled abstention."""
+        return self._generate_validated(query, docs).answer
 
     @staticmethod
     def _citations(docs: List[Document]) -> List[Dict[str, Any]]:
@@ -346,15 +387,19 @@ class BaseRAG:
     def run(self, query: str) -> Dict[str, Any]:
         t0 = time.time()
         docs = self.retrieve(query)
-        answer = self.generate(query, docs)
+        generated = self._generate_validated(query, docs)
         latency = (time.time() - t0) * 1000
         return {
             "architecture": self.name,
             "query": query,
-            "answer": answer,
+            "answer": generated.answer,
             "context_docs": docs,
             "contexts": [d.page_content for d in docs],
             "citations": self._citations(docs),
+            # citations remains retrieval provenance for existing API consumers.
+            # Only these spans support the rendered, inline-referenced claims.
+            "answer_citations": [dict(claim) for claim in generated.claims],
+            "answer_validation": generated.diagnostics(),
             "latency_ms": round(latency, 2),
         }
 
@@ -935,6 +980,23 @@ class AdaptiveRAG(BaseRAG):
 _RAPTOR_GLOBAL_CACHE: Dict[str, Any] = {}
 
 
+def _raptor_cache_key(chunks: List[Document]) -> str:
+    """Bind derived summaries to every input chunk, not just a short prefix."""
+    digest = hashlib.sha256()
+    digest.update(EMBEDDING_MODEL.encode("utf-8"))
+    digest.update(str(len(chunks)).encode("ascii"))
+    for doc in chunks:
+        record = json.dumps(
+            {"text": doc.page_content, "metadata": doc.metadata or {}},
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        digest.update(len(record).to_bytes(8, "big"))
+        digest.update(record)
+    return digest.hexdigest()
+
+
 class GRACEOmegaRAG(BaseRAG):
     """
     GRACE-Ω: Our original novel architecture.
@@ -1004,7 +1066,6 @@ class GRACEOmegaRAG(BaseRAG):
         Level 1: cluster summaries (LLM-generated)
         """
         try:
-            import hashlib
             from pathlib import Path
             from sklearn.cluster import KMeans
             from sentence_transformers import SentenceTransformer
@@ -1016,7 +1077,7 @@ class GRACEOmegaRAG(BaseRAG):
                 logger.warning("GRACE-Ω: Too few chunks for RAPTOR.")
                 return
 
-            cache_key = hashlib.sha256("".join(texts[:30]).encode("utf-8")).hexdigest()
+            cache_key = _raptor_cache_key(self.chunks)
             if cache_key in _RAPTOR_GLOBAL_CACHE:
                 self._summary_docs, self._summary_store = _RAPTOR_GLOBAL_CACHE[cache_key]
                 logger.info("GRACE-Ω: Reusing in-memory RAPTOR tree — %d summaries.", len(self._summary_docs))

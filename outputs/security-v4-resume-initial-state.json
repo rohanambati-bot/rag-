@@ -1,0 +1,26 @@
+{
+  "schema": "security-validation-state/v1",
+  "phase": "resume-from-c35c608-with-local-ci-fixture-fix",
+  "utc": "2026-10-19T14:05:14.745268+00:00",
+  "python": "3.12.14",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "git": {
+    "git status --short": " M tests/test_audit_regressions.py\n",
+    "git branch --show-current": "fix/audit-repairs\n",
+    "git log --oneline -5": "c35c608 fix: harden RAG security and preserve validation evidence\n76287c8 test: record reproducible RAG validation evidence\n25b1020 RUNBOOK \u00a77.5: record dev cross-encoder comparison \u2014 keep bge-reranker-base (identical hit@5, marginal MRR delta at threshold, 2.5x latency)\n18b222a optimize: dev-split cross-encoder sweep \u2014 base scored (hit@5 0.944, MRR 0.694, rescue 66.7%); large retry pending xet-disabled download\n71d86af optimize_retrieval: drop bge-v2-m3 from candidates (English-only corpus + 2.3GB download)\n",
+    "git diff --stat": " tests/test_audit_regressions.py | 46 +++++++++++++++++++++++++++++++----------\n 1 file changed, 35 insertions(+), 11 deletions(-)\n",
+    "git diff --cached --stat": ""
+  },
+  "anchor_sha256": {
+    "outputs/eval_results.csv": "ddd0ed47abf91e99a1bf5cf0ac671f705b418dc16b504dc552a02ccd0c35c5e8",
+    "outputs/significance_tests.csv": "294180bf5f8a95ceadd71540410fe4daa92e9abb56206d5e9bb33e603aa9d795",
+    "outputs/evaluation_report.md": "baf59b285b59b5f4323ff675a738e9dcb25a1594718165b0bf3f87e322bf1130",
+    "outputs/live-lifecycle-20261019-v3.json": "0c732b5516f9444735e7902eb4fbaf96c5e85cf5fb567e36e5fad0c1365fe759",
+    "outputs/retrieval-ablation-local-20261019-v2/per_query.jsonl": "be892e68710f613bbdceae5d9f5616052de5d871a69b08fd8daf8e65056e2fb7",
+    "outputs/retrieval-supplement-20261019-v3/summary.json": "42993bd13433afce41b5981df381ebdd8dc6f5d2b922e5c28febc2d8b16b5805",
+    "outputs/answer-boundaries-v1-20261019/summary.json": "6a2f39733455b34b0153c41ccef1d9b341046da899e7c0f9f582c44aa4ad2485",
+    "docs/VALIDATION_2026-10-19_SECURITY_V3.md": "d40715bd432f9ddd3391826af7e608d947b22cce02197414fb3efab3cf53c0c0",
+    "requirements.txt": "6729887f92750cfe582999943919a2626921b015a13e1a356d147b91eb7a4639",
+    "requirements.lock": "be958d5d23cf7dba57fbca82c3bce46370187a5980d293e08a59494a551b7392"
+  }
+}

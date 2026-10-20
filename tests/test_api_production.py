@@ -59,6 +59,21 @@ class _StubCache:
     def store(self, query, answer, contexts):
         self.stored.append(query)
 
+    def begin_generation(self):
+        return "fixture-token"
+
+    def validate_generation(self, token):
+        assert token == "fixture-token"
+
+    def lookup_generation(self, token, query):
+        self.validate_generation(token)
+        return self.lookup(query)
+
+    def publish_generation(self, token, query, answer, contexts, citations):
+        self.validate_generation(token)
+        self.store(query, answer, contexts)
+        return True
+
     def stats(self):
         return {
             "hits": 1, "misses": 2, "total_queries": 3, "hit_rate": 0.33,
@@ -100,7 +115,7 @@ def _make_client(monkeypatch, api_key: str = "", allow_unauth: bool = False,
     monkeypatch.setattr(ctx, "architectures", lambda: archs)
     monkeypatch.setattr(ctx, "cache", lambda *_args: cache)
     monkeypatch.setattr(ctx, "chunks", lambda: [])
-    monkeypatch.setattr(ctx, "warmup", lambda: None)
+    monkeypatch.setattr(ctx, "warmup", lambda _generation=None: None)
     monkeypatch.setattr(ctx, "is_ready", lambda: ready)
     monkeypatch.setattr(
         ctx, "readiness",

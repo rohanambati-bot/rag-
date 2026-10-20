@@ -1,0 +1,577 @@
+{
+  "case_count": 25,
+  "cases": [
+    {
+      "details": {
+        "documents": 1,
+        "input_bytes": 854,
+        "input_sha256": "2b21e3f7929fa9c3893dda542360a29d81a34afe4249431d63147f629578a298",
+        "worker": {
+          "elapsed_seconds": 0.11582491599256173,
+          "heavy_stack_loaded": false,
+          "limits": {
+            "RLIMIT_CORE": [
+              0,
+              0
+            ],
+            "RLIMIT_CPU": [
+              8,
+              8
+            ],
+            "RLIMIT_FSIZE": [
+              16777216,
+              16777216
+            ],
+            "RLIMIT_NOFILE": [
+              64,
+              64
+            ]
+          },
+          "observed_peak_rss_bytes": 58458112,
+          "output_bytes": 300,
+          "parent_pid": 79229,
+          "pid": 79257
+        }
+      },
+      "elapsed_seconds": 0.11655179201625288,
+      "name": "valid_pdf_actual_child_limits_and_lightweight_imports",
+      "passed": true
+    },
+    {
+      "details": {
+        "documents": 1,
+        "input_bytes": 36601,
+        "input_sha256": "2f584d20667b6ad3c5bcde741e178bbd486215095714e4b5dfd5c66e6d7fe8dd",
+        "worker": {
+          "elapsed_seconds": 0.08299162494949996,
+          "heavy_stack_loaded": false,
+          "limits": {
+            "RLIMIT_CORE": [
+              0,
+              0
+            ],
+            "RLIMIT_CPU": [
+              8,
+              8
+            ],
+            "RLIMIT_FSIZE": [
+              16777216,
+              16777216
+            ],
+            "RLIMIT_NOFILE": [
+              64,
+              64
+            ]
+          },
+          "observed_peak_rss_bytes": 38305792,
+          "output_bytes": 307,
+          "parent_pid": 79229,
+          "pid": 79278
+        }
+      },
+      "elapsed_seconds": 0.08374854101566598,
+      "name": "valid_docx_actual_child_limits_and_lightweight_imports",
+      "passed": true
+    },
+    {
+      "details": {
+        "documents": 1,
+        "input_bytes": 31,
+        "input_sha256": "a2bfc5f844e87cfd3dea1d2caf344765f0ee3f83dd37023b44dfbe3d3979e9ae",
+        "worker": {
+          "elapsed_seconds": 0.044101999956183136,
+          "heavy_stack_loaded": false,
+          "limits": {
+            "RLIMIT_CORE": [
+              0,
+              0
+            ],
+            "RLIMIT_CPU": [
+              8,
+              8
+            ],
+            "RLIMIT_FSIZE": [
+              16777216,
+              16777216
+            ],
+            "RLIMIT_NOFILE": [
+              64,
+              64
+            ]
+          },
+          "observed_peak_rss_bytes": 22347776,
+          "output_bytes": 306,
+          "parent_pid": 79229,
+          "pid": 79279
+        }
+      },
+      "elapsed_seconds": 0.04493008297868073,
+      "name": "valid_txt_actual_child_limits_and_lightweight_imports",
+      "passed": true
+    },
+    {
+      "details": {
+        "documents": 1,
+        "input_bytes": 37,
+        "input_sha256": "795de26c5d6c1b1c02d363e9997fb81bc6886a5f5207ca7e4bc2e6d81cb25cbe",
+        "worker": {
+          "elapsed_seconds": 0.04311295901425183,
+          "heavy_stack_loaded": false,
+          "limits": {
+            "RLIMIT_CORE": [
+              0,
+              0
+            ],
+            "RLIMIT_CPU": [
+              8,
+              8
+            ],
+            "RLIMIT_FSIZE": [
+              16777216,
+              16777216
+            ],
+            "RLIMIT_NOFILE": [
+              64,
+              64
+            ]
+          },
+          "observed_peak_rss_bytes": 22478848,
+          "output_bytes": 311,
+          "parent_pid": 79229,
+          "pid": 79280
+        }
+      },
+      "elapsed_seconds": 0.043822749983519316,
+      "name": "valid_md_actual_child_limits_and_lightweight_imports",
+      "passed": true
+    },
+    {
+      "details": {
+        "documents": 1,
+        "input_bytes": 41,
+        "input_sha256": "b9aac24c8ee686f7915e6fbc6ba599333d31552d5f8c2626fd38e4413fe9ea74",
+        "worker": {
+          "elapsed_seconds": 0.042567208991385996,
+          "heavy_stack_loaded": false,
+          "limits": {
+            "RLIMIT_CORE": [
+              0,
+              0
+            ],
+            "RLIMIT_CPU": [
+              8,
+              8
+            ],
+            "RLIMIT_FSIZE": [
+              16777216,
+              16777216
+            ],
+            "RLIMIT_NOFILE": [
+              64,
+              64
+            ]
+          },
+          "observed_peak_rss_bytes": 22216704,
+          "output_bytes": 317,
+          "parent_pid": 79229,
+          "pid": 79281
+        }
+      },
+      "elapsed_seconds": 0.043252874980680645,
+      "name": "valid_csv_actual_child_limits_and_lightweight_imports",
+      "passed": true
+    },
+    {
+      "details": {
+        "guarded_imports": [
+          "pymupdf",
+          "zipfile",
+          "zipfile",
+          "pymupdf",
+          "pymupdf",
+          "pymupdf",
+          "pymupdf"
+        ],
+        "provider_environment_absent": true,
+        "resource_limits_preceded_imports": true
+      },
+      "elapsed_seconds": 0.11328404099913314,
+      "name": "pdf_limits_before_native_import",
+      "passed": true
+    },
+    {
+      "details": {
+        "guarded_imports": [
+          "zipfile",
+          "zipfile",
+          "docx",
+          "zipfile"
+        ],
+        "provider_environment_absent": true,
+        "resource_limits_preceded_imports": true
+      },
+      "elapsed_seconds": 0.0831572079914622,
+      "name": "docx_limits_before_native_import",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parsing exceeded its time limit."
+      },
+      "elapsed_seconds": 0.7051357500022277,
+      "name": "finite_fault_timeout",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser stopped before completing safely."
+      },
+      "elapsed_seconds": 0.03745754202827811,
+      "name": "finite_fault_crash",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser output exceeded its limit."
+      },
+      "elapsed_seconds": 0.02759800001513213,
+      "name": "finite_fault_output",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parsing exceeded its memory limit."
+      },
+      "elapsed_seconds": 0.030923500016797334,
+      "name": "finite_fault_memory",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser returned an invalid result."
+      },
+      "elapsed_seconds": 0.02670912496978417,
+      "name": "finite_fault_json",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser returned an invalid result."
+      },
+      "elapsed_seconds": 0.026640790980309248,
+      "name": "finite_fault_pickle",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser stopped before completing safely."
+      },
+      "elapsed_seconds": 1.013294540985953,
+      "name": "actual_cpu_limit",
+      "passed": true
+    },
+    {
+      "details": {
+        "concurrent_workers": 2,
+        "extra_workers": 0,
+        "rejected_requests": 20,
+        "rejection_total_seconds": 0.0004307079943828285
+      },
+      "elapsed_seconds": 0.06454075005603954,
+      "name": "bounded_admission_flood",
+      "passed": true
+    },
+    {
+      "details": {
+        "previous_collection_preserved_for": [
+          "parse_timeout",
+          "index_failure"
+        ],
+        "store": "owned local double; real Chroma covered by focused tests"
+      },
+      "elapsed_seconds": 0.6143960000481457,
+      "name": "transactional_parse_and_index_publication",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "DOCX ZIP member has an unsafe path."
+      },
+      "elapsed_seconds": 0.04891262500314042,
+      "name": "archive_traversal",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Could not inspect DOCX ZIP safely."
+      },
+      "elapsed_seconds": 0.047684375022072345,
+      "name": "archive_truncated",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "DOCX contains too many ZIP entries."
+      },
+      "elapsed_seconds": 0.047701042029075325,
+      "name": "archive_entries",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "DOCX ZIP exceeds the total uncompressed-size limit."
+      },
+      "elapsed_seconds": 0.04614275001222268,
+      "name": "archive_expanded",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Could not inspect DOCX ZIP safely."
+      },
+      "elapsed_seconds": 0.04739766602870077,
+      "name": "archive_crc",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "File too large for the encoded upload limit."
+      },
+      "elapsed_seconds": 3.887503407895565e-05,
+      "name": "encoded_input_bound",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Extracted text exceeds the per-document character limit."
+      },
+      "elapsed_seconds": 0.04310441704001278,
+      "name": "extraction_bound",
+      "passed": true
+    },
+    {
+      "details": {
+        "public_error": "Document parser memory monitoring is unavailable."
+      },
+      "elapsed_seconds": 0.00038891698932275176,
+      "name": "unavailable_monitor_fail_closed",
+      "passed": true
+    },
+    {
+      "details": {
+        "worker_count": 25,
+        "workers": [
+          {
+            "pid": 79257,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79278,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79279,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79280,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79281,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79282,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79285,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79287,
+            "reaped": true,
+            "returncode": -9,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79291,
+            "reaped": true,
+            "returncode": 19,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79292,
+            "reaped": true,
+            "returncode": -9,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79293,
+            "reaped": true,
+            "returncode": -9,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79294,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79295,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79296,
+            "reaped": true,
+            "returncode": -24,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79303,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79304,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79305,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79306,
+            "reaped": true,
+            "returncode": -9,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79310,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79311,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79312,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79313,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79316,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79318,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          },
+          {
+            "pid": 79319,
+            "reaped": true,
+            "returncode": 0,
+            "stdout_closed": true,
+            "temporary_directory_removed": true
+          }
+        ]
+      },
+      "elapsed_seconds": 0.00034841697197407484,
+      "name": "kill_reap_pipe_and_temporary_cleanup",
+      "passed": true
+    }
+  ],
+  "defaults": {
+    "concurrent_workers_per_process": 2,
+    "cpu_seconds": 8,
+    "encoded_upload_bytes": 20971520,
+    "memory_bytes": 536870912,
+    "output_bytes": 16777216,
+    "rss_poll_seconds": 0.02,
+    "wall_seconds": 15
+  },
+  "implementation_sha256": {
+    "module5/document_upload.py": "4e97d22990c6cdee3628ed8fa36f11c97b10b769a3b2412916470358be14f1ad",
+    "module5/parser_isolation.py": "75f169f3bc9a28562cf3c3eaaabc1368816ec446278adee677e28c59b3a46c04",
+    "module5/parser_worker.py": "febf3138eff799ad5aaef0affae3cef271d6b85d9b45183a7f6d0a9a5929d6fb",
+    "scripts/validate_parser_isolation.py": "557e56e5d68c879f4f27c5cf07916668fcbb9f1c36de1897e829330263e6a228"
+  },
+  "parent_pid": 79229,
+  "passed": true,
+  "passed_count": 25,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.12.14",
+  "residual_gaps": [
+    "Only the recorded host platform was executed; Linux AS enforcement needs Linux execution when this receipt is macOS.",
+    "Resource isolation is not a privilege, filesystem, network, syscall or native-code-execution sandbox.",
+    "macOS RSS is sampled at 20 ms; transient overshoot is possible. Linux additionally enforces RLIMIT_AS.",
+    "RSS observes the parser PID, not aggregate descendant memory; CPU/address-space limits are inherited per process. Owned process groups are killed on all outcomes.",
+    "Admission is per application process, not cluster-wide; API body buffering and indexing/embedding are outside the parsing admission budget.",
+    "Private helper calls can still parse in-process for unit testing; production parse_file/index_documents have no unrestricted fallback.",
+    "All fixtures are finite synthetic probes, not comprehensive malformed-document fuzzing or dependency exploit coverage."
+  ],
+  "schema": "security-v4.parser-isolation/v1",
+  "worker_count": 25
+}

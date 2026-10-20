@@ -75,6 +75,34 @@ class _SharedRedis:
         self.sets = {}
         self.fail = False
         self.commands = []
+        self.lock = threading.RLock()
+
+    def eval(self, script, numkeys, *args):
+        """Atomic double; the separate-process runner also executes the real Lua."""
+        with self.lock:
+            self._check()
+            keys, argv = args[:numkeys], args[numkeys:]
+            if "fencing:begin" in script:
+                if self.get(keys[0]) is None:
+                    self._set(keys[0], argv[0])
+                    self._set(keys[1], argv[1])
+                return self.get(keys[0])
+            if "fencing:publish" in script:
+                expected, member, raw, _ttl, snapshot = argv
+                if self.get(keys[0]) != expected.encode():
+                    return 0
+                self._set(keys[2], raw)
+                self._sadd(keys[3], member)
+                self._set(keys[1], snapshot)
+                return 1
+            assert "fencing:clear" in script
+            prefix, snapshot, epoch = argv
+            for member in list(self.sets.get(keys[0], set())):
+                self._delete(prefix + member.decode())
+            self._delete(keys[0])
+            self._set(keys[1], snapshot)
+            self._set(keys[2], epoch)
+            return 1
 
     @staticmethod
     def _key(value):

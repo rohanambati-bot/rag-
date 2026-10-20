@@ -214,7 +214,9 @@ def test_pdf_parser_closes_parser_handle_when_page_extraction_fails(monkeypatch)
     monkeypatch.setattr(pymupdf, "open", lambda **kwargs: tracked)
     uploader = DocumentUploader()
     with pytest.raises(UploadValidationError, match="PDF"):
-        uploader.parse_file(b"%PDF-1.7\nsynthetic", "broken.pdf")
+        # This test targets the helper's finally/close behavior. Production
+        # parse_file is separately required to cross a real process boundary.
+        uploader._parse_pdf(b"%PDF-1.7\nsynthetic")
     assert tracked.closed
 
 
@@ -238,7 +240,7 @@ def test_docx_rejects_too_many_zip_entries_before_python_docx(monkeypatch):
     monkeypatch.setattr(docx, "Document", should_not_parse)
     payload = _make_zip([("one", b"1"), ("two", b"2")])
     with pytest.raises(UploadValidationError, match="too many ZIP entries"):
-        DocumentUploader(max_docx_entries=1).parse_file(payload, "many.docx")
+        DocumentUploader(max_docx_entries=1)._parse_docx(payload)
     assert not called
 
 

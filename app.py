@@ -60,8 +60,31 @@ from configs.config import (  # noqa: E402
     OUTPUTS_DIR, EVAL_RESULTS_PATH, MISTRAL_API_KEY, VECTOR_STORE_DIR,
     FAITHFULNESS_THRESHOLD, CONTEXT_PRECISION_THRESHOLD,
     ANSWER_RELEVANCE_THRESHOLD, NOISE_RATIO_MAX, TOP_K,
-    GROQ_API_KEY, GROQ_MODEL,
+    GROQ_API_KEY, GROQ_MODEL, OPENROUTER_API_KEY,
 )
+
+
+def _configured_provider(openrouter_key: str, groq_key: str, mistral_key: str) -> str:
+    """Return the provider the UI will use, without ever returning a secret."""
+    if openrouter_key:
+        return "OpenRouter"
+    if groq_key:
+        return "Groq (Llama 3.1)"
+    if mistral_key:
+        return "Mistral"
+    return "Extractive fallback"
+
+
+def _llm_available(openrouter_key: str, groq_key: str, mistral_key: str) -> bool:
+    """Mirror the runtime provider availability check for UI controls."""
+    return bool(openrouter_key or groq_key or mistral_key)
+
+
+def _render_untrusted_markdown(value: Any, target=None) -> None:
+    """Render answer/document/provider text with HTML execution disabled."""
+    renderer = st if target is None else target
+    renderer.markdown("" if value is None else str(value), unsafe_allow_html=False)
+
 
 st.set_page_config(
     page_title="RAG Evaluation Framework",
@@ -191,9 +214,12 @@ def _get_cache(architecture: str = "naive"):
     from module2.rag_architectures import ARCHITECTURE_REGISTRY
     key = next((key for key, meta in ARCHITECTURE_REGISTRY.items()
                 if meta["name"] == architecture), architecture)
+    from serving import CONTEXT
+    identity = CONTEXT.generation_identity(key)
     # Never reuse API/shared-corpus answer caches for private browser queries.
     return session_cache(st.session_state, key, lambda namespace: SemanticCache(
         embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="miss",
+        index_identity=identity, identity_provider=lambda: CONTEXT._cache_namespace(key),
     ))
 
 
@@ -202,6 +228,39 @@ def _get_uploader():
     return session_resource(st.session_state, "uploader", lambda: DocumentUploader(
         embedding_model=_get_embedding_model(),
     ))
+
+
+def _get_upload_generation_cache(uploader, architecture):
+    """Uncached private-upload responses still participate in session revocation."""
+    from phase3.semantic_cache import SemanticCache
+    state = st.session_state
+
+    def identity():
+        # RAG retains its vectorstore reference for the entire request, so object
+        # identity cannot ABA while that work is outstanding. Clear/replacement
+        # changes the provider identity before the old response can be displayed.
+        return f"upload:{id(uploader.vectorstore)}:{state.get('_upload_digest', '')}"
+
+    current = identity()
+    return session_cache(state, f"upload:{architecture}:{current}", lambda namespace: SemanticCache(
+        embedding_model=_get_embedding_model(), namespace=namespace, redis_failure_policy="miss",
+        index_identity=current, identity_provider=identity,
+    ))
+
+
+def _capture_ui_generations(names):
+    """Fence uncached comparison/diagnostic responses before lazy generation."""
+    from phase3.semantic_cache import require_generation_cache
+    fences = []
+    for name in names:
+        cache = require_generation_cache(_get_cache(name))
+        fences.append((cache, cache.begin_generation()))
+    return fences
+
+
+def _validate_ui_generations(fences):
+    for cache, token in fences:
+        cache.validate_generation(token)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -220,12 +279,7 @@ with st.sidebar:
     st.divider()
 
     st.markdown("##### Status")
-    if GROQ_API_KEY:
-        api_state = "Groq (Llama 3.1)"
-    elif MISTRAL_API_KEY:
-        api_state = "Mistral"
-    else:
-        api_state = "Extractive fallback"
+    api_state = _configured_provider(OPENROUTER_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY)
     st.caption(f"LLM: {api_state}")
     st.caption(f"Vector Store: {'Ready' if Path(VECTOR_STORE_DIR).exists() else ' Not built'}")
 
@@ -270,12 +324,12 @@ def page_chat():
     # Render history
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            _render_untrusted_markdown(msg["content"])
             if msg.get("sources"):
                 with st.expander(f"Retrieved context ({len(msg['sources'])} chunks)"):
                     for i, src in enumerate(msg["sources"], 1):
-                        st.markdown(f"**Chunk {i}:** {src[:400]}…" if len(src) > 400 else
-                                    f"**Chunk {i}:** {src}")
+                        display = src[:400] + "…" if len(src) > 400 else src
+                        _render_untrusted_markdown(f"**Chunk {i}:** {display}")
             if "meta" in msg:
                 st.caption(msg["meta"])
 
@@ -283,14 +337,16 @@ def page_chat():
     if query:
         st.session_state.chat_history.append({"role": "user", "content": query})
         with st.chat_message("user"):
-            st.markdown(query)
+            _render_untrusted_markdown(query)
 
         with st.chat_message("assistant"):
             placeholder = st.empty()
             placeholder.markdown("_Thinking…_")
             try:
-                cache = _get_cache(arch_choice) if use_cache else None
-                cached = cache.lookup(query) if cache else None
+                from phase3.semantic_cache import require_generation_cache
+                cache = require_generation_cache(_get_cache(arch_choice))
+                token = cache.begin_generation()
+                cached = cache.lookup_generation(token, query) if use_cache else None
 
                 if cached:
                     answer = cached["answer"]
@@ -312,21 +368,17 @@ def page_chat():
 
                     meta = (f" {arch_choice} · latency {result.get('latency_ms', 0):.0f} ms · "
                             f"{len(sources)} chunks{conf_str}")
-                    if cache:
-                        store_with_citations = getattr(cache, "store_with_citations", None)
-                        if store_with_citations is not None:
-                            store_with_citations(
-                                query, answer, sources, result.get("citations", [])
-                            )
-                        else:
-                            cache.store(query, answer, sources)
+                    if use_cache:
+                        cache.publish_generation(token, query, answer, sources,
+                                                 result.get("citations", []))
 
-                placeholder.markdown(answer)
+                cache.validate_generation(token)
+                _render_untrusted_markdown(answer, placeholder)
                 if sources:
                     with st.expander(f" Retrieved context ({len(sources)} chunks)"):
                         for i, src in enumerate(sources, 1):
                             display = src if len(src) <= 400 else src[:400] + "…"
-                            st.markdown(f"**Chunk {i}:** {display}")
+                            _render_untrusted_markdown(f"**Chunk {i}:** {display}")
                 st.caption(meta)
                 st.session_state.chat_history.append({
                     "role": "assistant",
@@ -366,25 +418,25 @@ def page_ab():
     run = st.button("Run comparison", type="primary", disabled=not query)
 
     if run and query:
+        fences = _capture_ui_generations([arch_a, arch_b])
         archs = _get_architectures()
         with st.spinner("Running both architectures…"):
             res_a = archs[arch_a].run(query)
             res_b = archs[arch_b].run(query)
+        _validate_ui_generations(fences)
 
         col_a, col_b = st.columns(2)
         for col, label, res in [(col_a, arch_a, res_a), (col_b, arch_b, res_b)]:
             with col:
                 st.markdown(f"### {label}")
-                st.markdown(
-                    f'<div class="metric-card"><b>Answer:</b><br>{res["answer"]}</div>',
-                    unsafe_allow_html=True,
-                )
+                _render_untrusted_markdown(f"**Answer:**\n\n{res['answer']}")
                 m1, m2 = st.columns(2)
                 m1.metric("Latency", f"{res['latency_ms']:.0f} ms")
                 m2.metric("Chunks", len(res.get("contexts", [])))
                 with st.expander("Retrieved context"):
                     for i, c in enumerate(res.get("contexts", []), 1):
-                        st.markdown(f"**{i}.** {c[:300]}…" if len(c) > 300 else f"**{i}.** {c}")
+                        display = c[:300] + "…" if len(c) > 300 else c
+                        _render_untrusted_markdown(f"**{i}.** {display}")
 
         # Diff summary
         st.divider()
@@ -416,9 +468,9 @@ def page_eval():
     )
     samples = st.slider("Number of synthetic queries", 5, 100, 15)
     use_ragas = st.toggle(
-        "Use RAGAS LLM-judged metrics (requires a Groq or Mistral key)",
-        value=bool(GROQ_API_KEY or MISTRAL_API_KEY),
-        disabled=not (GROQ_API_KEY or MISTRAL_API_KEY),
+        "Use RAGAS LLM-judged metrics (requires a Groq, Mistral, or OpenRouter key)",
+        value=_llm_available(OPENROUTER_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY),
+        disabled=not _llm_available(OPENROUTER_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY),
     )
 
     if not selected:
@@ -457,7 +509,15 @@ def page_eval():
         progress.empty()
 
         summary = pipeline.compare_architectures(results)
-        st.success(f"Evaluated {samples} queries × {len(selected)} architectures.")
+        failed = int(summary.get("failed_samples", pd.Series(dtype=int)).sum()) if not summary.empty else 0
+        skipped = int(summary.get("skipped_samples", pd.Series(dtype=int)).sum()) if not summary.empty else 0
+        if failed or skipped:
+            st.warning(
+                f"Evaluation incomplete: {failed} failed and {skipped} skipped samples. "
+                "Metrics are labelled invalid until every selected sample completes."
+            )
+        else:
+            st.success(f"Evaluated {samples} queries × {len(selected)} architectures.")
 
         st.markdown("#### Summary")
         st.dataframe(summary, use_container_width=True)
@@ -607,10 +667,11 @@ def page_cache():
     q = st.text_input("Query", placeholder="Enter a query to test cache lookup")
     if st.button("Lookup") and q:
         with st.spinner("Searching cache…"):
-            res = cache.lookup(q)
+            token = cache.begin_generation()
+            res = cache.lookup_generation(token, q)
         if res:
             st.success(f"HIT — similarity {res['similarity_score']:.3f}")
-            st.markdown(f"**Cached answer:** {res['answer']}")
+            _render_untrusted_markdown(f"**Cached answer:** {res['answer']}")
         else:
             st.info("MISS — no semantically similar entry above threshold.")
 
@@ -645,6 +706,7 @@ def page_settings():
         "GROQ_API_KEY set": bool(GROQ_API_KEY),
         "GROQ_MODEL": GROQ_MODEL,
         "MISTRAL_API_KEY set": bool(MISTRAL_API_KEY),
+        "OPENROUTER_API_KEY set": bool(OPENROUTER_API_KEY),
         "TOP_K": TOP_K,
         "Vector store": VECTOR_STORE_DIR,
         "Outputs": OUTPUTS_DIR,
@@ -715,6 +777,8 @@ def page_upload():
         if st.button("Search", disabled=not query) and query:
             with st.spinner("Searching…"):
                 try:
+                    cache = _get_upload_generation_cache(uploader, arch_choice)
+                    token = cache.begin_generation()
                     from module2.rag_architectures import (
                         CorrectiveRAG, NaiveRAG, RerankRAG,
                     )
@@ -742,8 +806,9 @@ def page_upload():
                     conf = scorer.score(query=query, answer=answer, contexts=contexts)
 
                     # Display
+                    cache.validate_generation(token)
                     st.markdown("### Answer")
-                    st.markdown(answer)
+                    _render_untrusted_markdown(answer)
 
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Confidence", f"{conf['score']:.0f}%")
@@ -752,7 +817,7 @@ def page_upload():
 
                     with st.expander(" Retrieved chunks"):
                         for i, doc in enumerate(docs, 1):
-                            st.markdown(f"**Chunk {i}:** {doc.page_content[:300]}")
+                            _render_untrusted_markdown(f"**Chunk {i}:** {doc.page_content[:300]}")
                 except Exception:
                     logging.getLogger("app").exception("Uploaded document search failed.")
                     st.error("Search failed; check the local server logs.")
@@ -789,11 +854,13 @@ def page_compare():
 
     if st.button(" Compare all architectures", type="primary", disabled=not query) and query:
         archs = _get_architectures()
+        fences = _capture_ui_generations(archs.keys())
         comparator = ArchitectureComparator(archs)
         scorer = ConfidenceScorer()
 
         with st.spinner(f"Running all {len(archs)} architectures…"):
             results = comparator.compare_with_confidence(query, scorer)
+        _validate_ui_generations(fences)
 
         # Rank by confidence
         ranked = comparator.rank_by_confidence(results)
@@ -818,7 +885,8 @@ def page_compare():
                 cols[3].metric("Latency", f"{r.latency_ms:.0f}ms")
                 cols[4].metric("Chunks", r.num_chunks)
 
-                st.markdown(f"> {r.answer[:300]}{'…' if len(r.answer) > 300 else ''}")
+                display = r.answer[:300] + "…" if len(r.answer) > 300 else r.answer
+                _render_untrusted_markdown(f"> {display}")
                 st.divider()
 
         # Latency comparison bar
@@ -865,6 +933,7 @@ def page_failure():
                                      placeholder="e.g. A corporation is a company...")
 
         if st.button("Analyze", disabled=not query) and query:
+            fences = _capture_ui_generations([arch_name])
             rag = archs[arch_name]
 
             with st.spinner("Running RAG + analysis…"):
@@ -875,6 +944,7 @@ def page_failure():
                     contexts=result.get("contexts", []),
                     ground_truth=ground_truth or None,
                 )
+            _validate_ui_generations(fences)
 
             # Quality score
             score = analysis["quality_score"]
@@ -884,13 +954,13 @@ def page_failure():
                 unsafe_allow_html=True,
             )
 
-            st.markdown(f"**Answer:** {result['answer']}")
+            _render_untrusted_markdown(f"**Answer:** {result['answer']}")
 
             # Detected failures
             if analysis["has_failure"]:
                 st.error(f" {len(analysis['detected_failures'])} failure point(s) detected:")
                 for fp in analysis["detected_failures"]:
-                    st.markdown(
+                    _render_untrusted_markdown(
                         f"- **{fp.id}: {fp.name}** — {fp.evidence}\n"
                         f"  -  *{fp.solution}*"
                     )
@@ -901,7 +971,7 @@ def page_failure():
             if analysis["recommendations"]:
                 st.markdown("#### Recommendations")
                 for rec in analysis["recommendations"]:
-                    st.markdown(f"- {rec}")
+                    _render_untrusted_markdown(f"- {rec}")
 
     else:
         # Batch analysis
@@ -926,21 +996,33 @@ def page_failure():
 
             progress = st.progress(0.0)
             results_for_analysis = []
+            execution_failures = []
 
             for i, sample in enumerate(synthetic):
                 try:
+                    fences = _capture_ui_generations([arch_name])
                     result = rag.run(sample["question"])
+                    _validate_ui_generations(fences)
                     results_for_analysis.append({
                         "query": sample["question"],
                         "answer": result["answer"],
                         "contexts": result.get("contexts", []),
                         "ground_truth": sample.get("ground_truth"),
                     })
-                except Exception:
-                    pass
+                except Exception as exc:
+                    execution_failures.append({
+                        "sample_index": i,
+                        "exception_type": type(exc).__name__,
+                    })
                 progress.progress((i + 1) / samples)
 
             progress.empty()
+
+            if execution_failures:
+                st.warning(
+                    f"{len(execution_failures)} of {len(synthetic)} samples failed before "
+                    "analysis; the batch is partial and cannot be treated as complete."
+                )
 
             batch_result = analyzer.batch_analyze(results_for_analysis)
 

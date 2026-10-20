@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,6 +40,21 @@ from configs.config import (  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _safe_failure_message(exc: Exception) -> str:
+    """Keep per-sample diagnostics bounded and free of prompt/provider details."""
+    message = " ".join(str(exc).split())
+    message = re.sub(r"(?i)(bearer\s+|api[_ -]?key\s*[=:]\s*)\S+", r"\1[redacted]", message)
+    message = re.sub(r"(?i)sk-[A-Za-z0-9_-]+", "[redacted]", message)
+    return message[:240] or "operation failed"
+
+
+def _successful_rows(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return rows that completed the requested sample, including legacy frames."""
+    if "sample_status" not in frame.columns:
+        return frame
+    return frame.loc[frame["sample_status"] == "success"]
 
 # Common English stopwords for fairer token-overlap metrics.
 _STOPWORDS = frozenset({
@@ -527,7 +543,7 @@ class EvaluationPipeline:
         self.ragas_evaluator = ragas_evaluator
         self.output_path = output_path
         self.seed = seed
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
     def evaluate_sample(
         self,
@@ -621,11 +637,24 @@ class EvaluationPipeline:
             idx = rng.choice(len(samples), size=max_samples, replace=False)
             samples = [samples[i] for i in idx]
 
+        expected_samples = len(samples)
         rows: List[Dict[str, Any]] = []
         for i, sample in enumerate(samples):
             question = sample.get("question", "")
             ground_truth = sample.get("ground_truth", "")
             if not question:
+                rows.append({
+                    "architecture": architecture_name,
+                    "sample_index": i,
+                    "question": question,
+                    "ground_truth": ground_truth,
+                    "query_type": sample.get("query_type", "unknown"),
+                    "sample_status": "skipped",
+                    "skip_reason": "missing_question",
+                    "failure_type": "",
+                    "failure_message": "",
+                    "expected_samples": expected_samples,
+                })
                 continue
             try:
                 if retrieval_only:
@@ -653,14 +682,42 @@ class EvaluationPipeline:
                 metrics["latency_ms"] = result.get("latency_ms", 0)
                 metrics["query_type"] = sample.get("query_type", "unknown")
                 metrics["retrieval_path"] = getattr(rag_system, "_last_route", "N/A")
+                metrics["sample_index"] = i
+                metrics["sample_status"] = "success"
+                metrics["failure_type"] = ""
+                metrics["failure_message"] = ""
+                metrics["expected_samples"] = expected_samples
                 rows.append(metrics)
             except Exception as exc:  # noqa: BLE001 — keep evaluating other samples
-                logger.warning("Eval failed for sample %d (%s): %s", i, architecture_name, exc)
+                message = _safe_failure_message(exc)
+                logger.warning(
+                    "Eval failed for sample %d (%s): %s", i, architecture_name, message
+                )
+                rows.append({
+                    "architecture": architecture_name,
+                    "sample_index": i,
+                    "question": question,
+                    "ground_truth": ground_truth,
+                    "query_type": sample.get("query_type", "unknown"),
+                    "sample_status": "failed",
+                    "failure_type": type(exc).__name__,
+                    "failure_message": message,
+                    "expected_samples": expected_samples,
+                })
 
         df = pd.DataFrame(rows)
         if not df.empty:
-            mean_faith = df["faithfulness"].mean() if "faithfulness" in df.columns else float("nan")
-            logger.info("[%s] n=%d | faithfulness=%.3f", architecture_name, len(df), mean_faith)
+            valid = _successful_rows(df)
+            status = df["sample_status"] if "sample_status" in df else pd.Series(
+                "success", index=df.index
+            )
+            failed = int((status == "failed").sum())
+            skipped = int((status == "skipped").sum())
+            mean_faith = valid["faithfulness"].mean() if "faithfulness" in valid else float("nan")
+            logger.info(
+                "[%s] expected=%d successful=%d failed=%d skipped=%d | faithfulness=%.3f",
+                architecture_name, expected_samples, len(valid), failed, skipped, mean_faith,
+            )
         return df
 
     def compare_architectures(
@@ -682,10 +739,29 @@ class EvaluationPipeline:
         ]
         rows = []
         for arch_name, df in results.items():
-            row: Dict[str, Any] = {"architecture": arch_name, "n": int(len(df))}
+            valid = _successful_rows(df)
+            status = df["sample_status"] if "sample_status" in df else None
+            if status is None:
+                expected = len(df)
+                failed = skipped = 0
+            else:
+                expected = int(df["expected_samples"].max()) if "expected_samples" in df else len(df)
+                failed = int((status == "failed").sum())
+                skipped = int((status == "skipped").sum())
+            row: Dict[str, Any] = {
+                "architecture": arch_name,
+                "n": int(len(valid)),
+                "expected_samples": expected,
+                "successful_samples": int(len(valid)),
+                "failed_samples": failed,
+                "skipped_samples": skipped,
+                "failure_rate": round((failed + skipped) / expected, 4) if expected else 1.0,
+                "evaluation_valid": bool(expected and not failed and not skipped
+                                          and len(valid) == expected),
+            }
             for col in metric_cols:
-                if col in df.columns and not df[col].dropna().empty:
-                    vals = df[col].dropna().tolist()
+                if col in valid.columns and not valid[col].dropna().empty:
+                    vals = valid[col].dropna().tolist()
                     row[col] = round(float(np.mean(vals)), 4)
                     if col != "latency_ms":
                         lo, hi = bootstrap_ci(vals, seed=self.seed)
@@ -694,19 +770,45 @@ class EvaluationPipeline:
             rows.append(row)
 
         summary = pd.DataFrame(rows)
-        summary.to_csv(self.output_path, index=False)
+        if self.output_path != os.devnull:
+            parent = os.path.dirname(os.path.abspath(self.output_path)) or "."
+            fd, temporary = tempfile.mkstemp(
+                prefix=f".{os.path.basename(self.output_path)}.", suffix=".tmp", dir=parent
+            )
+            os.close(fd)
+            try:
+                summary.to_csv(temporary, index=False)
+                os.replace(temporary, self.output_path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
         logger.info("Evaluation summary saved to %s", self.output_path)
         return summary
 
 
-    def check_quality_gate(self, df: pd.DataFrame) -> Tuple[bool, Dict[str, float]]:
+    def check_quality_gate(self, df: pd.DataFrame) -> Tuple[bool, Dict[str, Any]]:
+        valid = _successful_rows(df)
         metrics = {
-            "faithfulness": float(df["faithfulness"].mean()) if "faithfulness" in df else 0.0,
-            "context_precision": float(df["context_precision"].mean()) if "context_precision" in df else 0.0,
-            "answer_relevance": float(df["answer_relevance"].mean()) if "answer_relevance" in df else 0.0,
-            "noise_ratio": float(df["noise_ratio"].mean()) if "noise_ratio" in df else 1.0,
+            "faithfulness": float(valid["faithfulness"].mean()) if "faithfulness" in valid else float("nan"),
+            "context_precision": float(valid["context_precision"].mean()) if "context_precision" in valid else float("nan"),
+            "answer_relevance": float(valid["answer_relevance"].mean()) if "answer_relevance" in valid else float("nan"),
+            "noise_ratio": float(valid["noise_ratio"].mean()) if "noise_ratio" in valid else float("nan"),
         }
+        expected = int(df["expected_samples"].max()) if "expected_samples" in df and not df.empty else len(df)
+        status = df["sample_status"] if "sample_status" in df else pd.Series(
+            "success", index=df.index
+        )
+        metrics.update({
+            "expected_samples": expected,
+            "successful_samples": len(valid),
+            "failed_samples": int((status == "failed").sum()),
+            "skipped_samples": int((status == "skipped").sum()),
+        })
         passed = (
+            len(valid) == expected
+            and expected > 0
+            and all(np.isfinite(value) for value in metrics.values() if isinstance(value, float))
+            and
             metrics["faithfulness"] >= FAITHFULNESS_THRESHOLD
             and metrics["context_precision"] >= CONTEXT_PRECISION_THRESHOLD
             and metrics["answer_relevance"] >= ANSWER_RELEVANCE_THRESHOLD

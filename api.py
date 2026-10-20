@@ -55,6 +55,7 @@ from observability import (  # noqa: E402
 )
 from serving import CONTEXT  # noqa: E402
 from security_boundary import is_loopback_literal, valid_api_key  # noqa: E402
+from phase3.semantic_cache import GenerationFencedError, require_generation_cache  # noqa: E402
 
 configure_logging()
 logger = get_logger("api")
@@ -85,8 +86,9 @@ async def lifespan(app: FastAPI):
 
     # run_in_executor returns a Future, not a coroutine, so it is scheduled with
     # ensure_future rather than create_task (which rejects Futures under uvloop).
+    warmup_generation = CONTEXT.begin_warmup()
     warm_future = asyncio.ensure_future(
-        asyncio.get_running_loop().run_in_executor(None, CONTEXT.warmup)
+        asyncio.get_running_loop().run_in_executor(None, CONTEXT.warmup, warmup_generation)
     )
     try:
         yield
@@ -633,11 +635,15 @@ def list_architectures() -> Dict[str, Any]:
 @app.post("/query", response_model=QueryResponse,
           dependencies=[Depends(require_api_key), Depends(require_ready)])
 async def query(request: Request, req: QueryRequest) -> QueryResponse:
-    arch = await resolve_architecture(req.architecture)
-    cache = CONTEXT.cache(req.architecture) if req.use_cache else None
+    if req.architecture not in CONTEXT.available_keys():
+        raise HTTPException(status_code=400, detail="Unknown architecture.")
+    # Even cache-bypass responses are fenced. Capture before lazy constructors,
+    # retrieval and generation; their work can outlive a concurrent clear.
+    cache = require_generation_cache(CONTEXT.cache(req.architecture))
+    token = await run_blocking(cache.begin_generation, timeout=15)
 
     if req.use_cache:
-        cached = await run_blocking(cache.lookup, req.question, timeout=15)
+        cached = await run_blocking(cache.lookup_generation, token, req.question, timeout=15)
         if cached:
             METRICS.cache_events.labels(event="hit").inc()
             METRICS.rag_latency.labels(
@@ -653,29 +659,18 @@ async def query(request: Request, req: QueryRequest) -> QueryResponse:
             )
         METRICS.cache_events.labels(event="miss").inc()
 
+    arch = await resolve_architecture(req.architecture)
     result = await run_blocking(arch.run, req.question)
     METRICS.rag_latency.labels(
         architecture=req.architecture, cache_hit="false"
     ).observe(result.get("latency_ms", 0) / 1000)
 
     if req.use_cache:
-        # Populating the cache must never fail the user's request.
-        try:
-            store_with_citations = getattr(cache, "store_with_citations", None)
-            if store_with_citations is not None:
-                await run_blocking(
-                    store_with_citations, req.question, result["answer"],
-                    result.get("contexts", []), result.get("citations", []), timeout=15,
-                )
-            else:
-                # Keep compatibility with cache doubles and older integrations
-                # that implement the original three-argument method.
-                await run_blocking(
-                    cache.store, req.question, result["answer"],
-                    result.get("contexts", []), timeout=15,
-                )
-        except HTTPException:
-            logger.warning("Cache store skipped (timeout/capacity).")
+        await run_blocking(
+            cache.publish_generation, token, req.question, result["answer"],
+            result.get("contexts", []), result.get("citations", []), timeout=15,
+        )
+    await run_blocking(cache.validate_generation, token, timeout=15)
 
     return QueryResponse(
         architecture=req.architecture, question=req.question,
@@ -689,12 +684,21 @@ async def query(request: Request, req: QueryRequest) -> QueryResponse:
 @app.post("/ab-test", response_model=ABResponse,
           dependencies=[Depends(require_api_key), Depends(require_ready)])
 async def ab_test(request: Request, req: ABRequest) -> ABResponse:
+    fences = []
+    for name in (req.arch_a, req.arch_b):
+        if name not in CONTEXT.available_keys():
+            raise HTTPException(status_code=400, detail="Unknown architecture.")
+        cache = require_generation_cache(CONTEXT.cache(name))
+        token = await run_blocking(cache.begin_generation, timeout=15)
+        fences.append((cache, token))
     a = await resolve_architecture(req.arch_a)
     b = await resolve_architecture(req.arch_b)
     res_a, res_b = await asyncio.gather(
         run_blocking(a.run, req.question),
         run_blocking(b.run, req.question),
     )
+    for cache, token in fences:
+        await run_blocking(cache.validate_generation, token, timeout=15)
     return ABResponse(
         question=req.question,
         variant_a=ABVariantResult(
@@ -740,7 +744,9 @@ async def evaluate(request: Request, req: EvalRequest) -> EvalResponse:
     def _run() -> List[Dict[str, Any]]:
         # Relevance judgements enable rank-aware metrics (nDCG@10, MRR@10, Recall@k).
         qrels = build_qrels(CONTEXT.chunks())
-        pipeline = EvaluationPipeline(ragas_evaluator=ragas)
+        # HTTP jobs are request-scoped.  Do not let concurrent callers overwrite the
+        # CLI's historical outputs/eval_results.csv artifact.
+        pipeline = EvaluationPipeline(ragas_evaluator=ragas, output_path=os.devnull)
         results = {
             name: pipeline.evaluate_architecture(
                 architecture_name=name, rag_system=arch,
@@ -775,7 +781,9 @@ async def cache_lookup(request: Request, req: CacheLookup,
                        architecture: str = "naive") -> Dict[str, Any]:
     if architecture not in CONTEXT.available_keys():
         raise HTTPException(status_code=400, detail="Unknown cache architecture.")
-    result = await run_blocking(CONTEXT.cache(architecture).lookup, req.query, timeout=15)
+    cache = require_generation_cache(CONTEXT.cache(architecture))
+    token = await run_blocking(cache.begin_generation, timeout=15)
+    result = await run_blocking(cache.lookup_generation, token, req.query, timeout=15)
     return {"hit": False} if result is None else {"hit": True, **result}
 
 
@@ -783,10 +791,17 @@ async def cache_lookup(request: Request, req: CacheLookup,
 def cache_clear(architecture: str = "naive") -> Dict[str, str]:
     if architecture not in CONTEXT.available_keys():
         raise HTTPException(status_code=400, detail="Unknown cache architecture.")
-    if CONTEXT.cache(architecture).clear() is False:
+    if require_generation_cache(CONTEXT.cache(architecture)).clear() is not True:
         raise HTTPException(status_code=503, detail="Shared cache invalidation could not be confirmed.")
     logger.info("Cache cleared by API request.")
     return {"status": "cleared"}
+
+
+@app.exception_handler(GenerationFencedError)
+async def generation_fenced_handler(_request: Request, _exc: GenerationFencedError):
+    return JSONResponse(status_code=503, content={
+        "detail": "Generation was revoked or its current authority could not be confirmed. Retry the request.",
+    })
 
 
 if __name__ == "__main__":

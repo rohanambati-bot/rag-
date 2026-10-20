@@ -41,6 +41,8 @@ def main():
     from module2.rag_architectures import NaiveRAG, HybridMultiQueryRAG, ParentChildRAG, CorrectiveRAG
 
     embedding_model = get_embedding_model()
+    # The shared loader pins the persistent path until this process exits.
+    # Do not replace it with a raw constructor or rebuild inside this session.
     vectorstore = load_vector_store(embedding_model)
 
     # One corpus everywhere: the BM25 index for hybrid/parent-child must cover the

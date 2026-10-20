@@ -93,7 +93,8 @@ def test_real_fallback_extracts_supported_answer(
     doc = rag.Document(page_content=evidence, metadata={"source": "fixture.txt"})
     result = rag.NaiveRAG(_StaticStore([doc])).run(question)
 
-    assert result["answer"] == answer
+    assert result["answer"] == answer + " [1]"
+    assert result["answer_citations"][0]["quote"] == answer
     assert result["context_docs"] == [doc]
     assert result["contexts"] == [evidence]
     assert result["citations"] == [{"context_index": 1, "source": "fixture.txt"}]
@@ -135,7 +136,7 @@ def test_evidence_headers_do_not_terminate_context_or_replace_question(extractiv
 
     result = rag.NaiveRAG(_StaticStore([doc])).run("What is the capital of France?")
 
-    assert result["answer"] == "The capital of France is Paris."
+    assert result["answer"] == "The capital of France is Paris. [1]"
     assert result["contexts"] == [evidence]
 
 
@@ -151,13 +152,13 @@ def test_context_cap_includes_separators_and_preserves_returned_docs(
     cap = len(first) + extra_budget
     monkeypatch.setattr(rag, "MAX_CONTEXT_CHARS", cap)
     prompts = []
-    complete = extractive_llm.complete
+    complete = extractive_llm.complete_answer
 
     def record_prompt(prompt):
         prompts.append(prompt)
         return complete(prompt)
 
-    monkeypatch.setattr(extractive_llm, "complete", record_prompt)
+    monkeypatch.setattr(extractive_llm, "complete_answer", record_prompt)
     docs = [
         rag.Document(page_content=first, metadata={"source": "mars.txt"}),
         rag.Document(page_content=second, metadata={"source": "earth.txt"}),
@@ -166,10 +167,11 @@ def test_context_cap_includes_separators_and_preserves_returned_docs(
     expected_context = first + expected_tail
 
     assert len(expected_context) <= cap
-    assert prompts == [rag.ANSWER_PROMPT.format(
-        context=expected_context, question="How many moons does Mars have?"
-    )]
-    assert result["answer"] == first
+    assert len(prompts) == 1
+    assert prompts[0]["question"] == "How many moons does Mars have?"
+    assert "\n\n".join(item["text"] for item in prompts[0]["evidence"]) == expected_context
+    assert prompts[0]["evidence"][0]["evidence_id"] == "E1"
+    assert result["answer"] == first + " [1]"
     assert result["context_docs"] == docs
     assert all(returned is original for returned, original in zip(result["context_docs"], docs))
     assert result["contexts"] == [first, second]
