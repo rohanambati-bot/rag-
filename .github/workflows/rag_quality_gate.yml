@@ -105,11 +105,25 @@ jobs:
             rag-framework:${{ github.sha }}
 
       - name: Check liveness and authentication boundaries
+        timeout-minutes: 6
         run: |
-          trap 'docker logs rag-framework-smoke || true; docker rm --force rag-framework-smoke || true' EXIT
-          curl --fail --retry 20 --retry-delay 2 http://127.0.0.1:18000/healthz
+          # Give uvicorn time to bind; then poll robustly (--retry-all-errors
+          # covers the 'connection reset' that --retry alone dies on).
+          sleep 5
+          curl --fail --silent \
+            --retry 20 --retry-delay 2 --retry-all-errors \
+            --max-time 5 http://127.0.0.1:18000/healthz || {
+              echo "── container state on failure ──"
+              docker inspect --format 'exit={{.State.ExitCode}} status={{.State.Status}} oom={{.State.OOMKilled}}' rag-framework-smoke || true
+              docker logs rag-framework-smoke 2>&1 | tail -80 || true
+              exit 1
+            }
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --request POST --header 'content-type: application/json' \
             --data '{"question":"smoke"}' http://127.0.0.1:18000/query)" = "401"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header 'X-API-Key: ci-smoke-key' http://127.0.0.1:18000/readyz)" = "503"
+
+      - name: Remove smoke container
+        if: always()
+        run: docker rm --force rag-framework-smoke || true

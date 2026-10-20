@@ -38,6 +38,7 @@ from configs.config import (
     TOP_K, GROQ_API_KEY, GROQ_MODEL,
     MISTRAL_API_KEY, LLM_MODEL,
     LLM_MAX_TOKENS, LLM_TEMPERATURE, LLM_RATE_LIMIT_SECONDS,
+    LLM_ANSWER_MAX_WAIT_SECONDS,
     MAX_CONTEXT_CHARS,
     OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
     RERANKER_MODEL, RERANK_CANDIDATES, RERANK_DEVICE, EMBEDDING_MODEL,
@@ -168,13 +169,17 @@ class _LLM:
         ]
         # Keep the legacy per-instance check for old adapters, then use the shared
         # scheduler so concurrent instances cannot reserve the same provider slot.
+        # Wait bounds are configurable: serving keeps the tight 2 s default
+        # (abstain rather than blow the request deadline), while offline
+        # evaluation raises it so answers are measured, not stubbed by queueing.
+        wait_bound = LLM_ANSWER_MAX_WAIT_SECONDS
         previous = getattr(self, "_last_answer_call", 0)
         delay = LLM_RATE_LIMIT_SECONDS - (time.monotonic() - previous)
-        if previous and delay > 2:
+        if previous and delay > wait_bound:
             return ""  # Controlled abstention through the production gate.
         if delay > 0:
             time.sleep(delay)
-        if not _wait_for_provider(self._provider, max_wait=2):
+        if not _wait_for_provider(self._provider, max_wait=wait_bound):
             return ""
         self._last_answer_call = time.monotonic()
         try:

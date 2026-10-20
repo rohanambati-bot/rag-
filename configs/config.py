@@ -95,6 +95,12 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small-latest")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_RATE_LIMIT_SECONDS = float(os.getenv("LLM_RATE_LIMIT_SECONDS", "3.0"))
+# Bound on how long a generation call may wait for a provider slot before the
+# answer gate abstains (""). Kept at 2 s for serving latency guarantees.
+# OFFLINE EVALUATION must NOT abstain — abstention makes faithfulness an
+# artefact of queue pressure, not answer quality — so evaluated commands may
+# raise this (e.g. LLM_ANSWER_MAX_WAIT_SECONDS=30).
+LLM_ANSWER_MAX_WAIT_SECONDS = float(os.getenv("LLM_ANSWER_MAX_WAIT_SECONDS", "2.0"))
 # Bound the amount of retrieved text sent to a generator. Retrieval metrics still
 # score the complete returned documents; this only protects generation latency and
 # provider context windows from unusually large parent chunks.

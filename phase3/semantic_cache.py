@@ -413,9 +413,8 @@ class SemanticCache:
             logger.warning(
                 "SemanticCache: Redis unavailable (%s) — in-process cache only.", exc
             )
-            if self._redis is None:
-                self._use_redis = False
-                self._generation_supported = False
+            self._use_redis = False
+            self._generation_supported = False
 
     def _load_embedding_model(self) -> None:
         try:
