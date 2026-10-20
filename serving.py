@@ -114,8 +114,8 @@ class ServingContext:
                         "before serving."
                     )
                 logger.info("Loading vector store.", extra={"path": VECTOR_STORE_DIR})
-                self.generation_identity("naive")
                 self._vectorstore = load_vector_store(self.embedding())
+                self.generation_identity("naive")
             return self._vectorstore
 
     def chunks(self) -> List[Any]:
@@ -170,10 +170,12 @@ class ServingContext:
                     key for key in ARCHITECTURE_KEYS
                     if ARCHITECTURE_REGISTRY[key]["llm_free"]
                 ]
+                vs = self.vectorstore()
+                chunks = self.chunks()
                 self.generation_identity("naive")
                 self._architectures = build_all_architectures(
-                    vectorstore=self.vectorstore(),
-                    chunks=self.chunks(),
+                    vectorstore=vs,
+                    chunks=chunks,
                     selected_architectures=cheap_keys,
                 )
                 logger.info("Eager architectures registered.",
