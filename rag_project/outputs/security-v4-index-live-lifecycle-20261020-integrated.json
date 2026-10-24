@@ -1,0 +1,34 @@
+{
+  "index": {
+    "status": "passed",
+    "active_readers": 2,
+    "gap_arrivals_refused": 4,
+    "checks": [
+      "active-readers-block-publication",
+      "rename-gap-fail-closed",
+      "post-publication-new-corpus",
+      "rollback-preserves-corpus"
+    ],
+    "restriction": "Participating POSIX local readers must exit before publication; no hot swap"
+  },
+  "redis": {
+    "status": "passed",
+    "redis_version": "7.2.16",
+    "worker_count": 10,
+    "distinct_worker_pids": 10,
+    "concurrent_writes": 96,
+    "concurrent_clears": 16,
+    "checks": [
+      "update",
+      "clear",
+      "namespace-isolation",
+      "outage-miss",
+      "explicit-stale-local-policy",
+      "failed-clear-receipt",
+      "initial-outage-reconnect",
+      "restart-epoch",
+      "concurrent-writers-readers",
+      "post-clear-empty"
+    ]
+  }
+}

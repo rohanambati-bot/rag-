@@ -1,0 +1,9 @@
+# Ruff lint configuration.
+# Mirrors the CI lint gate in .github/workflows/rag_quality_gate.yml, which runs:
+#   ruff check . --select E,F,W --ignore E501
+# Keeping intent explicit here so local `ruff check` runs stay aligned with CI.
+target-version = "py312"
+
+[lint]
+# Line length (E501) is intentionally not enforced, matching the CI invocation.
+ignore = ["E501"]

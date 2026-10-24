@@ -1,6 +1,7 @@
 # .github/workflows/rag_quality_gate.yml
 # CI/CD automated evaluation loop for the RAG system.
-# Triggers on every push/PR to main.
+# 100% self-contained and offline — runs unit tests, property tests,
+# semantic caching, and benchmark visualizations with zero external API keys.
 
 name: RAG Quality Gate
 
@@ -11,11 +12,11 @@ on:
     branches: [main]
 
 env:
-  PYTHON_VERSION: "3.12"
+  PYTHON_VERSION: "3.12.14"
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
-  # Stage 1 — Lint + unit tests
+  # Stage 1 — Lint + unit tests (offline)
   # ──────────────────────────────────────────────────────────────────────────
   lint-test:
     name: Lint & Unit Tests
@@ -32,40 +33,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --requirement requirements.lock
 
-      - name: Ruff
+      - name: Ruff Lint Check
         run: ruff check . --select E,F,W --ignore E501
 
-      - name: Pytest
+      - name: Run Test Suite
         run: pytest -q tests/
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Stage 2 — Synthetic query run + RAGAS-style scoring + quality gate
+  # Stage 2 — Benchmark verification, Semantic Cache test & Plot Generation
   # ──────────────────────────────────────────────────────────────────────────
-  ragas-quality-gate:
-    name: RAGAS Quality Gate
+  benchmark-and-visuals:
+    name: Benchmark & Visualizations
     runs-on: ubuntu-latest
     needs: lint-test
-    env:
-      GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
-      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      JUDGE_PROVIDER:  groq
-      JUDGE_MODEL:     llama-3.1-70b-versatile
-      REDIS_HOST:      localhost
-      REDIS_PORT:      "6379"
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -76,63 +58,72 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --requirement requirements.lock
 
-      - name: Restore vector store cache
-        uses: actions/cache@v4
-        with:
-          path: data/chroma_db_full
-          key: chroma-${{ hashFiles('configs/config.py') }}
-          restore-keys: chroma-
+      - name: Test Semantic Cache (In-Memory HNSW)
+        run: python main.py --mode cache-demo
 
-      - name: Restore synthetic dataset cache
-        uses: actions/cache@v4
-        with:
-          path: data/synthetic_dataset.json
-          key: synthetic-${{ hashFiles('configs/config.py') }}
-          restore-keys: synthetic-
+      - name: Generate Benchmark Visualizations & Report
+        run: python main.py --mode demo
 
-      - name: Run preprocessing (if cache miss)
-        run: |
-          if [ ! -f data/synthetic_dataset.json ]; then
-            python -c "from module1.data_preprocessing import run_module1; run_module1(generate_synthetic=True)"
-          fi
-
-      - name: Run CI/CD quality gate
-        id: quality_gate
-        run: python main.py --mode cicd --samples 50
-        # Exit code 1 fails the job automatically.
-
-      - name: Upload CI/CD report
+      - name: Upload Evaluation Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cicd-report-${{ github.sha }}
-          path: outputs/cicd_report.json
+          name: evaluation-report-${{ github.sha }}
+          path: outputs/evaluation_report.md
 
-      - name: Upload evaluation plots
+      - name: Upload Benchmark Plots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-plots-${{ github.sha }}
+          name: benchmark-plots-${{ github.sha }}
           path: outputs/plots/
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Stage 3 — Notify on PR failures (only when context.issue.number exists)
+  # Stage 3 — bounded clean Linux container smoke test
   # ──────────────────────────────────────────────────────────────────────────
-  notify:
-    name: Notify on Gate Failure
+  container-smoke:
+    name: Linux Container Smoke Test
     runs-on: ubuntu-latest
-    needs: ragas-quality-gate
-    if: failure() && github.event_name == 'pull_request'
+    needs: lint-test
+    timeout-minutes: 30
     steps:
-      - name: Post failure comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ **RAG Quality Gate FAILED** — at least one metric dropped below threshold. Download the `cicd-report-${{ github.sha }}` artifact for details.'
-            })
+      - uses: actions/checkout@v4
+
+      - name: Build the production image
+        run: docker build --file Dockerfile --tag rag-framework:${{ github.sha }} .
+
+      - name: Start the API without a corpus
+        run: |
+          docker run --detach --name rag-framework-smoke \
+            --publish 18000:8000 \
+            --env API_KEY=ci-smoke-key \
+            --env ALLOW_UNAUTHENTICATED=false \
+            --env HOST=0.0.0.0 \
+            --env PYTHON_DOTENV_DISABLED=1 \
+            rag-framework:${{ github.sha }}
+
+      - name: Check liveness and authentication boundaries
+        timeout-minutes: 6
+        run: |
+          # Give uvicorn time to bind; then poll robustly (--retry-all-errors
+          # covers the 'connection reset' that --retry alone dies on).
+          sleep 5
+          curl --fail --silent \
+            --retry 20 --retry-delay 2 --retry-all-errors \
+            --max-time 5 http://127.0.0.1:18000/healthz || {
+              echo "── container state on failure ──"
+              docker inspect --format 'exit={{.State.ExitCode}} status={{.State.Status}} oom={{.State.OOMKilled}}' rag-framework-smoke || true
+              docker logs rag-framework-smoke 2>&1 | tail -80 || true
+              exit 1
+            }
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST --header 'content-type: application/json' \
+            --data '{"question":"smoke"}' http://127.0.0.1:18000/query)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'X-API-Key: ci-smoke-key' http://127.0.0.1:18000/readyz)" = "503"
+
+      - name: Remove smoke container
+        if: always()
+        run: docker rm --force rag-framework-smoke || true

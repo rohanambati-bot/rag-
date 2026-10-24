@@ -1,0 +1,3002 @@
+[
+  {
+    "id": "msmarco_83",
+    "question": "does chocolate soothe cramps",
+    "ground_truth": "Yes, chocolate can even reduce pain from menstrual cramps.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_587",
+    "question": "telehealth quiz what is telehealth",
+    "ground_truth": "Telehealth encompasses telemedicine but is a broader term that emphasizes both the delivery of services and the provision of information and education to healthcare providers and consumers.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_967",
+    "question": "titan distance from earth",
+    "ground_truth": "The distance between Titan and Earth is 9.06 AU or 1,355,357,880 km.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_399",
+    "question": "can skilled nursing do cardiac rehabilitation",
+    "ground_truth": "Yes, When the patient is ready to leave the hospital, the cardiac rehabilitation program will continue at an outpatient facility or a skilled-nursing facility.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_653",
+    "question": "temperature sigonella sicily",
+    "ground_truth": "The average maximum temperature in July and August is 32 \u00b0C in sigonella, sicily.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_988",
+    "question": "tom garrett age",
+    "ground_truth": "The age of Tom Garrett is 75.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_836",
+    "question": "the respiratory system is also called what",
+    "ground_truth": "The respiratory system is also called the ventilator system.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_6",
+    "question": "symptoms of a gastric ulcer in women",
+    "ground_truth": "acidic and extremely painful is symptom of a gastric ulcer in women.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_211",
+    "question": "health benefits of greek yogurt",
+    "ground_truth": "Aid digestion and may even help prevent conditions such as irritable bowel syndrome and diarrhea.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_958",
+    "question": "time zones sanford fleming",
+    "ground_truth": "The time zone of Sandford Fleming is from 1827 to 1915.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_398",
+    "question": "difference between palliative and hospice care",
+    "ground_truth": "1 Palliative care is given at any stage of the disease, but hospice is given to terminally ill patients with life expectancy six months or less. 2 Palliative care may be given while the patient is on curative treatment, but hospice is given when no more medicine can do. 3 Palliative care is given usually at an institution such as in a hospital, but hospice is given where the patient prefers to stay, usually at home. 4 Palliative care is a multidisciplinary approach where several teams are involved, but hospice relies upon a family caregiver as well as on a visiting hospice nurse.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_349",
+    "question": "synonym of intersect",
+    "ground_truth": "The Synonyms for intersection is asymptote, axle, bottleneck, center, core, crossing, crux, epitome, essence, focus, forum, funnel, gathering, heart, hub, kernel, lodestar, lure, magnet, marrow, meat, nucleus, plenum, polestar, rally.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_546",
+    "question": "do walmart greeters get paid",
+    "ground_truth": "Yes, Walmart Greeters get paid a level one hourly wage.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_87",
+    "question": "how to cook sausage peppers onions",
+    "ground_truth": "Place the sausage in a large skillet over medium heat, and brown on all sides. Remove from skillet, and slice. Melt butter in the skillet. Stir in the yellow onion, red onion, and garlic, and cook 2 to 3 minutes. Mix in red bell pepper and green bell pepper. Season with basil, and oregano. Stir in white wine.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_310",
+    "question": "how does the cheetah run so fast (kids)",
+    "ground_truth": "Because, It is born with traits that let it run fast.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_955",
+    "question": "ani palmer",
+    "ground_truth": "Ani Palmer is a speech language pathologist in Livingston, MT. She specializes in speech language pathology.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_339",
+    "question": "average water use per household",
+    "ground_truth": "200 gallons per day",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_500",
+    "question": "why do puppies lick their owners",
+    "ground_truth": "Puppies lick their owners to communicate and to express their affection. The communication can include information, such as how hungry the dog is.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_95",
+    "question": "how caitriona balfe got role in outlander",
+    "ground_truth": "Caitriona Balfe\u2019s role in Outlander has brought her critical acclaim and several awards over the last two years. She\u2019s a two-time time winner of the Favourite Cable Sci-Fi/Fantasy TV Actress award at the People\u2019s Choice Awards and a two-time winner at the EWwy Awards for Best Actress in a Drama Series",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_353",
+    "question": "How long does it take to boil an egg",
+    "ground_truth": "10-12 minutes",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_868",
+    "question": "theoretical time definition",
+    "ground_truth": "A theoretical definition is an abstract concept that defines a term in an academic discipline.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_114",
+    "question": "how big is an ancient pyramids",
+    "ground_truth": "52,600 square metres of The Great Pyramid of Giza.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_551",
+    "question": "tamponade origin meaning",
+    "ground_truth": "The French verb tamponner means to plug up and, also, to smash into.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_439",
+    "question": "fashion define",
+    "ground_truth": "Fashion is defined as a popular way of dressing or speaking.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_755",
+    "question": "the elastic cartilage that shields the opening to the larynx during swallowing is the __________.",
+    "ground_truth": "The elastic cartilage that shield the opening to the larynx during swallowing is the epiglottis cartilage.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_925",
+    "question": "time in korea vs usa",
+    "ground_truth": "South Korea is 14:0 hours ahead of USA.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_473",
+    "question": "age for infant to hold up head",
+    "ground_truth": "Most of the babies do not require much head support at or around 4 months of age.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_391",
+    "question": "synonyms for lava",
+    "ground_truth": "Synonyms for lava are volcanic rock, pahoehoe, pillow lava.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_377",
+    "question": "how cold does shower water get",
+    "ground_truth": "10C",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_371",
+    "question": "definition of raa",
+    "ground_truth": "It represents north american regional airlines.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_900",
+    "question": "tidal zone definition",
+    "ground_truth": "The inter tidal zone, also known as the foreshore and seashore and sometimes referred to as the littoral zone, is the area that is above water at low tide and under water at high tide.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_489",
+    "question": "synonyms people",
+    "ground_truth": "People means any group of human beings.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_427",
+    "question": "definition of tenacity",
+    "ground_truth": "The act of holding fast, from tenax (gen. tenacis) tough, holding fast, from tenere to hold (see tenet).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_876",
+    "question": "things to drink when you have a cold",
+    "ground_truth": "When you have a cold, drink tea, soup, use spices like turmeric, ginger, and garlic, consume some honey.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_867",
+    "question": "the word said hello in swedish",
+    "ground_truth": "Hej is the Swedish word for hello.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_287",
+    "question": "how much does medical coders make",
+    "ground_truth": "$34,000 and $57,000 a year for certified medical coders.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_257",
+    "question": "how to cook string beans",
+    "ground_truth": "Cut the ends off of the string beans. Cut the beans in half or 1-inch slices, if desired. Bring the salt and water to a boil in the saucepan over high heat. Place the vegetable steamer above the boiling water so that the water does not enter the steamer. Fill the steamer with the prepared string beans.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_236",
+    "question": "circulation money definition",
+    "ground_truth": "Circulation of money is defined as a piece of writing circulates or is circulated, copies of it are passed round among a group of people.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_944",
+    "question": "time period of ancient ghana",
+    "ground_truth": "The time period of ancient Ghana is from the year 300 until around 1200.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_276",
+    "question": "syncopate meaning",
+    "ground_truth": "The meaning of syncopate is to modify or treat.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_665",
+    "question": "angela duckworth what is grit",
+    "ground_truth": "Angela Lee Duckworth is an American academic, psychologist and popular science author.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_74",
+    "question": "define asiatic cholera bacteria",
+    "ground_truth": "It is caused by bacteria and characterized by profuse diarrhea, intestinal pain, and dehydration.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_542",
+    "question": "how to become a resident of nc",
+    "ground_truth": "Have 12 months of physical presence in North Carolina. Have the financial and legal ability to establish a domicile. Demonstrate the intent to make North Carolina your home aside from attending school.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_321",
+    "question": "how many years do yu need to work on a job before you can retire form that job",
+    "ground_truth": "You can retire at the age of 65 years with five or more years of service credit, or at the age 60 with five or more years of service credit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_468",
+    "question": "can you return redbox anywhere",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_589",
+    "question": "telephone number for access insurance",
+    "ground_truth": "The customer support phone number of Access Insurance is plus 1 800-817-9744.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_254",
+    "question": "symptoms of whooping cough in adults webmd",
+    "ground_truth": "The symptoms of whooping cough in adults are Mild coughing, Sneezing, Runny nose, and Low fever.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_93",
+    "question": "how long does a woman's cycle last",
+    "ground_truth": "3-5 days",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_730",
+    "question": "the definition of bioclimate",
+    "ground_truth": "Bioclimate is a climate, as it influences, and is influenced by, biological organisms.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_840",
+    "question": "the role of the parasympathetic nervous system is to _____________.",
+    "ground_truth": "The roles of the parasympathetic nervous system are to Regulating digestion, Regulating sexual arousal and Slowing the heart rate and lowering the blood pressure after the sympathetic nervous system has activated the fight or flight response.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_813",
+    "question": "the middle market defined",
+    "ground_truth": "The middle market is defined as the companies larger than small businesses but smaller than big businesses that account for the middle third of the U.S. economy\u2019s revenue.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_283",
+    "question": "how bicycle tire tubes are sized",
+    "ground_truth": "Inspect the sidewall of the bicycle tire that needs a new tube. The sidewall is the area of the tire next to the rim on either side that does not touch the ground when the bike is in motion. The tire size will be printed there in raised numbers along with the recommended tire pressure and possibly other information. The numbers on the sidewall of you tyre are the best place to look for your tyre and tube size information. Most tyres will show both an ETRTO size and a Metric or Imperial size.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_765",
+    "question": "the grand marceline co llc",
+    "ground_truth": "The Grand Marceline Company LLC is a Missouri Limited-Liability Company filed on July 27, 2015.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_86",
+    "question": "charcot's syndrome definition",
+    "ground_truth": "It is a syndrome in patients who have neuropathy or loss of sensation.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_281",
+    "question": "how old do you have to be to be a server",
+    "ground_truth": "A person must be at least 18 years old to serve alcohol in Illinois In 2015.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_673",
+    "question": "texas roadhouse glen mills pa phone number",
+    "ground_truth": "Texas Roadhouse, Glen Mills phone number is +1 610-459-1720.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_594",
+    "question": "telephone number for jeffrey harrell, pa in virginia",
+    "ground_truth": "The telephone number for Jeffrey Harrell, Pennsylvania in virginia is (215) 762-7000.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_973",
+    "question": "to what extent do people use drugs",
+    "ground_truth": "People commonly use drugs, gamble, or shop compulsively in reaction to stress, whether or not they have a physical addiction.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_754",
+    "question": "brewery mineral point",
+    "ground_truth": "Brewery Creek Inn is located at 23 Commerce Street Mineral Point, Wisconsin 53565.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_394",
+    "question": "how long before a bearded dragon starts to grow",
+    "ground_truth": "Between the ages of 8 months and 18 months.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_461",
+    "question": "honesty or integrity definition",
+    "ground_truth": "Honesty: The condition of being honest. \nIntegrity: The value and morals of a individual in relation or in addition to honesty.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_820",
+    "question": "the net investment income is computed on what",
+    "ground_truth": "Net income is calculated by taking revenues and adjusting for the cost of doing business, depreciation, interest, taxes and other expenses.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_695",
+    "question": "breadboard what is it",
+    "ground_truth": "A breadboard is used to build and test circuits quickly before finalizing any circuit design, which has many holes in to which circuit components like ICs and resistors can be inserted.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_633",
+    "question": "dod fiscal law refresher course",
+    "ground_truth": "The DoD Fiscal Law Online Refresher Course is of 4 hours.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_561",
+    "question": "tarpon orthopedics",
+    "ground_truth": "Tarpon Orthopedics offers comprehensive orthopedic care to patients in Plano and Addison, Texas.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_235",
+    "question": "symptoms of varicella",
+    "ground_truth": "The symptoms of Varicella are Fever, Malaise, Vesicular eruptions, Crop lesions, Anorexia, Pruritic, Headache.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_818",
+    "question": "the most common type of post-conviction relief is",
+    "ground_truth": "The most common type of postconviction relief is habeas corpus.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_66",
+    "question": "how much does a parenting plan cost",
+    "ground_truth": "A typical Parenting evaluation will cost between $2000 and $5000 dollars.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_372",
+    "question": "synonyms enable",
+    "ground_truth": "Affirm, agree, approve, assent, authenticate, authorize, bless, certify, commission, confirm, consent, countersign, denominate, deputize, designate, empower, enfranchise, entitle, license, notarize, allow, permit, facilitate and  give someone the opportunity are synonyms for enable.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_445",
+    "question": "how to bake 2 5lb chickens",
+    "ground_truth": "",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_15",
+    "question": "color overlay photoshop",
+    "ground_truth": "A great way to add a touch of color without making your photo look like you\u2019ve edited the heck out of it or to add a little life to B&W photos.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_169",
+    "question": "how does consumstion of electricity is mesured",
+    "ground_truth": "It is the amount of watts used over one hour, which is how we get the watt-hour (Wh).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_130",
+    "question": "formal debate definition",
+    "ground_truth": "An argument between two individuals that is bound by rules and the participants conduct themselves professionally.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_215",
+    "question": "how titanic facts",
+    "ground_truth": "It sank after hitting to the iceberg.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_847",
+    "question": "bronchospasm: definition, symptoms, causes, and treatment",
+    "ground_truth": "Bronchospasm is a tightening of the small airways of the lung. Symptoms of it include 1 Wheezing, characterized by a whistling sound as the patient breathes. 2 Shortness of breath. 3 Dry cough, because the lining of the lungs are irritated and the mucus plugging the bronchioles cannot be easily expelled. 4 Tightness and pressure in the chest. 5 Shortness of breath. Causes are wheezing and difficulty breathing. Treatment is Buteyko breathing medical therapy.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_854",
+    "question": "the temperature at which an enzyme functions most efficiently is the__ temperature",
+    "ground_truth": "Enzymes function most efficiently at the temperature of a typical cell, which is 37 Celsius.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_837",
+    "question": "does cholesterol contribute to heart disease and stroke",
+    "ground_truth": "Yes, High levels of LDL cholesterol raise your risk for heart disease and stroke.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_748",
+    "question": "does basaltic lava flow fast",
+    "ground_truth": "Yes, A basaltic lava flow very fast inside the tube.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_486",
+    "question": "how do you use quotation marks and commas",
+    "ground_truth": "Quotation marks (or speech marks as they're also called) can be used for the names of books, plays, films, articles, ships, aircraft, houses, and hotels.Commas and periods are the most frequently used punctuation marks.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_607",
+    "question": "temperature diode",
+    "ground_truth": "The ordinary semiconductor diode may be used as a temperature sensor.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_456",
+    "question": "highest altitude achieved by man air flight.",
+    "ground_truth": "Commander Malcolm Ross and Lieutenant Victor A. Prather, Jr. of the US Navy rose 113,740 feet (34,668 m).",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_450",
+    "question": "define contralateral",
+    "ground_truth": "Contralateral is a term that references the opposite side of something.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_184",
+    "question": "how long will meat keep in freezer",
+    "ground_truth": "You can keep the meat up to two months in freezer.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_530",
+    "question": "define a budding friendship",
+    "ground_truth": "If you describe someone as,a budding businessman or a budding artist, you mean that they are starting to succeed or become interested in business or art.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_136",
+    "question": "how much protein should i take per day for working out",
+    "ground_truth": "Between 0.5-0.7 grams of protein per pound of body weight per day.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_677",
+    "question": "brbpr medical meaning",
+    "ground_truth": "In medical, BRBPR stands for Bright Red Blood Per Rectum.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_143",
+    "question": "how many possible moves in chess",
+    "ground_truth": "The game-tree complexity of chess of 10120, based on an average of about 103 possibilities for a pair of moves consisting of a move for White followed by one for Black, and a typical game lasting about 40 such pairs of moves.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_776",
+    "question": "the largest city in the us population",
+    "ground_truth": "The largest city in the us population is New York City.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_498",
+    "question": "define tension stress",
+    "ground_truth": "The stress state caused by an applied load that tends to elongate the material in the axis of the applied load, or in other words, the stress caused by pulling the material.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_756",
+    "question": "the essential phone price",
+    "ground_truth": "The Essential Phone cost is $500.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_814",
+    "question": "does cellular respiration take place in every cell of our body",
+    "ground_truth": "Yes, cellular respiration is a process that takes place in every cell of the body.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_475",
+    "question": "how much do rear brakes and rotors cost",
+    "ground_truth": "$932",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_358",
+    "question": "causes of ear popping",
+    "ground_truth": "Genetic defects, abnormal growths or structural problems from various medical conditions.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_989",
+    "question": "tom nerney net worth",
+    "ground_truth": "Tom nerney's net worth during 2000 was $3.96 billion.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_210",
+    "question": "a monopolist is a price",
+    "ground_truth": "Yes, the monopolist is best off when he limits production to 200 units, which he sells for $7 each.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_917",
+    "question": "time difference ny and milan",
+    "ground_truth": "Milan, Italy is 6 hours ahead of New York, New York.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_451",
+    "question": "how many dead bodies on everest",
+    "ground_truth": "Over 200 people",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_629",
+    "question": "temperature in kyiv",
+    "ground_truth": "The average temperature in Kiev is 7.7 degrees Celsius or 44.8 degrees Fahrenheit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_342",
+    "question": "how many inches between studs",
+    "ground_truth": "16 inches (406 mm)",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_798",
+    "question": "the meaning of hold",
+    "ground_truth": "Hold is a character placed over or under a note or rest, and indicating that it is to be prolonged.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_921",
+    "question": "time frame for tb test",
+    "ground_truth": "Time frame needed to fulfill requirement: 1.5 to 2.5 weeks; 1st Step TB: get the 1st TB injection, and the reading for it 2 days later - have your healthcare provider sign off in Section 3 of the form above the bold line 2nd Step TB: 7 to 14 days from the date of the first injection, get the 2nd TB shot and the reading for the 2nd shot 2 days later.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_953",
+    "question": "time zone of destin florida",
+    "ground_truth": "Destin, Florida is in the Central Time Zone.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_905",
+    "question": "tim chapman net worth",
+    "ground_truth": "Tim Chapman's net worth is estimated to be $3 million.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_617",
+    "question": "temperature in buffalo ny",
+    "ground_truth": "A hot day for Buffalo is when the temperature makes it into the 80\u00b0 F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_232",
+    "question": "bethel american legion phone number",
+    "ground_truth": "(513) 734-6507.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_829",
+    "question": "the price of fannie mae stock",
+    "ground_truth": "The stock price of Fannie Mae stock was at a 5 year high of $5.82 on Mar 10, 2014, as seen from the history chart.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_385",
+    "question": "how much money does an engineer make",
+    "ground_truth": "Hourly wage of $42.40.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_425",
+    "question": "can i use the expanded cb channels",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_115",
+    "question": "how many extinctions have occurred",
+    "ground_truth": "Five to more than twenty",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_272",
+    "question": "gigabit ethernet fiber media converter",
+    "ground_truth": "Gigabit Ethernet Media Converter MC210CS a media converter designed to convert 1000BASE-LX/LH fiber to 1000Base-T copper media or vice versa.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_643",
+    "question": "temperature in vladivostok",
+    "ground_truth": "On August 16, the hottest day of the year, temperatures in Vladivostok typically range from 63 degrees Fahrenheit to 73 degrees Fahrenheit, while on January 19, the coldest day of the year, they range from 4 degrees Fahrenheit to 21 degrees Fahrenheit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_346",
+    "question": "dash diet results",
+    "ground_truth": "You fill up on delicious fruits and vegetables, paired up with protein-rich foods to quench your hunger,reduced dietary sodium lowers blood pressure for all persons.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_913",
+    "question": "time difference between ljubljana and sydney",
+    "ground_truth": "Time difference between Ljubljana, Slovenia and Sydney, Australia is 10 hours.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_320",
+    "question": "synonym for the word frugal",
+    "ground_truth": "The synonyms for the word frugal are austere, cheap, cheeseparing, economical, moderate, parsimonious, prudent, self-denying, sparing, stingy, thrifty, abstemious, ascetic, closefisted, hard-fisted, meager, mean, miserly, narrow-fisted, penny-pinching, petty, spartan, tight, abnegating, abstinent, conservative, restrained, self-depriving, sober, sober-minded, temperate, analyze, apprehend, appropriately, ascertain, ask, at-ease, audit, bare, becomingly, budget, cannily, canny, careful, carefully.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_368",
+    "question": "earliest pregnancy symptoms",
+    "ground_truth": "Missed period, Tender, swollen breasts, Nausea with or without vomiting, Increased urination, Fatigue, lower backaches.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_504",
+    "question": "define linear inequalities",
+    "ground_truth": "In mathematics, it is an inequality which involves a linear function.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_435",
+    "question": "can an argument with a true premise and false conclusion be valid",
+    "ground_truth": "No, if the premises were true, then the conclusion would have to be true as well.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_201",
+    "question": "how much food does a panda eat in a day",
+    "ground_truth": "26 to 84 pounds for bamboo",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_601",
+    "question": "temperature at searcy ark",
+    "ground_truth": "The temperature at searcy ark varies from 31\u00b0F to 92\u00b0F and is rarely below 18\u00b0F or above 100\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_269",
+    "question": "synchrotron definition",
+    "ground_truth": "Synchrotron is a form of cyclotron in which charged particles are accelerated by an electric field that is synchronized with a magnetic field that keeps them in a circular path.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_792",
+    "question": "the meaning of dangerously",
+    "ground_truth": "The meaning of dangerous is involving or causing danger or risk.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_96",
+    "question": "how long is a boxing match",
+    "ground_truth": "For men is 3 mins and women are 2 mins",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_686",
+    "question": "the ________ is divided into the parasympathetic nervous system and the sympathetic nervous system.",
+    "ground_truth": "The autonomic nervous system is classically divided into two subsystems: the parasympathetic nervous system and sympathetic nervous system.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_969",
+    "question": "title of trust",
+    "ground_truth": "A trust is created by a settlor, who transfers title to some or all of his or her property to a trustee, who then holds title to that property in trust for the benefit of the beneficiaries.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_637",
+    "question": "temperature in seoul south korea",
+    "ground_truth": "In Seoul South Korea, daily low temperatures decrease by 9\u00b0F, from 32\u00b0F to 23\u00b0F, rarely falling below 13\u00b0F or exceeding 41\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_993",
+    "question": "address for quad city rooter in davenport iowa",
+    "ground_truth": "Quad City Drain is located at the address 6403 Eastern Ave in Davenport, Iowa 52807.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_470",
+    "question": "how clubcards is a marketing strategy",
+    "ground_truth": "Tesco\u2019s almost entire relationship marketing strategy is based on its \u201cClubcard\u201d scheme. It has been able to use the Clubcard very effectively in addressing different customer segments and in attracting and retaining customers of all types.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_369",
+    "question": "cast of the ambassador's daughter",
+    "ground_truth": "Olivia de Havilland and John Forsythe.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_374",
+    "question": "calories in one honeycrisp apple",
+    "ground_truth": "There are 130 calories in one honeycrisp apple.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_382",
+    "question": "how do you sort cells by last name in excel",
+    "ground_truth": "Click the A \u2192 Z button. To sort the spreadsheet in alphabetical order, just click the A \u2192 Z symbol in the Sort and Filter section. This will rearrange the spreadsheet in alphabetical order of the selected column. On most versions of Excel, this button is in the top left corner of the Sort and Filter section.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_799",
+    "question": "the meaning of lord",
+    "ground_truth": "The meaning of lord is a person who has authority, control, or power over others; a master, chief, or ruler.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_415",
+    "question": "can seizure meds cause low sodium?",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_834",
+    "question": "bromine effects on health",
+    "ground_truth": "Bromines can cause damage to organs such as liver, kidneys, lungs and milt and they can cause stomach and gastrointestinal malfunctioning.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_38",
+    "question": "how long should a central air conditioner last",
+    "ground_truth": "10 to 20 years",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_895",
+    "question": "thunderbird email customer service number",
+    "ground_truth": "The customer service number of Mozilla Thunderbird for Email support is 1855 785 2511.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_494",
+    "question": "how much does a forensic scientists make",
+    "ground_truth": "Between $35,000 and $50,000 per year.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_950",
+    "question": "time warner cable outage",
+    "ground_truth": "Time Warner Cable the outage occurred at 4:30 a.m.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_265",
+    "question": "can you eat potatoes on a diet",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_159",
+    "question": "biological fluids definition",
+    "ground_truth": "A generic term for any bio-organic fluid produced by an organism.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_248",
+    "question": "how many championship rings does the washington redskins have",
+    "ground_truth": "5 NFL ",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_768",
+    "question": "the haunting of thomas brewster",
+    "ground_truth": "The Haunting of Thomas Brewster gives us an excellent Nyssa adventure and the introduction of a new character to complement her. The plot of the Doctor separated from his Tardis and forced for a year to live as a Victorian Gentleman is particularly good.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_16",
+    "question": "symptoms of air pollution exposure",
+    "ground_truth": "High air pollution levels can cause immediate health problems including: 1 Aggravated cardiovascular and respiratory illness. 2 Added stress to heart and lungs, which must work harder to supply the body with oxygen. 3 Damaged cells in the respiratory system.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_852",
+    "question": "the success of collective security depends on",
+    "ground_truth": "The success of collective security depends on members keeping their commitments to the group and members agreeing on what constitutes aggression.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_658",
+    "question": "temperatures in spokane wa",
+    "ground_truth": "Spokane's coldest month is December when the average temperature overnight is 21.6\u00b0F. In August, the warmest month, the average day time temperature rises to 82.6\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_293",
+    "question": "do stomach ulcers include symptoms of constipation?",
+    "ground_truth": "Yes,stomach ulcers include symptoms of constipation.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_464",
+    "question": "bbq pork chops on the grill",
+    "ground_truth": "Reduce grill to medium low with a gas grill or move chops to a cooler portion of the charcoal grill.Brush a liberal amount of barbecue sauce on the chop and flip.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_34",
+    "question": "how much would graduate marketers make?",
+    "ground_truth": "$110,000 to $130,000 per year.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_297",
+    "question": "synflorix vaccine schedule",
+    "ground_truth": "The schedule of Synflorix Vaccine is from approximately mid-August.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_227",
+    "question": "symptoms of tumors in the head area",
+    "ground_truth": "Symptoms of tumors in the head area are headaches, seizures, problem with vision, vomiti.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_783",
+    "question": "the largest wide area network (wan) in existence is the _____.",
+    "ground_truth": "largest WAN in existence is the Internet.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_977",
+    "question": "does kelp live in oceans",
+    "ground_truth": "Yes, Some plants that live in the ocean are kelp.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_624",
+    "question": "temperature in clearwater, fl",
+    "ground_truth": "Clearwater Beach sea temperatures peak in the range 28 to 31\u00b0C.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_603",
+    "question": "temperature cedar michigan",
+    "ground_truth": "The temperature Cedar, Michigan is 21\u00b0.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_885",
+    "question": "does drinking water lower your body temperature",
+    "ground_truth": "Yes, drinking water lowers your body temperature.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_519",
+    "question": "define acquitted",
+    "ground_truth": "The act of deciding that a person is not guilty of a crime.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_44",
+    "question": "animal rescue league hours",
+    "ground_truth": "Summer Hours: (April through October) Monday: 11am \u2013 5pm. Tuesday: 11am \u2013 8pm. Wednesday: Closed. Thursday: 11am \u2013 8pm. Friday: 11am \u2013 5pm. Saturday: 11am \u2013 4pm.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_434",
+    "question": "common symptoms seen in hiv",
+    "ground_truth": "Fever, fatigue, and, often, rash, headache, swollen lymph nodes, and sore throat.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_951",
+    "question": "btuh definition",
+    "ground_truth": "The british thermal unit is a traditional unit of heat; it is defined as the amount of heat required to raise the temperature of one pound of water by one degree Fahrenheit.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_482",
+    "question": "are sparkling ice drinks really calorie free",
+    "ground_truth": "Yes, sparkling ice drinks are calorie free.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_243",
+    "question": "how to group plants landscaping",
+    "ground_truth": "The rule of thumb for the practical side of designing your own landscape is to group plants with similar requirements together. This includes sun and watering requirements.Grouping them together will reduce maintenance for you saving you from dragging the garden hose around unnecessarily, etc.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_50",
+    "question": "how long is the flight from dfw to punta cana",
+    "ground_truth": "4 hours, 34 minutes.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_699",
+    "question": "the average american produces how much trash per day?",
+    "ground_truth": "The average American generates 4.3 pounds of trash per day.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_952",
+    "question": "time zone in kodak, tn",
+    "ground_truth": "Kodak, Tennessee is in the Eastern Daylight Time Zone.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_228",
+    "question": "average tuition aid rice university",
+    "ground_truth": "The average private loan amount at Rice University is $15150.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_91",
+    "question": "how long does the apple watch in power reserve",
+    "ground_truth": "1.5 hours to 80% and and 2.5 hours to 100%.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_137",
+    "question": "ford f 150 lariat 2017 price",
+    "ground_truth": "$46,000",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_929",
+    "question": "does george lopez on a lowrider",
+    "ground_truth": "Yes, George Lopez on a Lowrider.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_190",
+    "question": "chem8 blood test definition",
+    "ground_truth": "It is a blood test that measures the levels of several substances in the blood (such as electrolytes).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_912",
+    "question": "time difference abu dhabi and washington dc",
+    "ground_truth": "There is a 8 hours time difference between Washington DC and Abu Dhabi, currently Abu Dhabi is 8 hours ahead of Washington DC.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_541",
+    "question": "how fundus is measured",
+    "ground_truth": "Place the beginning of the Mommy Measure on the top of the pubic bone and stretch out the tape to the top of the uterus. Next, mark your measurement on the centimeter marks on the scale to measure your Fundal Height.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_393",
+    "question": "are personal property taxes deductible",
+    "ground_truth": "Yes, only those based on the value of personal.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_533",
+    "question": "difference between primary and secondary circular reactions is that",
+    "ground_truth": "Whether the infant's activity is focused on infant and his or her own body (primary circular reactions) or involves actions relating to the world outside (secondary circular reactions).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_655",
+    "question": "temperature to see your breath.",
+    "ground_truth": "The temperature to see your breath is in the 50s or even low 60s.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_151",
+    "question": "how heavy is a shot put",
+    "ground_truth": "4 kilograms for women\u2019s and 12 pounds in high school to 16 pounds in collegiate for men.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_662",
+    "question": "tepes meaning",
+    "ground_truth": "Tepes in Romanian means impaler.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_430",
+    "question": "how to heal sores on face fast",
+    "ground_truth": "Apply an ice cube to the affected area 2-3 times a day and it may help to reduce healing time.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_644",
+    "question": "temperature lithopolis ohio",
+    "ground_truth": "The average temperature of Lithopolis, Ohio is 52.04\u00b0 F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_244",
+    "question": "fema what is an elevation certificate",
+    "ground_truth": "It is an important administrative tool of the National Flood Insurance Program (NFIP).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_71",
+    "question": "can you deduct child care expenses",
+    "ground_truth": "Yes, you can only take a deduction up to $3,000 for one qualifying child",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_218",
+    "question": "central city definition",
+    "ground_truth": "Central city is defined as a city that constitutes the densely populated center of a metropolitan area.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_933",
+    "question": "time in yekaterinburg",
+    "ground_truth": "The current local time in Yekaterinburg, Russia is Tuesday, 13 Feb 2018 10:30 AM.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_621",
+    "question": "temperature in catalina in january",
+    "ground_truth": "At Catalina Airport, the month of January is characterized by essentially constant daily high temperatures, with daily highs around 65\u00b0F throughout the month, rarely exceeding 76\u00b0F or dropping below 55\u00b0F.Daily low temperatures are around 54\u00b0F, rarely falling below 46\u00b0F or exceeding 63\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_75",
+    "question": "define bona fides",
+    "ground_truth": "It is a sincere intention to be fair, open, and honest, regardless of the outcome of the interaction.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_354",
+    "question": "how long into a pregnancy can you tell what sex it is",
+    "ground_truth": "Between the 18th and 26th weeks, but some newer ultrasound technology can determine as early as 12 or 13 weeks.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_284",
+    "question": "define residence city",
+    "ground_truth": "It means living in a particular locality.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_61",
+    "question": "how do i achieve my sphr certificate",
+    "ground_truth": "By passing the SPHR certification exam.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_538",
+    "question": "tadibrothers phone number",
+    "ground_truth": "The phone number of Tadibrothers is 8669665550.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_361",
+    "question": "difference in alabama spotted bass and spotted bass",
+    "ground_truth": "Alabama spotted bass is native to the Coosa River drainage in Alabama and Georgia, and they have been. shown to be genetically different from the other black basses including the spotted bass.spotted bass is a slender fish with black blotches along the middle of the body with age, these join to form an irregular band.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_986",
+    "question": "toluene cas number",
+    "ground_truth": "Toluene Chemical Abstracts Service Number is 108-88-3.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_102",
+    "question": "causes of hyperaerated lungs",
+    "ground_truth": "In asthma exacerbation, air trapping.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_472",
+    "question": "synonyms of recourse",
+    "ground_truth": "The synonyms for recourse are refuge, resort, ability, access, accusation, accuse, agency, aid, alternative, appeal, appliance, application, ask, assemble, assistance, asylum, avail, backup, beckon, benefit, call, capacity, and charm.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_274",
+    "question": "do competitive inhibitors mimic the substrate",
+    "ground_truth": "Yes,it mimic the structure of the substrate.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_311",
+    "question": "can mental illness affect sassi results",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_605",
+    "question": "temperature cook lamb medium rare",
+    "ground_truth": "The temperature to cook lamb medium rare is 125 to 130 degrees Fahrenheit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_599",
+    "question": "tell me how tall is mount everest?interesting",
+    "ground_truth": "Mount Everest is 29,035 feet or 8,850 meters tall.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_640",
+    "question": "temperature in tehachapi ca",
+    "ground_truth": "The temperature in Tehachapi, California is varies from 30 degrees Fahrenheit to 87 degrees Fahrenheit and is rarely below 23 degrees Fahrenheit or above 94 degrees Fahrenheit.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_888",
+    "question": "three ways charge can be transferred",
+    "ground_truth": "The three ways that charge can be transferred are through friction, charge polarization, and grounding.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_882",
+    "question": "thitinan srikulmontree phone number",
+    "ground_truth": "Dr. Thitinan Srikulmontree's phone number is (916) 409-1400.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_322",
+    "question": "how long does it take to become a psychiatrist",
+    "ground_truth": "4 years.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_185",
+    "question": "cause of gum recession",
+    "ground_truth": "Gum disease,  use of tobacco, abrasive toothbrushing techniques, tooth misalignment and grinding, irregular or abnormal tooth position",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_187",
+    "question": "symptoms of sore throat and neck",
+    "ground_truth": "Symptoms of sore throat and neck are common cold, a flu virus, or other illnesses\u2014including meningitis.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_545",
+    "question": "how to determine your molina provider id number",
+    "ground_truth": "The most current 13-digit recipient identification number was frozen and became the permanent Medicaid recipient identification number.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_70",
+    "question": "symptoms of cvid",
+    "ground_truth": "The symptoms of Common Variable Immune Deficiency are recurrent infections that can affect the eyes, skin, ears, sinuses and lungs, inflammation in the joints of the knees, ankles, elbows or wrists and stomach and bowel disorders.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_132",
+    "question": "how long does it take to get your bsrn if you already have a bachelors degree",
+    "ground_truth": "Two years.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_945",
+    "question": "time period of inca",
+    "ground_truth": "The Inca civilization flourished in ancient Peru between c. 1400 and 1533 CE.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_452",
+    "question": "distance milwaukee to boston",
+    "ground_truth": "858 miles",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_670",
+    "question": "teupen usa",
+    "ground_truth": "Teupen Usa, Inc. is a small organization in the heavy construction equipment rental companies industry located at 10701 Southern Loop Blvd, Pineville, NC 28134. It opened its doors in 2009 and now has an estimated $8.7 million in yearly revenue and 10 employees.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_557",
+    "question": "taping cost",
+    "ground_truth": "Video taping costs $225 for minimum two hours for a single camera shoot and $400 for minimum two hours for a two camera shoot.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_146",
+    "question": "how many days does the landlord give you to pay your security deposit",
+    "ground_truth": "The landlord give you to pay your security deposit within 30 days.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_260",
+    "question": "symptoms required to diagnosis acute respiratory failure",
+    "ground_truth": "The symptoms required to diagnosis acute respiratory failure are breathing, blueish or pale skin, known as cyanosis, anxiety and restlessness.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_793",
+    "question": "the meaning of disguised",
+    "ground_truth": "The definition of disguise is something that hides the truth.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_350",
+    "question": "epel what is",
+    "ground_truth": "EPEL is a volunteer effort from the Fedora community.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_646",
+    "question": "temperature muscat",
+    "ground_truth": "In Muscat, the average monthly temperatures vary by 13.9 \u00b0C.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_43",
+    "question": "can h. pylori cause vomiting",
+    "ground_truth": "Yes, H. pylori can cause vomiting.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_873",
+    "question": "they said what is ssdi",
+    "ground_truth": "Social Security Disability Insurance is a payroll tax-funded, federal insurance program of the United States government.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_4",
+    "question": "can you burn your lawn with fertilizer",
+    "ground_truth": "Yes, over fertilizing can burn lawn.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_728",
+    "question": "the definition of behavioral genetics",
+    "ground_truth": "The definition of behavioral genetics is a field of study which focuses on the role of genetics in human behavior.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_509",
+    "question": "how happy retirees spend their time",
+    "ground_truth": "Retirees spend an average of only a few minutes a day caring for members of their household, involved in civic or religious activities, spend more time on housework and food preparation.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_525",
+    "question": "baked serloin steak how long",
+    "ground_truth": "30 to 45 minutes ",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_761",
+    "question": "the formal definition of fitness in evolutionary biology",
+    "ground_truth": "Fitness is the quantitative representation of natural and sexual selection within evolutionary biology.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_947",
+    "question": "time resolved cathodoluminescence",
+    "ground_truth": "Spatio time resolved cathodoluminescence is a measurement system first equipped with a rear-excitation configuration pulsed PE-gun and later replaced by a front-excitation configuration one for probing local carrier dynamics in wide bandgap semiconductors.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_800",
+    "question": "the meaning of muse",
+    "ground_truth": "A muse is a spirit or source that inspires an artist.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_212",
+    "question": "bcbstx provider service phone number",
+    "ground_truth": "1 888 292 4480",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_534",
+    "question": "how much money does a small koi cost",
+    "ground_truth": "Domestic average quality Koi generally cost $5-$15 a pound. Small 3-4 inch Koi cost around $3, while large foot long Koi cost around $20-$25.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_526",
+    "question": "how many casinos are there in canada",
+    "ground_truth": "Over 100 casinos.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_216",
+    "question": "how to bbq turkey burgers temperature",
+    "ground_truth": "165 degrees Fahrenheit",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_271",
+    "question": "how long can a puppy hold poop",
+    "ground_truth": "For puppies is number amount of hours it can hold is releted on its age.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_388",
+    "question": "how many mm is a nickel coin",
+    "ground_truth": "Its diameter is 21.21mm and its thickness is 1.95 mm.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_318",
+    "question": "how many oscars has clint eastwood won?scsnsjxncnvmj",
+    "ground_truth": "Clint Eastwood won five-time Oscar.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_59",
+    "question": "botz etf price",
+    "ground_truth": "Global X Robotics & Artfcl Intllgnc ETF has a Price of 24.79.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_57",
+    "question": "here there be dragons comic",
+    "ground_truth": "Here there be dragons is a comic book series by James A. Owen who is an American comic book illustrator, publisher and writer.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_849",
+    "question": "the story of hamilton",
+    "ground_truth": "Alexander Hamilton was born and spent part of his childhood in Charlestown, the capital of the island of Nevis in the Leeward Islands.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_477",
+    "question": "how to move neat scanner between user profiles",
+    "ground_truth": "The easiest way to move your Neat data, including your business cards, receipts, and documents, to another PC is to use the sync feature in the Neat cloud service.Click here for more information about moving data by syncing using the Neat cloud service.If you do not wish touse Neat cloud, you can use the built-in backup and restore tools in Neat by following the links provided below. Move Neat data from PC to PC (without Neat cloud).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_263",
+    "question": "biggest hydraulic crane in the united states",
+    "ground_truth": "Left Coast Lifter",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_209",
+    "question": "evaluation and management of flexor tenosynovitis of finger",
+    "ground_truth": "Schnall SB, Vu-Rose T, Holtom PD, Doyle B, Stevanovic M, tissue pressures in pyogenic flexor tenosynovitis of the finger.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_771",
+    "question": "the indigo girl by natasha boyd",
+    "ground_truth": "Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_707",
+    "question": "the biggest pizza in the world",
+    "ground_truth": "The longest pizza in the world is 1,595.45 m or 5,234 ft 4.8 in.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_725",
+    "question": "the definition of a computer",
+    "ground_truth": "The definition of a computer is a person or electronic device that makes and stores quick calculations or processes information.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_17",
+    "question": "average temperature cardiff wales",
+    "ground_truth": "It has a mild humid temperate climate with warm summers and no dry season.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_920",
+    "question": "time fort lauderdale",
+    "ground_truth": "The current time in Fort Lauderdale, broward County, Florida, Eastern Time Zone is 5:54:24 PM on February 19, 2018.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_312",
+    "question": "crm definitions",
+    "ground_truth": "Customer Relationship Management is a term representing the business strategy built around the concept of improved customer service.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_239",
+    "question": "does exercise help ms",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_230",
+    "question": "how much does a surety bond cost",
+    "ground_truth": "Between $50 to $100.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_679",
+    "question": "tham definition",
+    "ground_truth": "The definition of tham is Tris hydroxymethyl aminomethane, an organic compound.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_862",
+    "question": "the vertical distance between trough and crest is called",
+    "ground_truth": "The vertical distance between trough and crest is called Wave height.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_384",
+    "question": "define ibm hybrid cloud",
+    "ground_truth": "It is a combination of different clouds, be it private, public or a mix.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_630",
+    "question": "temperature in lake charles louisiana",
+    "ground_truth": "An average daily high temperature above 85\u00b0F in Lake Charles, Louisiana.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_916",
+    "question": "time difference between sydney and atlanta",
+    "ground_truth": "Time difference between Atlanta and Sydney is 14 Hours.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_460",
+    "question": "how old is tennys sandgren",
+    "ground_truth": "Tennys Sandgren is 25 years old.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_740",
+    "question": "the definition of kingdom biology",
+    "ground_truth": "A kingdom in biology is a classification of living things.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_465",
+    "question": "how long does wine stay in your system",
+    "ground_truth": "Five ounce glass of wine will be in your system for approximately 15 hours.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_326",
+    "question": "how to make a square dance quilt",
+    "ground_truth": "Make half square triangles. Make half square triangles with all the 3.7/8\u2033 squares in the colour combinations listed above. Place two squares with right sides together and mark a line along one of the diagonals. Sew a 1/4\u2033 seam either side of the line and cut along the line. This gives you two half square triangle units which are 3.1/2\u2033 square.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_531",
+    "question": "tachycardia symptoms while sleeping",
+    "ground_truth": "Forcefully and irregularly heart beats.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_806",
+    "question": "the meaning of the greek word locus",
+    "ground_truth": "The definition of a locus is where a person or thing is located.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_592",
+    "question": "telephone number for crisis prevention institute",
+    "ground_truth": "The phone number for Crisis Prevention Institute is (877) 877-5409.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_492",
+    "question": "average pay for nuclear medicine technologist",
+    "ground_truth": "$48,699 to $83,024",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_267",
+    "question": "how does a linear relationship",
+    "ground_truth": "In a linear relationship, two variables or quantities are proportionate to one another. As one variable changes, there is a constant rate of change in another variable.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_853",
+    "question": "the tallest man ever lived",
+    "ground_truth": "Robert Pershing Wadlow is the tallest man ever lived.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_741",
+    "question": "the definition of lend",
+    "ground_truth": "The definition of lend is  grant to the use of on the understanding that it will be returned, contribute.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_562",
+    "question": "tarsal tunnel in ankle symptoms",
+    "ground_truth": "Symptoms of tarsal tunnel syndrome is pain or tingling in the foot and toes; numbness, swelling, burning or redness in the heel electric shock sensations in the leg and foot pain while driving or walking.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_118",
+    "question": "cost of repainting cabinets",
+    "ground_truth": "Kitchen cabinets is about $1,000.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_251",
+    "question": "does bactrim cause dizziness",
+    "ground_truth": "Yes, bactrim cause dizziness",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_775",
+    "question": "the ladder of inference",
+    "ground_truth": "Ladder of inference is a model that describes how individuals reach conclusions and make decisions based on facts.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_420",
+    "question": "how is soil created from rocks",
+    "ground_truth": "There are four basic \u201cingredients\u201d that go into the \u201crecipe\u201d for making soil: tiny pieces of rock, decayed plants and animals, water, and air.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_109",
+    "question": "can laser kill you",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_24",
+    "question": "symptoms of an intolerance to barley",
+    "ground_truth": "The symptoms of an intolerance to barley are gastrointestinal distress, atopic dermatitis and urticaria, angioedema, anaphylaxis and food-dependant, exercise-induced anaphylaxis, wheezing and baker's asthma.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_540",
+    "question": "banquet definition",
+    "ground_truth": "The definition of Banquet is a large formal meal for many people, often followed by speeches in honour of someone.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_28",
+    "question": "symptoms of an uti sensation",
+    "ground_truth": "The symptoms of Urinary tract infection is burning sensation, strong urge to urinate, pain, urinary frequency, difficulty urinating, and sometimes, blood in the urine.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_340",
+    "question": "average summer temps in iran",
+    "ground_truth": "39 \u2103",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_789",
+    "question": "the meaning of anger issue",
+    "ground_truth": "Anger is the general term for sudden violent displeasure accompanied by an impulse to retaliate.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_7",
+    "question": "how often can ativan be taken",
+    "ground_truth": "For anxiety treatment is 1 mg two to three times daily and for insomnia is 2 mg to 4 mg once daily at bedtime.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_229",
+    "question": "area of concentration meaning",
+    "ground_truth": "Area of concentration is the area from which people are allocated to a particular school, hospital.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_826",
+    "question": "the ostrich war",
+    "ground_truth": "The Emu War was a nuisance wildlife management military operation undertaken in Australia over the latter part of 1932 to address public concern over the number of emus said to be running amok in the Campion district of Western Australia.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_697",
+    "question": "the archway (mo) chapter of the links, incorporated community service...",
+    "ground_truth": "The Archway  Chapter of The Links, Incorporated. The Links, Incorporated is a women\u2019s volunteer service organization committed to enriching, sustaining and ensuring the cultural and economic survival of African Americans and other persons of African ancestry.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_246",
+    "question": "how long do cooked pork chops last in fridge",
+    "ground_truth": "7 days",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_56",
+    "question": "how do I get from DC to alexandria va",
+    "ground_truth": "Braddock Road, Eisenhower Ave, and Van Dorn Street. To get to downtown DC from Alexandria, take the Yellow Line toward Greenbelt or Fort Totten, or take the Blue Line toward Largo Town Center or Stadium-Armory.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_296",
+    "question": "how common are ascaris worms",
+    "ground_truth": "It has Highest prevalence in tropical and subtropical regions, and areas with inadequate sanitation.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_878",
+    "question": "thirty one gifts corporate phone number",
+    "ground_truth": "The phone number of thirty one gifts corporate is 1-866-4438731.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_446",
+    "question": "how old is keke palmer",
+    "ground_truth": "23-year-old",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_414",
+    "question": "how early can you feel the baby move in the womb",
+    "ground_truth": "During 13 to 16 week of pregnancy",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_88",
+    "question": "definition of jape",
+    "ground_truth": "It is a configurable, graphical proof assistant, originally developed at the University of Oxford.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_449",
+    "question": "how many drops does a dropper hold",
+    "ground_truth": "One milliliter of dropper holds 20 drops.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_866",
+    "question": "the word blasphemy mean",
+    "ground_truth": "The word blasphemy means to revile or speak impiously or reproachfully.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_618",
+    "question": "temperature in burlington wi",
+    "ground_truth": "The Burlington, WI forecast for Aug 27 is 66 degrees and Overcast . There is 90 percentage chance of rain and 9 mph winds from the Southeast.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_153",
+    "question": "how many days to deliver after water broke",
+    "ground_truth": "Within 24 Hours",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_843",
+    "question": "the science meaning of friction",
+    "ground_truth": "Friction is a force that makes it harder for two objects to slide alongside one another.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_596",
+    "question": "telephone number for utah medicaid",
+    "ground_truth": "Phone Number of Medicaid Utah Eligibility is +1-800-662-9651.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_552",
+    "question": "tangle definition",
+    "ground_truth": "The definition of tangle is to become mixed together or intertwined.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_975",
+    "question": "to what potential difference just the defibrillator be charged?",
+    "ground_truth": "A defibrillator connected to a 32 \u00b5F capacitor and a 47 k\u03a9 resistor in a RC circuit will be charged.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_238",
+    "question": "how long can one hold a plank position",
+    "ground_truth": "Teenagers-over an hour",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_292",
+    "question": "how long does long island ice tea last at room temp?",
+    "ground_truth": "Iced tea should be stored for no longer than 8 hours.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_811",
+    "question": "the meaning of truth&honesty",
+    "ground_truth": "Honesty refers to a facet of moral character and connotes positive and virtuous attributes such as integrity, truthfulness and straightforwardness along with the absence of lying, cheating or theft.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_111",
+    "question": "how long does a small munsterlander live?",
+    "ground_truth": "Large 12 years, Small 13 years",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_329",
+    "question": "how is a late filing fee for 1096 accessed",
+    "ground_truth": "The amount of the penalty is based on when you file the correct information return.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_214",
+    "question": "how to get permanent residency in spain",
+    "ground_truth": "Permanent Residence Permits are granted to foreigners who can prove. a five (5) year legal and continuous residence in Spain, provided that there were no irregular exits from the country.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_149",
+    "question": "definition of functional currency us tax",
+    "ground_truth": "Main currency used by a business or unit of a business.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_418",
+    "question": "how many people are killed on the yungas road",
+    "ground_truth": "200 to 300 peoples are killed on the yungas road.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_428",
+    "question": "box office hours at the grove theater in upland",
+    "ground_truth": "The box office hours at the Grove theater in upland is 11 am to 4 pm on weekdays and 11 am to 2 pm on Saturdays.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_684",
+    "question": "the ________ cartilages of the larynx play the most important part in sound production",
+    "ground_truth": "The glottis is the part of the larynx most concerned with sound production.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_82",
+    "question": "ebay returns phone number",
+    "ground_truth": "The phone number for ebay returns is 866 540 3229.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_288",
+    "question": "caffeine is lethal at approximately what dose?",
+    "ground_truth": "Damage the heart, lungs, kidney and central nervous system.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_405",
+    "question": "how do raid passes work",
+    "ground_truth": "RAID works by spreading the data over several disks.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_23",
+    "question": "dynamics crm outlook synchronization process",
+    "ground_truth": "The CRM/Outlook synchronization process can occur in one of two ways: 1) manually clicking the \u201cSynchronize with CRM\u201d option, or 2) scheduled background synchronization. The actual CRM/Outlook sync process looks like this when kicked off: 1 Prepare sync is called to query the server to prepare all the entities which should be synchronized down from the CRM server. 2 Subscription table = Specifies the SyncEntryTable name for each user that has been created.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_719",
+    "question": "the cost of a gulfstream three aircraft",
+    "ground_truth": "The total cost of ownership per year for a Gulfstream G450 is $4,221,475 including market depreciation of $1,726,000 or $6,810,475 including book depreciation of $4,315,000.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_175",
+    "question": "how coffee works quote",
+    "ground_truth": "I orchestrate my mornings to the tune of coffee.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_505",
+    "question": "are weetbix good for you",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_790",
+    "question": "the meaning of coma-",
+    "ground_truth": "The meaning of coma is a state of profound unconsciousness caused by disease, injury, or poison.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_832",
+    "question": "the price to have acrylic nails done",
+    "ground_truth": "The cost of having acrylic nails typically between $25 and $80.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_62",
+    "question": "city guide definition",
+    "ground_truth": "To assist (a person) to travel through, or reach a destination in, an unfamiliar area, as by accompanying or giving directions to the person.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_255",
+    "question": "government does do",
+    "ground_truth": "Depending on the particular form, the government generally carries out the desires of the people.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_483",
+    "question": "how long should it take for a chihuahua to give birth",
+    "ground_truth": "9 weeks or 63 days.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_222",
+    "question": "average diamond ring cost stats",
+    "ground_truth": "$5,800 to $6,000.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_306",
+    "question": "how big do newfypoo's get",
+    "ground_truth": "21-30 inches tall and weighs between 60-130 pounds.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_827",
+    "question": "the pigment chlorophyll is contained in _____.",
+    "ground_truth": "The pigment chlorophyll is contained in chloroplasts of plants.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_701",
+    "question": "the average life expectancy for a man living in the united states is ____.",
+    "ground_truth": "The average life expectancy for a man living in the united states is 76.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_880",
+    "question": "address for lfcu in poquoson, va",
+    "ground_truth": "Langley Federal Credit Union Address: 415 Wythe Creek Road, Poquoson, VA 23662, United States.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_720",
+    "question": "the cotton mill",
+    "ground_truth": "The Cotton Mill is centrally located in New Orleans within the Warehouse District next to downtown and the French Quarter.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_308",
+    "question": "how are the months split into seasons",
+    "ground_truth": "Spring - Spring goes from March 21st to June 20th. Summer - Summer runs from June 22nd to September 21st. Fall - Fall falls between September 22nd and December 20th. Winter - Winter descends from December 21st to March 20th.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_830",
+    "question": "the price of rear struts for",
+    "ground_truth": "The price of rear struts is $80.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_627",
+    "question": "temperature in june for las vegas",
+    "ground_truth": "The hottest temperature ever registered in Las Vegas in June is 46\u00b0C and coldest is 9\u00b0C.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_291",
+    "question": "how long does it take for house to foreclose",
+    "ground_truth": "72 hour",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_692",
+    "question": "the abbreviation for the word diagnosis is:",
+    "ground_truth": "The standard abbreviation for diagnosis is Dx.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_527",
+    "question": "how long does is take xiidra to work",
+    "ground_truth": "15 minutes",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_164",
+    "question": "symptoms of ptsd avoidance",
+    "ground_truth": "Avoidance and emotional numbing Trying to avoid being reminded of the traumatic event is another key symptom of PTSD.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_529",
+    "question": "how long does food last if power goes out",
+    "ground_truth": "In dry ice should keep a fully-stocked 18-cubic-feet freezer cold for two days.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_858",
+    "question": "the three types of rocks and names",
+    "ground_truth": "Sedimentary Rock Metamorphic Rock and Igneous Rock are three types of rocks.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_120",
+    "question": "how many lbs to take off for clothes when you weigh yourself",
+    "ground_truth": "You should take off 7 lbs for clothes when you weigh yourself.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_186",
+    "question": "how long do I need to wait to seed after i apply weed and and feed",
+    "ground_truth": "Minimum of four weeks.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_536",
+    "question": "carbs in chick fil a sandwich no bun",
+    "ground_truth": "Yes",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_289",
+    "question": "how steps are in a mile",
+    "ground_truth": "2,112",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_192",
+    "question": "churrascaria what is",
+    "ground_truth": "Churrascaria is a place where meat is cooked in Churrasco style, which translates roughly from the Portuguese for 'barbecue'.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_857",
+    "question": "the three parts of the information-processing model of memory are",
+    "ground_truth": "The three stages of the information-processing model of memory are sensory memory, short-term memory, and long-term memory.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_949",
+    "question": "time to cut knock out roses",
+    "ground_truth": "The best time to prune knock out roses in St Louis Missouri is late March, after any late frosts.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_620",
+    "question": "temperature in carlsbad, ca",
+    "ground_truth": "The temperature in Carlsbad, California is the July high is around 75 degrees and the January low is 44.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_14",
+    "question": "how much are postage stamps right now",
+    "ground_truth": "The cost of a first-class postage stamp is now 49 cents.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_256",
+    "question": "define: manifold",
+    "ground_truth": "To multiply or reproduce impressions of by a single operation.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_972",
+    "question": "to do have a hyphen",
+    "ground_truth": "The most difficult compound terms to deal with are the compound adjectives. For one thing, most of them will not be found in any dictionary. For another, whether they are hyphenated or not depends on their position within a sentence.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_499",
+    "question": "cost of street glide special",
+    "ground_truth": "$1,400 or more expensive at $20,399.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_135",
+    "question": "how many brothers and sisters did martin luther king have",
+    "ground_truth": "Martin Luther King Jr. had two siblings.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_517",
+    "question": "average wage gilded age",
+    "ground_truth": "From $8 to $9 an hour.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_716",
+    "question": "the collection film cast",
+    "ground_truth": "The Collection film cast: Randall Archer, Emma Fitzpatrick, Christopher McDonald, Lee Tergesen, and Josh Stewart.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_570",
+    "question": "tchau meaning",
+    "ground_truth": "Tchau means goodbye or bye.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_69",
+    "question": "can you break dogs chasing cars",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_706",
+    "question": "the benefits of taking copper supplements",
+    "ground_truth": "The benefits of taking copper supplements is it functions as an antioxidant and may play a role in cancer prevention, anti-inflammatory properties, immune system support, and brain health.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_683",
+    "question": "the _______ is the site of cellular respiration where the energy stored in food is extracted",
+    "ground_truth": "The mitochondria of the eukaryotic cell is the site of cellular respiration where the energy stored in food is extracted.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_436",
+    "question": "hardship letter for the irs",
+    "ground_truth": "If you have problems with the IRS, you can always write them a hardship letter. Here is an example of an IRS hardship letter. August 24, 2009. Name: Terry Hart. Address: 34 Haycorn St., Tucson, TX. Contact no.: (123) 456-7777. RE: CP 14 balance due notice.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_64",
+    "question": "blood diseases that are sexually transmitted",
+    "ground_truth": "Hepatitis B, Hepatitis C and HIV.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_978",
+    "question": "to which supergroup do ciliates (e.g., paramecium) belong?",
+    "ground_truth": "Ciliates belong to a phylum of protists called ciliophora.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_915",
+    "question": "does flomax cause liver damage",
+    "ground_truth": "Yes, flomax causes liver damage.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_856",
+    "question": "the term climate refers to what",
+    "ground_truth": "Climate is the description of the long-term pattern of weather in a particular area.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_797",
+    "question": "the meaning of haploid cell",
+    "ground_truth": "Haploid is an organism or cell having only one complete set of chromosomes organism.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_170",
+    "question": "symptoms of ptsd in vietnam veterans",
+    "ground_truth": "Symptoms of Post traumatic stress disorder in vietnam veterans are insomnia, anxiety and irritability.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_208",
+    "question": "how to change a blog to new email",
+    "ground_truth": "To start a blog with Blogger, visit the Blogger homepage, enter your username and password, and click Sign in. Enter a display name and accept Blogger's Terms of Service. Then click the Create a Blog link and get started! Pick an address (URL) and a blog title.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_663",
+    "question": "terrestrial plant definition",
+    "ground_truth": "A terrestrial plant is a plant that grows on or in or from land.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_924",
+    "question": "time in dayton ohio now",
+    "ground_truth": "The current local time in Dayton, Ohio is 12:39 AM Eastern Standard Time.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_324",
+    "question": "health benefits of horseweed",
+    "ground_truth": "Horseweed is used to treat various illnesses, including diarrhea, fever, running nose, rhinitis, but also used to arrest bleedings or to relieve stomach aches, earaches or headaches. Externally, it was made into poultices to treat burns and sore joints.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_997",
+    "question": "topamax what it for",
+    "ground_truth": "Topamax is for the prevention of the seizures of epilepsy and prevention of migraine headaches.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_113",
+    "question": "how long do seagulls live",
+    "ground_truth": "7 to 10 years",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_12",
+    "question": "current weather in volcano, ca",
+    "ground_truth": "The Volcano forecast for Apr 12 is 52 degrees and Patchy light rain.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_433",
+    "question": "how long do peppers take to grow",
+    "ground_truth": "Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_524",
+    "question": "how many chromosomes does a cactus have",
+    "ground_truth": "22",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_126",
+    "question": "define dislocated knee",
+    "ground_truth": "It is a patellar dislocation is a shifting of the kneecap (patella) out of its normal position.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_971",
+    "question": "buca di beppo corporate number",
+    "ground_truth": "The phone number of Buca di Beppo Corporate is 1-612-225-3400.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_585",
+    "question": "do you know who is master chief?",
+    "ground_truth": "The Master Chief is a towering and faceless biochemically and cybernetically-enhanced supersoldier.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_134",
+    "question": "how long does hr have to respond to fmla claim",
+    "ground_truth": "An employee could be covered for multiple claims as long as the total FMLA coverage does not exceed 12 weeks in a 12 month period.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_513",
+    "question": "how many calories.do.you burn jumping on a large trampoline",
+    "ground_truth": "A 125-pound person will burn 143 calories in an hour.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_279",
+    "question": "how many calories do i need to gain weight per day",
+    "ground_truth": "To gain one pound, you must eat 3500 calories more than the amount of calories that your body burns.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_659",
+    "question": "brass is composed of copper and what",
+    "ground_truth": "Brass is composed of copper and zinc.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_746",
+    "question": "the difference between italicizing and underlining",
+    "ground_truth": "The difference between and underlining is \nitalicizing is used for separating and identifying a group of words as a book/magazine/journal/article title while underlining is an act or instance of marking text with an underline.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_117",
+    "question": "definition of a dancer",
+    "ground_truth": "A dancer is someone who dances for fun, as a hobby, or for a job.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_995",
+    "question": "tooth veneers process",
+    "ground_truth": "Dental veneers are thin pieces of tooth-colored porcelain cemented to the front surfaces of your natural teeth, and are an easy way to address a variety of physical and aesthetic problems.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_262",
+    "question": "age of toddlers to be in booster seat",
+    "ground_truth": "After age 4 children can ride in a booster seat with the adult lap and shoulder belt.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_19",
+    "question": "____________________ is considered the father of modern medicine.",
+    "ground_truth": "Hippocrates",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_626",
+    "question": "temperature in jackson tennessee",
+    "ground_truth": "Current temperature in jackson tennessee is 42\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_183",
+    "question": "average emergency medicine doctor salary",
+    "ground_truth": "$252,235 a year.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_421",
+    "question": "are praying mantis harmful",
+    "ground_truth": "No",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_366",
+    "question": "hotels niagara falls canada",
+    "ground_truth": "Marriott Fallsview Niagara Falls Hotel,Sheraton On The Falls, Radisson Hotel.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_206",
+    "question": "how long to aluminum roofs last?",
+    "ground_truth": "Fifty year warranty.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_103",
+    "question": "do prince harry and william have last names",
+    "ground_truth": "No, Prince Willam and Harry do have a last name.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_277",
+    "question": "cancer of the meninges",
+    "ground_truth": "Neoplastic meningitis and Carcinomatous Meningitis.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_40",
+    "question": "can thinning vocal cords cause hoarseness",
+    "ground_truth": "Yes, thinning vocal cords cause hoarseness.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_485",
+    "question": "how long do you steep decaf tea for",
+    "ground_truth": "Decaffeinate a tea by steeping it for 30 to 60 seconds.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_934",
+    "question": "time is money quote who said it",
+    "ground_truth": "It was Benjamin Franklin who said, remember that time is money.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_171",
+    "question": "how much mg is in a meq",
+    "ground_truth": "One mEq is equal to 39 mg of potassium or 23 mg of sodium or 20 mg of calcium or 35 mg of chlorine.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_899",
+    "question": "brownsburg in zip",
+    "ground_truth": "46112 is a suburban zip code in Brownsburg, Indiana.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_757",
+    "question": "brewster, ny sales tax",
+    "ground_truth": "The sales tax rate for Brewster, New York is 8.38%.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_649",
+    "question": "temperature of water to make yeast active",
+    "ground_truth": "The water temperature between 90 and 100 degrees Fahrenheit to make yeast active.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_804",
+    "question": "does cellular respiration occur in all organisms",
+    "ground_truth": "Yes, cellular respiration occurs in the cells of all living things.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_638",
+    "question": "temperature in st andrews scotland",
+    "ground_truth": "Today's St Andrews sea temperature is 59 \u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_998",
+    "question": "topher grace net worth",
+    "ground_truth": "Topher Grace Net Worth is $10 Million",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_675",
+    "question": "text to speech voice",
+    "ground_truth": "On Windows 7 and Vista, the text to speech voice is Microsoft Anna (US female). On Windows XP, the only text to speech voice is Microsoft Sam (US male).",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_879",
+    "question": "this is halloween origin",
+    "ground_truth": "Halloween descended from a Celtic festival dating back at least 2,000 years, Known as Samhain.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_348",
+    "question": "does the aspca euthanize animals",
+    "ground_truth": "Yes, american society for the prevention of cruelty to animals (ASPCA) euthanized animals.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_480",
+    "question": "synonyms of supportive",
+    "ground_truth": "Synonyms for supportive are collateral, substantiative, encouraging, substantiating, validatory, confirmative, adjuvant, positive, confirming, adjunct, confirmatory, corroboratory, ancillary, accessary, verificatory, demonstrative of, accessory, certificatory, auxiliary, verifying, supporting, corroborative, appurtenant, validating.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_963",
+    "question": "tire wear patterns and causes",
+    "ground_truth": "Uneven tire wear is usually caused by improper alignment, over inflation, under inflation, or a worn out suspension.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_30",
+    "question": "how long is a voe valid",
+    "ground_truth": "The forms are valid for 30 days after issuance in the for spring and fall  semesters and for 90 days during the summer.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_962",
+    "question": "tippee meaning",
+    "ground_truth": "Tippee is a securities law term used to refer to an individual who acquires material non public information from some person in a fiduciary relationship with the company to which that information pertains.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_794",
+    "question": "the meaning of draconian",
+    "ground_truth": "The meaning of the draconian is laws or punishments that are extremely severe or cruel.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_810",
+    "question": "the meaning of tournament",
+    "ground_truth": "Tournament is a series of contests in which a number of contestants compete and the one that prevails through the final round or that finishes with the best record.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_930",
+    "question": "address for melody oeth, mt vernon, in",
+    "ground_truth": "Melody Oeth at 1900 West 4th Street, Mount Vernon IN.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_78",
+    "question": "symptoms of dopamine producing tumor",
+    "ground_truth": "Dopamine excess in patients with pheochromocytomas and PGLs has been linked to atypical symptoms such as nausea and weight loss. Moreover, catecholamine excess can lead to hemodynamic instability, particularly during diagnostic and surgical interventions of these tumors.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_141",
+    "question": "how much do employees at sprouts make",
+    "ground_truth": "Sprouts pays its employees an average of $12.51 an hour.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_198",
+    "question": "symptoms of tail neuroma in dogs",
+    "ground_truth": "The symptoms of tail neuroma in dogs are Swelling; Abrasions or bleeding or ulcer type lesion which bleeds \u201cOut of joint\u201d appearance anywhere along the length of the tail signalling a break or fracture; Unusual tail set.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_362",
+    "question": "does liquor constrict blood vessels",
+    "ground_truth": "No",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_824",
+    "question": "britne oldford worth",
+    "ground_truth": "Britne Oldford Net Worth is $100,000.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_356",
+    "question": "how long do you have swelling after a complete tummy tuck",
+    "ground_truth": "Swelling may last for four to six weeks or even longer during the tummy tuck.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_252",
+    "question": "derriere definition",
+    "ground_truth": "Derriere is define as ass(noun) the fleshy part of the human body that you sit on.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_408",
+    "question": "dr larry nassar what did he actually do",
+    "ground_truth": "Dr. Larry G. Nassar was the former team physician for USA Gymnastics.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_671",
+    "question": "texas child support phone number",
+    "ground_truth": "Child Support phone number is (956) 724-1602 in Texas.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_828",
+    "question": "the potomac school basketball",
+    "ground_truth": "The Potomac School varsity basketball team won Thursday's home conference game against Maret by a score of 66-63.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_839",
+    "question": "the role of a champion on an improvement team",
+    "ground_truth": "The role of the Champion is to: 1. support the LEAN event within the home and advocate for spread of improvements 2. provide on going leadership to ensure the positive changes continue as time goes on.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_844",
+    "question": "the shadow cast",
+    "ground_truth": "Alec Baldwin, John Lone, Penelope Ann Miller, Ian McKellen, Peter Boyle, Jonathan Winters, and Tim Curry are the cast of The Shadow.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_89",
+    "question": "how ounces in cup",
+    "ground_truth": "There are 8 ounces in a cup.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_282",
+    "question": "syncretism meaning",
+    "ground_truth": "Syncretism is the combination of different forms of belief or practice.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_213",
+    "question": "does apple cider injure the kidneys?",
+    "ground_truth": "No, it helps to prevent kidney from infections.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_223",
+    "question": "does titl insurance protect against eminent domain by neighbor",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_784",
+    "question": "the lodge on the river",
+    "ground_truth": "The Lodge on the River is situated near the airport, this hotel is 1.4 miles from Bullhead City Community Park and within 6 miles of Riviera Marina and Arizona Veterans Memorial.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_37",
+    "question": "how much is a cost to run disneyland",
+    "ground_truth": "Around $355,000 per day.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_139",
+    "question": "average electricity usage in kw",
+    "ground_truth": "11,700 kWh each year.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_341",
+    "question": "synonym of gait",
+    "ground_truth": "The synonyms for gait are walk, step, bearing, pace, stride, carriage, tread, manner of walking and pace.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_380",
+    "question": "define prosthetic device",
+    "ground_truth": "an artificial device that is used to replace a part of the body that is missing.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_877",
+    "question": "thirst define",
+    "ground_truth": "Thirst is define as craving liquid.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_721",
+    "question": "address dmv smithfield",
+    "ground_truth": "Address dmv smithfield is 103 North Fourth Street.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_327",
+    "question": "define competencies",
+    "ground_truth": "The quality of being competent; adequacy; possession of required skill, knowledge, qualification, or capacity: He hired her because of her competence, an income sufficient to furnish the necessities and modest comforts of life.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_332",
+    "question": "age requirements for name change",
+    "ground_truth": "In California, you must be an adult, 18 years of age or older to change your name.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_221",
+    "question": "how many people in us",
+    "ground_truth": "314,165,191 people.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_193",
+    "question": "definition: incivility",
+    "ground_truth": "It is one term used to describe rude, disruptive, intimidating, and undesirable behaviors that are directed toward another person.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_273",
+    "question": "average temperatures las vegas by month",
+    "ground_truth": "High Temperature in November- 67 F (19.4 C).Low Temperature in November: 42 F (5.5 C).The highest temperature in July at 93.6 degrees.The coldest average temperature is December at 45.4 degrees.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_611",
+    "question": "temperature in anole tank",
+    "ground_truth": "The temperature in anole tank is a basking area that reaches around 100\u00b0F should be provided on one side of the tank and the day time ambient temperature should fall between 75\u00b0F and 88\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_908",
+    "question": "address for link graphics in evansville,in",
+    "ground_truth": "The address of Link graphics in Evansville is 1018 East Diamond Avenue, Evansville, Indiana 47711.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_565",
+    "question": "tattoos with deep meaning",
+    "ground_truth": "Tattoos that have a deep meaning to the individual are somehow influenced by a lot many factors in life.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_608",
+    "question": "temperature drop",
+    "ground_truth": "temperature drop is a function of many factors, including tubing material, gas type, gas. flow rate, ambient temperature and wind, and installation geometry.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_404",
+    "question": "clearing and grubbing definition",
+    "ground_truth": "Clearing: The stage of development in which vegetation is cleared from land.\nGrubbing: a root rake or similar device employed to remove roots remaining in the soil.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_381",
+    "question": "synonyms for classification",
+    "ground_truth": "Synonyms for classification are: category brand, breed, caste, category, clan, class, degree, and denomination.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_602",
+    "question": "temperature by cricket chirps",
+    "ground_truth": "At 60 degrees Fahrenheit, the crickets chirped at a rate of 80 per minute, at 70 degrees, they chirped at 120 per minute, and at temperatures below 50 degrees, the crickets had no energy to waste in music, and retained a rate of 40 chirps per per minute.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_124",
+    "question": "how long do tubes last",
+    "ground_truth": "Smaller signal tubes, such as the 6DJ8 are rated to last about 5,000 hours and the more durable versions will last incrementally longer. An output tube is typically thought to last 2,000 hours.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_956",
+    "question": "time zone petersburg indiana",
+    "ground_truth": "The time zone of Petersburg Indiana is the Eastern Time Zone.",
+    "query_type": "LOCATION"
+  },
+  {
+    "id": "msmarco_194",
+    "question": "how long is iodine half life",
+    "ground_truth": "Iodine-131 has a half-life of 8 days.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_234",
+    "question": "how long to recover from ataxia",
+    "ground_truth": "Full recovery from acute cerebellar ataxia can be expected within a period of weeks to a few months.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_488",
+    "question": "how old is lil moco",
+    "ground_truth": "22 year.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_875",
+    "question": "thiamine supplement side effects",
+    "ground_truth": "The side effects of thiamine supplement are warmth, severe allergic reaction skin discoloration, sweating, restlessness,  rapid swelling of the skin, itching, hives, fluid in the lungs weakness, tightness of the throat, and nausea.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_453",
+    "question": "how much do champs employees make",
+    "ground_truth": "Champs Sports employees: $26,000 annually\nDistrict Manager: $72,000 annually\nCashier:  $18,000 annually",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_738",
+    "question": "the definition of instructional supervision",
+    "ground_truth": "Instructional supervision is the link between teacher needs and school goals so individuals can improve and work together towards the vision of the school.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_101",
+    "question": "how many seasons does longmire have?",
+    "ground_truth": "Season 5",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_994",
+    "question": "budd metroliner",
+    "ground_truth": "The Budd Metroliner was a class of American electric multiple unit railcar designed for first-class, high-speed service between New York City and Washington, D.C. on the Northeast Corridor.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_373",
+    "question": "cost of copy paper case",
+    "ground_truth": "Average price for a case of standard copy paper is $40.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_177",
+    "question": "do you cycle hgh?",
+    "ground_truth": "Yes",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_576",
+    "question": "brain divided into three major parts",
+    "ground_truth": "The brain is divided into three main parts which are the hindbrain, the midbrain, and the forebrain.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_676",
+    "question": "textile converter define",
+    "ground_truth": "Textile Converter is a person, who sell goods for wholesalers or manufacturers to businesses or groups of individuals.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_767",
+    "question": "the hall effect",
+    "ground_truth": "The Hall effect is the production of a voltage difference across an electrical conductor, transverse to an electric current in the conductor and to an applied magnetic field perpendicular to the current.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_447",
+    "question": "do vhi swiftcare do blood tests?",
+    "ground_truth": "Yes,vhi swiftcare do blood tests.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_556",
+    "question": "tape measure define",
+    "ground_truth": "A tape measure is a strip of metal, plastic, or cloth with marks on it, used for measuring, especially for clothes and DIY.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_266",
+    "question": "how old was jfk when he took office",
+    "ground_truth": "43 years, 236 days",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_666",
+    "question": "test to check pressure in your esophagus",
+    "ground_truth": "An EGD test examines the lining of your esophagus.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_410",
+    "question": "how is platelet donation done",
+    "ground_truth": "A platelet donation is an automated procedure in which a machine collects platelets while returning the red cells and most of the plasma back to the donor.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_334",
+    "question": "dvafcu telephone number",
+    "ground_truth": "(202) 737-6969, (800) 822-6875.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_579",
+    "question": "technical support apple pay telephone",
+    "ground_truth": "The telephone number of apple pay technical support is 1-800-275-2273.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_491",
+    "question": "convert ft to mtr",
+    "ground_truth": "1 foot is equal to 0.3048 meters.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_338",
+    "question": "synonym of degrade",
+    "ground_truth": "The synonym for degrade are cheapen, put down, take down, disgrace,and demean.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_195",
+    "question": "cost for heartworm treatment dogs",
+    "ground_truth": "$1,500",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_48",
+    "question": "complex variable functions",
+    "ground_truth": "A complex variable is equal to the sum of its Taylor series, complex analysis is particularly concerned with analytic functions of a complex variable.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_31",
+    "question": "how many carbohydrates in asparagus",
+    "ground_truth": "3.7 grams carbohydrate in asparagus.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_258",
+    "question": "definition of minor premise",
+    "ground_truth": "It is logic the premise of a syllogism containing the subject of its conclusion.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_510",
+    "question": "cio it meaning",
+    "ground_truth": "It is an executive job title commonly given to the person at an enterprise in charge of information technology (IT) strategy and the computer systems required to support an enterprise's objectives and goals.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_108",
+    "question": "how much is a video editor?",
+    "ground_truth": "$26,270 to $155,840.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_455",
+    "question": "how long can you keep tea",
+    "ground_truth": "Tea in bags will be at their best within 6 months after you purchased them.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_860",
+    "question": "the two types of flares used on brake lines are",
+    "ground_truth": "Double flare and ISO flares used on brake lines.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_572",
+    "question": "braidy industries charles price",
+    "ground_truth": "In Braidy Industries, Charles Price is a member of the company\u2019s board of directors and an industrialist from Louisville, and a shareholder in Kentucky.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_131",
+    "question": "cannot create a file when that file already exists.",
+    "ground_truth": "Trying to add a file to your Web project and a file with the same name already exists in the project. This message can occur when you're adding a new file, moving a file, or copying a file.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_781",
+    "question": "the largest seaweeds are",
+    "ground_truth": "Brown algae is the largest type of seaweed.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_122",
+    "question": "are you losing weight if your stomach sore",
+    "ground_truth": "Yes, The abdominal pain due to medications they may be taking. The pain can lead to unintentional weight loss.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_770",
+    "question": "the hole movie cast",
+    "ground_truth": "The hole movie casts are Maximilian Schell, Robert Forster, Joseph Bottoms, Yvette Mimieux, Anthony Perkins, and Ernest Borgnine.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_568",
+    "question": "tax sheriff sale meaning",
+    "ground_truth": "A sheriff\u2019s sale is a public auction where mortgage lenders, banks, tax collectors, and other litigants can collect money lost on property.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_870",
+    "question": "thermal beacon",
+    "ground_truth": "Thermal Beacon Ltd is a leading company developing and producing high-end innovative thermal IFF emitters and high power visible and infrared laser illuminators and pointers.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_647",
+    "question": "temperature of water for hurricane formation",
+    "ground_truth": "Temperature of water for hurricane formation is 26.5 degrees Celsius or 80 Fahrenheit or greater.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_651",
+    "question": "branson mo population",
+    "ground_truth": "Branson Missouri's estimated population is 11,430.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_535",
+    "question": "average summer temperature in albuquerque nm",
+    "ground_truth": "Above 83\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_476",
+    "question": "how old is michael porter junior",
+    "ground_truth": "17 year",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_454",
+    "question": "dog rabies vaccine cost",
+    "ground_truth": "The dog rabies vaccine costs around $15 to $20.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_60",
+    "question": "benefits of hemp oil",
+    "ground_truth": "It helps in moisturizer.It is especially useful for dry, tired or dehydrated skin and nails.It helps Maintain a Hormonal Balance.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_737",
+    "question": "the definition of income",
+    "ground_truth": "Income is defined as the sum of the market value of rights exercised in consumption and the change in the value of the store of property rights.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_129",
+    "question": "boulder county what is subject to sales tax",
+    "ground_truth": "Boulder collects a 5.945% local sales tax, the maximum local sales tax allowed under Colorado law.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_49",
+    "question": "ellianna name meaning",
+    "ground_truth": "My lord has answered.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_801",
+    "question": "the meaning of night",
+    "ground_truth": "'The Meaning of Night' is a weighty read and a virtuoso accomplishment by the author.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_107",
+    "question": "how batting average is calculated in baseball",
+    "ground_truth": "It is defined by the number of hits divided by at bats.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_160",
+    "question": "cost of garage doors prices",
+    "ground_truth": "$200 for single doors to $4,000 for two or more doors.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_176",
+    "question": "symptoms of scleritis",
+    "ground_truth": "The main symptoms of scleritis are pain and redness in the white part of the eye. These symptoms usually develop gradually and eventually become severe. The redness may become an intense purple.",
+    "query_type": "ENTITY"
+  },
+  {
+    "id": "msmarco_158",
+    "question": "how long does it take acrylic paint to dry?",
+    "ground_truth": "30 minutes",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_100",
+    "question": "difference between guitar and bass guitar",
+    "ground_truth": "The simplest difference between guitar and bass guitar is the pitch range of the instruments.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_987",
+    "question": "does kidney gravel cause blood in urine",
+    "ground_truth": "Yes, a kidney stone include flank pain and blood in the urine.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_22",
+    "question": "how many days is an appraisal good for a fannie loan",
+    "ground_truth": "120 days from the date of the Note.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_632",
+    "question": "temperature in malmo sweden",
+    "ground_truth": "January is the hottest month in Malmo, Sweden with an average temperature of 32 degrees Fahrenheit or 0 degrees Celsius and the coldest is January at 32 degrees Fahrenheit or 0 degree Celsius. In February, the average maximum daytime temperature in Malmo, Sweden is a cold 36 degrees Fahrenheit or 2 degree Celsius. The average night time temperature is 27 degrees Fahrenheit or minus 3 degrees Celsius.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_407",
+    "question": "how old do you have to be to get a job in idaho",
+    "ground_truth": "14",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_762",
+    "question": "the function of the olfactory nerve concerns",
+    "ground_truth": "The function of the Olfactory Nerve is responsible for your sense of smell and partially responsible for your sense of taste.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_523",
+    "question": "definition of esquire",
+    "ground_truth": "It is a title of respect accorded to men of higher social rank, above the rank of gentleman and below the rank of knight.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_635",
+    "question": "temperature in mont",
+    "ground_truth": "Temperature graph Chamonix-Mont-Blanc. The warmest month of the year is July, with an average temperature of 16.2 \u00b0C. At -2.1 \u00b0C on average, January is the coldest month of the year. At the highest point of the Mont Blanc all precipitation is snow and the average temperature is at least 20\u00b0C or 68\u00b0F, lower than in Chamonix itself. The average maximum daytime temperature in Mont Tremblant in February is a very cold -6\u00b0C or 21\u00b0F. The average night-time temperature is usually a very cold -18\u00b0C or -0\u00b0F.",
+    "query_type": "NUMERIC"
+  },
+  {
+    "id": "msmarco_688",
+    "question": "the _________ amendment protects against the use of excessive force",
+    "ground_truth": "The Fourth Amendment protects against the use of excessive force.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_106",
+    "question": "how to get rid of mosquitoes in yard naturally",
+    "ground_truth": "Grow some garlic in your yard.",
+    "query_type": "DESCRIPTION"
+  },
+  {
+    "id": "msmarco_825",
+    "question": "the original lettermen members",
+    "ground_truth": "The current Lettermen consist of Tony Butala, Donovan Tea and Bobby Poynton.",
+    "query_type": "PERSON"
+  },
+  {
+    "id": "msmarco_304",
+    "question": "docket case definition",
+    "ground_truth": "A docket in the United States is the official summary of proceedings in a court of law.",
+    "query_type": "DESCRIPTION"
+  }
+]

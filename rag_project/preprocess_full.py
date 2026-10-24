@@ -11,6 +11,7 @@ import sys
 import json
 import time
 import logging
+import threading
 from pathlib import Path
 
 logging.basicConfig(
@@ -21,8 +22,9 @@ logger = logging.getLogger("preprocess_full")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from configs.config import (
+from configs.config import (  # noqa: E402
     DATASET_NAME, DATASET_CONFIG, DATASET_SPLIT,
+    DATASET_REVISION, INDEX_REVISION,
     CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL,
     VECTOR_STORE_DIR, SYNTHETIC_DATA_PATH, DATA_DIR,
     NUM_SYNTHETIC_SAMPLES,
@@ -33,6 +35,27 @@ BATCH_SIZE = 5000          # Process documents in batches of 5000
 CHECKPOINT_FILE = os.path.join(DATA_DIR, "_preprocess_checkpoint.json")
 
 
+def _atomic_write_json(path, data) -> None:
+    """Use the shared same-directory atomic JSON writer."""
+    from module1.data_preprocessing import atomic_write_json
+    atomic_write_json(path, data)
+
+
+def selected_context(passage_texts: list, is_selected: list) -> str:
+    """
+    Join the passages the MS MARCO annotator marked relevant for a query.
+
+    Written into the synthetic QA pairs as ``context`` so token-overlap metrics
+    have a non-empty ground-truth context (they previously stored the empty
+    string, leaving answer_recall / IoU unscoreable for those pairs).
+    """
+    return " ".join(
+        passage_texts[i].strip()
+        for i in range(len(passage_texts))
+        if i < len(is_selected) and is_selected[i] == 1 and passage_texts[i].strip()
+    )
+
+
 def load_checkpoint():
     if os.path.exists(CHECKPOINT_FILE):
         with open(CHECKPOINT_FILE) as f:
@@ -41,12 +64,177 @@ def load_checkpoint():
 
 
 def save_checkpoint(data):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CHECKPOINT_FILE, "w") as f:
-        json.dump(data, f)
+    _atomic_write_json(CHECKPOINT_FILE, data)
+
+
+def _recover_previous_vector_store(final_dir: str, *, lock=None) -> None:
+    """Recover only under the builder lock and reader barrier, including direct calls."""
+    from module1.data_preprocessing import build_lock_for, index_publication_guard
+    final_dir = os.path.realpath(final_dir)
+    if lock is None:
+        with build_lock_for(final_dir) as owned_lock:
+            return _recover_previous_vector_store(final_dir, lock=owned_lock)
+    _require_build_lock(lock, final_dir)
+    with index_publication_guard(final_dir), index_publication_guard(f"{os.path.realpath(final_dir)}.previous"):
+        _recover_previous_vector_store_without_readers(final_dir)
+
+
+def _require_build_lock(lock, final_dir):
+    from module1.data_preprocessing import BuildLockError
+    if not lock._owned or lock.target_path != os.path.realpath(final_dir):
+        raise BuildLockError("Publication requires the matching owned build lock")
+
+
+def _recover_previous_vector_store_without_readers(final_dir: str) -> None:
+    from module1.data_preprocessing import _PUBLICATION_GUARDS, BuildLockError
+    if _PUBLICATION_GUARDS.get(os.path.realpath(final_dir)) != threading.get_ident():
+        raise BuildLockError("Recovery requires an active publication guard")
+    final_dir = os.path.realpath(final_dir)
+    backup_dir = f"{final_dir}.previous"
+    if not os.path.exists(backup_dir):
+        return
+    if _PUBLICATION_GUARDS.get(os.path.realpath(backup_dir)) != threading.get_ident():
+        raise BuildLockError("Recovery requires the backup publication guard")
+    if not os.path.exists(final_dir):
+        os.replace(backup_dir, final_dir)
+
+
+def _create_staging_dir(data_dir: str, prefix: str, target_dir: str, lock=None) -> str:
+    """Create a staging directory with ownership metadata for safe cleanup."""
+    from module1.data_preprocessing import create_staging_dir
+    return create_staging_dir(data_dir, prefix, target_dir, lock=lock)
+
+
+def _cleanup_staged_vector_stores(
+    data_dir: str,
+    *,
+    target_dir: str | None = None,
+    prefix: str = ".chroma_db_full.",
+    lock=None,
+) -> list:
+    """Remove only marked stale stages while the target build lock is held.
+
+    A direct caller briefly acquires the same lock; if another process is
+    actively building, cleanup returns without touching any staging directory.
+    Unmarked directories are intentionally left in place because their ownership
+    cannot be established safely.
+    """
+    from module1.data_preprocessing import (
+        BuildLockError,
+        build_lock_for,
+        cleanup_stale_staging_dirs,
+    )
+
+    target_dir = target_dir or os.path.join(data_dir, "chroma_db_full")
+    if lock is None:
+        try:
+            with build_lock_for(target_dir, timeout=0) as cleanup_lock:
+                return _cleanup_staged_vector_stores(
+                    data_dir,
+                    target_dir=target_dir,
+                    prefix=prefix,
+                    lock=cleanup_lock,
+                )
+        except BuildLockError:
+            logger.info("Skipping staging cleanup while %s is actively building.", target_dir)
+            return []
+
+    return cleanup_stale_staging_dirs(
+        data_dir,
+        prefix=prefix,
+        target_path=target_dir,
+        active_lock_token=getattr(lock, "_token", None),
+    )
+
+
+def _publish_vector_store_locked(staged_dir: str, final_dir: str) -> None:
+    from module1.data_preprocessing import index_publication_guard
+    with index_publication_guard(final_dir):
+        _publish_vector_store_without_readers(staged_dir, final_dir)
+
+
+def _publish_vector_store_without_readers(staged_dir: str, final_dir: str) -> None:
+    """Publish a completed store without discarding the last good build.
+
+    Chroma writes a directory rather than a single file, so replacing a populated
+    store takes two directory renames.  Keep the previous directory as a backup
+    during that small window and restore it if the staged directory cannot be
+    promoted.  This means an interrupted or failed rebuild leaves the previous
+    store loadable and a later run can try again.
+    """
+    from module1.data_preprocessing import _PUBLICATION_GUARDS, BuildLockError, index_publication_guard
+    if _PUBLICATION_GUARDS.get(os.path.realpath(final_dir)) != threading.get_ident():
+        raise BuildLockError("Publication requires an active publication guard")
+    # Stage writers/readers must also exit before moving their native files.
+    with index_publication_guard(staged_dir), index_publication_guard(f"{os.path.realpath(final_dir)}.previous"):
+        _promote_vector_store_without_readers(staged_dir, final_dir)
+
+
+def _promote_vector_store_without_readers(staged_dir: str, final_dir: str) -> None:
+    from module1.data_preprocessing import _PUBLICATION_GUARDS, BuildLockError
+    for path in (staged_dir, final_dir, f"{os.path.realpath(final_dir)}.previous"):
+        if _PUBLICATION_GUARDS.get(os.path.realpath(path)) != threading.get_ident():
+            raise BuildLockError("Promotion requires final, stage and backup publication guards")
+    staged_dir = os.path.realpath(staged_dir)
+    final_dir = os.path.realpath(final_dir)
+    if staged_dir == final_dir:
+        raise ValueError("staged and final vector-store paths must differ")
+    if not os.path.isdir(staged_dir):
+        raise FileNotFoundError(f"Staged vector store not found: {staged_dir}")
+
+    os.makedirs(os.path.dirname(final_dir), exist_ok=True)
+    backup_dir = f"{final_dir}.previous"
+    _recover_previous_vector_store_without_readers(final_dir)
+    if os.path.exists(backup_dir):
+        # Retain historical corpora rather than deleting an unowned backup.
+        import uuid
+        os.replace(backup_dir, f"{backup_dir}.{uuid.uuid4().hex}")
+
+    moved_previous = False
+    try:
+        if os.path.exists(final_dir):
+            os.replace(final_dir, backup_dir)
+            moved_previous = True
+        os.replace(staged_dir, final_dir)
+    except Exception:
+        if moved_previous and not os.path.exists(final_dir) and os.path.exists(backup_dir):
+            os.replace(backup_dir, final_dir)
+        raise
+
+    # Keep .previous as the last-good corpus, including after process restart.
+
+    # The marker is useful while building but must not become part of the live
+    # Chroma directory. A cleanup failure is harmless after publication.
+    try:
+        os.unlink(os.path.join(final_dir, ".build-staging.json"))
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.warning("Could not remove staging marker from %s: %s", final_dir, exc)
+
+
+def _publish_vector_store(staged_dir: str, final_dir: str, *, lock=None) -> None:
+    """Publish a store while holding the cross-process lock for ``final_dir``."""
+    staged_dir, final_dir = os.path.realpath(staged_dir), os.path.realpath(final_dir)
+    if lock is not None:
+        _require_build_lock(lock, final_dir)
+        _publish_vector_store_locked(staged_dir, final_dir)
+        return
+    from module1.data_preprocessing import build_lock_for
+    with build_lock_for(final_dir):
+        _publish_vector_store_locked(staged_dir, final_dir)
 
 
 def main():
+    """Run the full rebuild under a bounded cross-process builder lock."""
+    from module1.data_preprocessing import build_lock_for
+
+    final_vector_dir = os.path.join(DATA_DIR, "chroma_db_full")
+    with build_lock_for(final_vector_dir) as build_lock:
+        return _run_locked(final_vector_dir, build_lock)
+
+
+def _run_locked(final_vector_dir: str, build_lock):
     os.makedirs(DATA_DIR, exist_ok=True)
 
     print("=" * 70)
@@ -73,9 +261,6 @@ def main():
     # ── Phase 2: Extract passages ─────────────────────────────────────────────
     print(f"\n[2/4] Extracting passages from all queries (starting at {start_from})...")
 
-    from langchain_core.documents import Document
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-
     docs_file = os.path.join(DATA_DIR, "_all_documents.jsonl")
     qa_file = os.path.join(DATA_DIR, "_all_qa_pairs.jsonl")
 
@@ -88,9 +273,11 @@ def main():
         with open(docs_file, "r") as f:
             for line in f:
                 seen_passages.add(json.loads(line)["content"][:200])
+    if start_from > 0 and os.path.exists(qa_file):
+        with open(qa_file, "r") as f:
+            qa_count = sum(1 for _ in f)
 
     t1 = time.time()
-    batch_start = time.time()
 
     # Open files in append mode for resuming
     mode = "a" if start_from > 0 else "w"
@@ -114,12 +301,14 @@ def main():
             urls = passages_data.get("url", [])
             answer = answers[0]
 
-            # Write QA pair
+            # Write QA pair, including the human-selected context so downstream
+            # token-overlap metrics can score against a real ground-truth context.
             qf.write(json.dumps({
                 "id": f"msmarco_{idx}",
                 "question": query,
                 "ground_truth": answer,
                 "query_type": query_type,
+                "context": selected_context(passage_texts, is_selected),
             }) + "\n")
             qa_count += 1
 
@@ -170,42 +359,114 @@ def main():
 
     # ── Phase 3: Chunk + Embed + Index ────────────────────────────────────────
     print(f"\n[3/4] Chunking and embedding {docs_count:,} passages...")
-    print(f"       Chunk size: {CHUNK_SIZE}, overlap: {CHUNK_OVERLAP}")
+    print(f"       Chunk size: {CHUNK_SIZE} characters, overlap: {CHUNK_OVERLAP} characters")
     print(f"       Embedding model: {EMBEDDING_MODEL}")
-    print(f"       This is the slow part — embedding on CPU...")
+    print("       This is the slow part — embedding on CPU...")
 
     # Force offline mode so it doesn't need internet
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    from langchain_community.vectorstores import Chroma
+    # Build beside the live store.  The existing full-set store remains available
+    # until the new Chroma directory and its manifest are complete and published.
+    _cleanup_staged_vector_stores(
+        DATA_DIR,
+        target_dir=final_vector_dir,
+        lock=build_lock,
+    )
+    # Recovery also renames/removes directories: use the same reader barrier.
+    _recover_previous_vector_store(final_vector_dir, lock=build_lock)
+    vector_store_dir = _create_staging_dir(
+        DATA_DIR,
+        ".chroma_db_full.",
+        final_vector_dir,
+        lock=build_lock,
+    )
 
+    # The native staging writer runs in a fresh child and exits before rename.
+    from module1.data_preprocessing import run_isolated_index_builder
+    t2 = time.time()
+    total_chunks = run_isolated_index_builder(
+        _embed_full_index, docs_file, vector_store_dir, EMBEDDING_MODEL,
+        CHUNK_SIZE, CHUNK_OVERLAP, BATCH_SIZE, qa_count, docs_count,
+    )
+
+    _publish_vector_store(vector_store_dir, final_vector_dir, lock=build_lock)
+    vector_store_dir = final_vector_dir
+
+    print(f"       Done: {total_chunks:,} chunks indexed in {(time.time()-t2)/60:.1f} min")
+
+    print(f"       Vector store at: {vector_store_dir}")
+    if VECTOR_STORE_DIR != vector_store_dir:
+        print(
+            "       NOTE: VECTOR_STORE_DIR is set to a different path — "
+            "point `--store` at this new store to evaluate it."
+        )
+
+    # ── Phase 4: Synthetic dataset ────────────────────────────────────────────
+    print(f"\n[4/4] Creating synthetic evaluation dataset ({NUM_SYNTHETIC_SAMPLES} samples)...")
+
+    qa_pairs = []
+    with open(qa_file, "r") as f:
+        for i, line in enumerate(f):
+            if i >= NUM_SYNTHETIC_SAMPLES:
+                break
+            qa_pairs.append(json.loads(line))
+
+    synthetic = []
+    for pair in qa_pairs:
+        synthetic.append({
+            "id": pair["id"],
+            "question": pair["question"],
+            "ground_truth": pair["ground_truth"],
+            "query_type": pair.get("query_type", "unknown"),
+            "context": pair.get("context", ""),
+        })
+
+    _atomic_write_json(SYNTHETIC_DATA_PATH, synthetic)
+    print(f"       Saved {len(synthetic)} synthetic Q&A pairs")
+    total_time = time.time() - t0
+    print(f"  PREPROCESSING COMPLETE: {total_chunks:,} chunks in {total_time/60:.1f} minutes")
+    save_checkpoint({"phase": "done", "total_chunks": total_chunks, "total_passages": docs_count})
+
+
+def _embed_full_index(
+    docs_file, vector_store_dir, model_name, chunk_size, chunk_overlap, batch_size,
+    query_count, document_count,
+):
+    """Private stage builder; called only through the spawn boundary."""
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from module1.data_preprocessing import (
+        _CorpusIdentityBuilder, persistent_index_writer, write_index_manifest,
+    )
     embedding_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL,
-        model_kwargs={"device": "cpu"},
+        model_name=model_name, model_kwargs={"device": "cpu"},
         encode_kwargs={"normalize_embeddings": True},
     )
-
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
+    with persistent_index_writer(vector_store_dir, embedding_model, create=True) as vectorstore:
+        identity = _CorpusIdentityBuilder()
+        total_chunks = _add_full_batches(docs_file, vectorstore, splitter, batch_size,
+                                         identity_builder=identity)
+        corpus = identity.finish()
+        write_index_manifest(
+            vector_store_dir, num_chunks=total_chunks,
+            dataset_name=DATASET_NAME, dataset_config=DATASET_CONFIG,
+            dataset_revision=DATASET_REVISION, split=DATASET_SPLIT,
+            scope="full", query_count=query_count, document_count=document_count,
+            corpus_id=corpus["corpus_id"], index_revision=INDEX_REVISION,
+        )
+        with open(os.path.join(vector_store_dir, "_index_manifest.json")) as manifest_file:
+            json.load(manifest_file)
+    return total_chunks
 
-    # Clear old vector store
-    import shutil
-    new_vector_dir = os.path.join(DATA_DIR, "chroma_db_full")
-    if os.path.exists(new_vector_dir):
-        try:
-            shutil.rmtree(new_vector_dir)
-        except Exception:
-            pass
-    os.makedirs(new_vector_dir, exist_ok=True)
-    # Override for this run
-    vector_store_dir = new_vector_dir
 
-    # Process in batches to avoid OOM
+def _add_full_batches(docs_file, vectorstore, splitter, batch_size, *, identity_builder=None):
+    from langchain_core.documents import Document
     total_chunks = 0
     batch_docs = []
     batch_num = 0
@@ -226,109 +487,38 @@ def main():
             )
             chunks = splitter.split_documents([doc])
             batch_docs.extend(chunks)
+            if identity_builder is not None:
+                identity_builder.update(chunks)
 
             # Index every BATCH_SIZE chunks
-            if len(batch_docs) >= BATCH_SIZE:
+            if len(batch_docs) >= batch_size:
                 batch_num += 1
-                if batch_num == 1:
-                    # First batch: create the vectorstore
-                    vectorstore = Chroma.from_documents(
-                        documents=batch_docs,
-                        embedding=embedding_model,
-                        persist_directory=vector_store_dir,
-                    )
-                else:
-                    # Subsequent batches: add to existing
-                    vectorstore.add_documents(batch_docs)
+                vectorstore.add_documents(batch_docs)
 
                 total_chunks += len(batch_docs)
                 elapsed = time.time() - t2
                 rate = total_chunks / elapsed
-                remaining_docs = docs_count - line_num
-                eta = remaining_docs / max(rate, 0.1)
 
                 print(
                     f"       Batch {batch_num}: {total_chunks:,} chunks indexed — "
-                    f"{rate:.0f} chunks/sec — ETA: {eta/60:.0f} min"
+                    f"{rate:.0f} chunks/sec"
                 )
                 batch_docs = []
 
     # Final batch
     if batch_docs:
-        if batch_num == 0:
-            vectorstore = Chroma.from_documents(
-                documents=batch_docs,
-                embedding=embedding_model,
-                persist_directory=vector_store_dir,
-            )
-        else:
-            vectorstore.add_documents(batch_docs)
+        vectorstore.add_documents(batch_docs)
         total_chunks += len(batch_docs)
 
     # Persist
+    if batch_num == 0 and not batch_docs:
+        raise RuntimeError("No valid passages were produced; refusing to publish an empty index")
     try:
         vectorstore.persist()
-    except Exception:
-        pass  # newer Chroma auto-persists
+    except AttributeError:
+        pass  # newer Chroma auto-persists and may not expose persist()
 
-    print(f"       Done: {total_chunks:,} chunks indexed in {(time.time()-t2)/60:.1f} min")
-
-    # Replace old chroma_db with new one
-    old_db = VECTOR_STORE_DIR
-    try:
-        if os.path.exists(old_db):
-            shutil.rmtree(old_db)
-    except Exception:
-        print(f"       Warning: Could not remove old {old_db}, using new path instead.")
-    try:
-        os.rename(vector_store_dir, old_db)
-        print(f"       Moved to {old_db}")
-    except Exception:
-        print(f"       Vector store at: {vector_store_dir}")
-        print(f"       Update VECTOR_STORE_DIR in config.py if needed.")
-
-    # ── Phase 4: Synthetic dataset ────────────────────────────────────────────
-    print(f"\n[4/4] Creating synthetic evaluation dataset ({NUM_SYNTHETIC_SAMPLES} samples)...")
-
-    qa_pairs = []
-    with open(qa_file, "r") as f:
-        for i, line in enumerate(f):
-            if i >= NUM_SYNTHETIC_SAMPLES:
-                break
-            qa_pairs.append(json.loads(line))
-
-    synthetic = []
-    for pair in qa_pairs:
-        synthetic.append({
-            "id": pair["id"],
-            "question": pair["question"],
-            "ground_truth": pair["ground_truth"],
-            "query_type": pair.get("query_type", "unknown"),
-            "context": "",
-        })
-
-    os.makedirs(os.path.dirname(SYNTHETIC_DATA_PATH), exist_ok=True)
-    with open(SYNTHETIC_DATA_PATH, "w") as f:
-        json.dump(synthetic, f, indent=2)
-    print(f"       Saved {len(synthetic)} synthetic Q&A pairs")
-
-    # ── Done ──────────────────────────────────────────────────────────────────
-    total_time = time.time() - t0
-    print("\n" + "=" * 70)
-    print("  PREPROCESSING COMPLETE")
-    print(f"  Total time: {total_time/60:.1f} minutes ({total_time/3600:.1f} hours)")
-    print(f"  Queries processed: {total_queries:,}")
-    print(f"  Unique passages: {docs_count:,}")
-    print(f"  Chunks indexed: {total_chunks:,}")
-    print(f"  Synthetic Q&A: {len(synthetic)}")
-    print(f"  Vector store: {VECTOR_STORE_DIR}")
-    print("=" * 70)
-
-    # Cleanup checkpoint
-    if os.path.exists(CHECKPOINT_FILE):
-        os.remove(CHECKPOINT_FILE)
-
-    save_checkpoint({"phase": "done", "total_chunks": total_chunks, "total_passages": docs_count})
+    return total_chunks
 
 
 if __name__ == "__main__":

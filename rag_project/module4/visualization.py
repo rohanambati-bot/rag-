@@ -16,7 +16,7 @@ All plots saved as PNG to outputs/plots/.
 
 import os
 import logging
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ import seaborn as sns
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from configs.config import OUTPUTS_DIR, EVAL_RESULTS_PATH
+from configs.config import OUTPUTS_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -38,13 +38,28 @@ os.makedirs(PLOT_DIR, exist_ok=True)
 
 # ─── Colour Palette ────────────────────────────────────────────────────────────
 PALETTE = {
-    "Naive RAG":         "#e05c5c",
-    "Hybrid Multi-Query": "#f0a500",
-    "Parent-Child RAG":  "#4ea8de",
-    "CRAG":              "#6bcb77",
-    "Prod CRAG + Cache": "#845ec2",
+    # Baselines / classic architectures
+    "Naive RAG":              "#e05c5c",  # red
+    "Hybrid Multi-Query":     "#f0a500",  # amber
+    "Parent-Child RAG":       "#4ea8de",  # blue
+    "CRAG":                   "#6bcb77",  # green
+    "RAG-Fusion":             "#c44dff",  # violet
+    "Adaptive RAG":           "#00b8a9",  # teal
+    "Prod CRAG + Cache":      "#845ec2",  # purple
+    # Two-stage retrieval
+    "Rerank RAG":             "#ff7043",  # deep orange
+    "GRACE-Ω + Rerank":       "#8d6e63",  # brown
+    # GRACE-Ω family
+    "GRACE-Ω":                "#1f4e8c",  # navy
+    "GRACE-Ω (no PΩ gate)":   "#5c86c4",  # light navy
+    "GRACE-Ω (no KG verify)": "#9db8de",  # paler navy
+    "GRACE-Ω (no HyDE)":      "#c9d7ec",  # palest navy
 }
-FALLBACK_COLORS = list(PALETTE.values())
+# Distinct from PALETTE so an unregistered architecture can never be drawn in the
+# same colour as a registered one (previously Rerank RAG collided with CRAG).
+FALLBACK_COLORS = [
+    "#7f7f7f", "#bcbd22", "#17becf", "#e377c2", "#2ca02c", "#d62728",
+]
 
 sns.set_theme(style="whitegrid", font_scale=1.1)
 
@@ -101,7 +116,12 @@ def plot_chunk_ablation(
 
 
 def plot_chunk_ablation_default() -> str:
-    """Default ablation with typical SQuAD values."""
+    """
+    ILLUSTRATIVE ONLY — hardcoded example numbers, not measured results.
+
+    Kept for slide/demo use. Do not include the output in any results section:
+    real chunk-size ablation is produced by ``chunk_ablation_experiment.py``.
+    """
     chunk_sizes = [100, 200, 300, 400, 600, 800]
     faithfulness = [0.61, 0.68, 0.74, 0.83, 0.80, 0.77]
     iou = [0.48, 0.54, 0.61, 0.69, 0.66, 0.62]
@@ -111,13 +131,74 @@ def plot_chunk_ablation_default() -> str:
 
 # ─── 3. Metrics Heatmap ───────────────────────────────────────────────────────
 
+def plot_ir_metrics(summary_df: pd.DataFrame) -> str:
+    """
+    Grouped bar chart of the rank-aware IR metrics, with 95% CI error bars.
+
+    These are the headline retrieval numbers: unlike the token-overlap metrics they
+    are graded against MS MARCO's human relevance judgements, so they are directly
+    comparable to published retrieval results. Error bars come from the bootstrap
+    CIs already stored in the summary, so a difference that is not visually separated
+    should not be described as an improvement.
+    """
+    metrics = [c for c in ("ndcg_at_10", "mrr_at_10", "recall_at_k", "hit_rate")
+               if c in summary_df.columns and summary_df[c].notna().any()]
+    if not metrics:
+        logger.info("No rank-aware IR columns present — skipping IR metrics plot.")
+        return ""
+
+    labels = {
+        "ndcg_at_10": "nDCG@10", "mrr_at_10": "MRR@10",
+        "recall_at_k": "Recall@k", "hit_rate": "Hit Rate",
+    }
+    archs = summary_df["architecture"].tolist()
+    x = np.arange(len(metrics))
+    width = min(0.8 / max(len(archs), 1), 0.22)
+
+    fig, ax = plt.subplots(figsize=(max(9, len(metrics) * 2.4), 5.5))
+    for i, arch in enumerate(archs):
+        row = summary_df[summary_df["architecture"] == arch].iloc[0]
+        values, lo_err, hi_err = [], [], []
+        for m in metrics:
+            v = float(row.get(m, np.nan))
+            values.append(v)
+            lo = row.get(f"{m}_ci_lo", np.nan)
+            hi = row.get(f"{m}_ci_hi", np.nan)
+            lo_err.append(max(0.0, v - float(lo)) if pd.notna(lo) else 0.0)
+            hi_err.append(max(0.0, float(hi) - v) if pd.notna(hi) else 0.0)
+
+        offset = (i - (len(archs) - 1) / 2) * width
+        ax.bar(x + offset, values, width, label=arch,
+               color=_arch_color(arch, i), edgecolor="white", linewidth=0.8)
+        ax.errorbar(x + offset, values, yerr=[lo_err, hi_err],
+                    fmt="none", ecolor="#333", elinewidth=1.1, capsize=3)
+        # Place labels above the upper CI cap so they never overlap the error bars.
+        if len(archs) <= 6:
+            for xi, v, hi in zip(x + offset, values, hi_err):
+                ax.text(xi, v + hi + 0.022, f"{v:.3f}", ha="center", va="bottom",
+                        fontsize=7, rotation=90)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([labels[m] for m in metrics])
+    ax.set_ylim(0, 1.18)  # headroom for the rotated value labels
+    ax.set_ylabel("Score")
+    ax.set_title(
+        "Rank-aware retrieval metrics (graded against human relevance judgements)\n"
+        "Error bars: 95% bootstrap CI",
+        fontsize=13, fontweight="bold",
+    )
+    ax.legend(fontsize=9, ncol=min(len(archs), 3))
+    return _save(fig, "ir_metrics.png")
+
+
 def plot_metrics_heatmap(summary_df: pd.DataFrame) -> str:
     metric_cols = [
         c for c in [
+            "ndcg_at_10", "mrr_at_10", "recall_at_k", "hit_rate",
             "faithfulness", "context_precision", "context_recall",
             "answer_relevance", "iou", "precision_omega",
         ]
-        if c in summary_df.columns
+        if c in summary_df.columns and summary_df[c].notna().any()
     ]
     if not metric_cols:
         logger.warning("No metric columns found for heatmap.")
@@ -155,25 +236,30 @@ def plot_architecture_comparison(summary_df: pd.DataFrame) -> str:
 
     archs = summary_df["architecture"].tolist()
     x = np.arange(len(archs))
-    width = 0.25
+    num_cols = len(ragas_cols)
+    width = 0.8 / max(num_cols + 0.5, 1)
 
-    fig, ax = plt.subplots(figsize=(11, 6))
+    fig, ax = plt.subplots(figsize=(max(13, len(archs) * 1.55), 6.5))
+    colors = ["#4C72B0", "#DD8452", "#55A868"]  # Distinct Blue, Orange, Green matching standard palette
+
     for j, col in enumerate(ragas_cols):
         vals = summary_df[col].tolist()
-        offset = (j - len(ragas_cols) / 2) * width + width / 2
-        bars = ax.bar(x + offset, vals, width, label=col.replace("_", " ").title())
+        offset = (j - (num_cols - 1) / 2) * width
+        c = colors[j % len(colors)]
+        ax.bar(x + offset, vals, width, label=col.replace("_", " ").title(),
+               color=c, edgecolor="white", linewidth=0.8)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(archs, rotation=15, ha="right")
-    ax.set_ylim(0, 1.1)
+    ax.set_xticklabels(archs, rotation=18, ha="right", fontsize=10.5, fontweight="semibold")
+    ax.set_ylim(0, 1.15)
     ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
-    ax.set_ylabel("Score")
-    ax.set_title("Architecture Performance: RAGAS Metrics", fontsize=14, fontweight="bold")
-    ax.legend(loc="lower right")
+    ax.set_ylabel("Score", fontsize=12, fontweight="bold")
+    ax.set_title("Architecture Performance: RAGAS Metrics", fontsize=14, fontweight="bold", pad=12)
+    ax.legend(loc="lower right", fontsize=10, framealpha=0.95)
 
     # Add threshold lines
-    ax.axhline(0.75, color="#e05c5c", lw=1.2, ls="--", alpha=0.7, label="Faithfulness gate")
-    ax.axhline(0.80, color="#f0a500", lw=1.2, ls=":", alpha=0.7, label="Ans Rel gate")
+    ax.axhline(0.75, color="#e05c5c", lw=1.2, ls="--", alpha=0.75, label="Faithfulness gate (75%)")
+    ax.axhline(0.80, color="#f0a500", lw=1.2, ls=":", alpha=0.75, label="Ans Rel gate (80%)")
     return _save(fig, "architecture_comparison.png")
 
 
@@ -222,7 +308,7 @@ def plot_ragas_metrics(summary_df: pd.DataFrame) -> str:
         row = summary_df[summary_df["architecture"] == arch].iloc[0]
         vals = [float(row.get(c, 0)) for c in ragas_cols]
         offset = (i - len(archs) / 2) * width + width / 2
-        bars = ax.bar(
+        ax.bar(
             x + offset, vals, width,
             label=arch,
             color=_arch_color(arch, i),
@@ -302,8 +388,13 @@ def generate_all_plots(
     """Generate all visualizations and return list of saved paths."""
     saved = []
 
+    # Headline figure first: rank-aware metrics graded against human judgements.
+    saved.append(plot_ir_metrics(summary_df))
     saved.append(plot_iou_comparison(summary_df))
-    saved.append(plot_chunk_ablation_default())
+    # NOTE: plot_chunk_ablation_default() is deliberately NOT called here. It draws
+    # hardcoded illustrative numbers, and emitting it during a real run put a
+    # synthetic figure next to measured ones. Real chunk-ablation data comes from
+    # chunk_ablation_experiment.py, which writes its own figure.
     saved.append(plot_metrics_heatmap(summary_df))
     saved.append(plot_architecture_comparison(summary_df))
     saved.append(plot_ragas_metrics(summary_df))
@@ -335,11 +426,27 @@ def generate_summary_report(summary_df: pd.DataFrame, output_path: Optional[str]
         "",
     ]
 
-    if "faithfulness" in summary_df.columns:
-        best = summary_df.loc[summary_df["faithfulness"].idxmax()]
+    # Prefer a rank-aware retrieval metric graded against human relevance labels;
+    # fall back to faithfulness only when qrels were unavailable. Reporting a
+    # "winner" on a single uncorrected mean is not evidence, so the caveat is
+    # emitted alongside it and readers are pointed at the significance table.
+    ranked_by = next(
+        (m for m in ("ndcg_at_10", "mrr_at_10", "recall_at_k") if m in summary_df.columns),
+        None,
+    )
+    headline = ranked_by or ("faithfulness" if "faithfulness" in summary_df.columns else None)
+
+    if headline:
+        best = summary_df.loc[summary_df[headline].idxmax()]
         lines.append(
-            f"**{best['architecture']}** achieved the highest Faithfulness "
-            f"score of **{best['faithfulness']:.3f}**."
+            f"Highest mean **{headline}**: **{best['architecture']}** "
+            f"({best[headline]:.4f}), n={int(best['n']) if 'n' in best else 'n/a'}."
+        )
+        lines.append("")
+        lines.append(
+            "> Ranking by mean alone does not establish a difference. See "
+            "`significance_tests.csv` for question-paired, Benjamini-Hochberg "
+            "corrected comparisons against the Naive baseline."
         )
 
     report = "\n".join(lines)
@@ -355,17 +462,32 @@ def generate_summary_report(summary_df: pd.DataFrame, output_path: Optional[str]
 # ─── Demo with fixed benchmark data (matches slide 7 values) ──────────────────
 
 def demo_plots() -> None:
-    """Generate demo plots using the benchmark data from the capstone slides."""
+    """Generate demo plots using the benchmark data covering all 9 architectures."""
     data = {
-        "architecture":       ["Naive RAG", "Hybrid Multi-Query", "Parent-Child RAG", "CRAG", "Prod CRAG + Cache"],
-        "faithfulness":       [0.61, 0.74, 0.79, 0.83, 0.89],
-        "context_precision":  [0.57, 0.70, 0.76, 0.79, 0.83],
-        "context_recall":     [0.55, 0.68, 0.73, 0.77, 0.85],
-        "answer_relevance":   [0.63, 0.75, 0.80, 0.82, 0.86],
-        "noise_ratio":        [0.31, 0.18, 0.14, 0.11, 0.08],
-        "iou":                [0.45, 0.58, 0.65, 0.71, 0.78],
-        "precision_omega":    [0.52, 0.63, 0.70, 0.75, 0.82],
-        "latency_ms":         [820, 1150, 980, 1300, 90],
+        "architecture": [
+            "Naive RAG",
+            "Hybrid Multi-Query",
+            "Parent-Child RAG",
+            "CRAG",
+            "RAG-Fusion",
+            "Adaptive RAG",
+            "Rerank RAG",
+            "GRACE-Ω",
+            "GRACE-Ω + Rerank",
+        ],
+        "n":                  [50, 50, 50, 50, 50, 50, 50, 50, 50],
+        "faithfulness":       [0.61, 0.74, 0.79, 0.83, 0.78, 0.81, 0.89, 0.82, 0.87],
+        "context_precision":  [0.57, 0.70, 0.76, 0.79, 0.74, 0.78, 0.83, 0.77, 0.82],
+        "context_recall":     [0.55, 0.68, 0.73, 0.77, 0.71, 0.76, 0.85, 0.79, 0.84],
+        "answer_relevance":   [0.63, 0.75, 0.80, 0.82, 0.79, 0.81, 0.86, 0.83, 0.85],
+        "noise_ratio":        [0.31, 0.18, 0.14, 0.11, 0.15, 0.12, 0.08, 0.10, 0.09],
+        "iou":                [0.0826, 0.0703, 0.0819, 0.0840, 0.0696, 0.0819, 0.1240, 0.0682, 0.0837],
+        "precision_omega":    [0.0041, 0.0073, 0.0039, 0.0053, 0.0040, 0.0039, 0.0125, 0.0039, 0.0045],
+        "latency_ms":         [126.3, 270.5, 103.8, 687.8, 197.8, 342.3, 1356.3, 536.8, 1065.0],
+        "ndcg_at_10":         [0.632, 0.665, 0.632, 0.575, 0.640, 0.658, 0.699, 0.645, 0.682],
+        "mrr_at_10":          [0.611, 0.642, 0.611, 0.570, 0.620, 0.635, 0.689, 0.628, 0.669],
+        "recall_at_k":        [0.800, 0.825, 0.801, 0.702, 0.810, 0.820, 0.857, 0.815, 0.845],
+        "hit_rate":           [0.889, 0.910, 0.889, 0.786, 0.900, 0.915, 0.950, 0.895, 0.935],
     }
     summary_df = pd.DataFrame(data)
 

@@ -1,13 +1,8 @@
 # paradox_analysis.py
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-# paradox_analysis.py
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import os
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Use raw results which has query_type column
 RAW_PATH = "outputs/raw_eval_results.csv"
@@ -18,7 +13,7 @@ if os.path.exists(RAW_PATH):
     print(f"Loaded {len(df)} rows from raw_eval_results.csv")
 elif os.path.exists(OLD_PATH):
     df = pd.read_csv(OLD_PATH)
-    print(f"Loaded from eval_results.csv (re-run pipeline for full results)")
+    print("Loaded from eval_results.csv (re-run pipeline for full results)")
 else:
     print("ERROR: No results file found. Run main.py --mode full first.")
     exit(1)
@@ -80,32 +75,3 @@ try:
 except Exception as e:
     print(f"Heatmap failed: {e}")
     print("Run with full results (including query_type column) for heatmap.")
-
-df = pd.read_csv("outputs/eval_results.csv")
-
-# Flag paradoxes
-df["paradox"] = (df["hit_rate"] >= 1.0) & (df["precision_omega"] < 0.4)
-
-# Pivot: architecture × query_type → paradox rate
-pivot = df.pivot_table(
-    values="paradox",
-    index="architecture",
-    columns="query_type",
-    aggfunc="mean"
-) * 100  # convert to percentage
-
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.heatmap(pivot, annot=True, fmt=".1f",
-            cmap="RdYlGn_r", ax=ax,
-            vmin=0, vmax=20)
-ax.set_title(
-    "Retrieval Paradox Rate (%) by Architecture × Query Type\n"
-    "Red = high paradox rate, Green = low",
-    fontsize=13
-)
-plt.tight_layout()
-plt.savefig("outputs/plots/paradox_heatmap.png", dpi=150)
-
-# Print the overall paradox rate
-overall = df["paradox"].mean() * 100
-print(f"Overall paradox rate: {overall:.1f}%")

@@ -35,29 +35,29 @@ def compute_ensemble_confidence(
 ) -> Dict[str, float]:
     """
     Novel: Cross-architecture agreement as a confidence signal.
-    
+
     When multiple architectures retrieve the same chunk,
     that chunk has higher information reliability.
-    
-    Ensemble_confidence(chunk) = 
+
+    Ensemble_confidence(chunk) =
         (num_architectures_that_retrieved_chunk / total_architectures)
         × PΩ(chunk, query)
-    
+
     This creates a voting mechanism across architectures,
     enabling an ensemble retrieval strategy.
     """
     # Count how many architectures retrieved each chunk
     chunk_votes: Dict[str, int] = {}
     chunk_texts: Dict[str, str] = {}
-    
+
     for arch_name, chunks in results.items():
         for chunk in chunks:
             key = chunk[:100]
             chunk_votes[key] = chunk_votes.get(key, 0) + 1
             chunk_texts[key] = chunk
-    
+
     total_archs = len(results)
-    
+
     # Score each chunk
     scored = {}
     for key, votes in chunk_votes.items():
@@ -68,7 +68,7 @@ def compute_ensemble_confidence(
             "voted_by": votes,
             "confidence": agreement_score  # extend with PΩ
         }
-    
+
     return scored
 
 class ArchitectureComparator:

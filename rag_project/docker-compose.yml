@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis:7-alpine
+    image: redis:7.2.16-alpine
     container_name: rag_redis
     # Bind to localhost only (do not expose Redis to other hosts on the LAN).
     ports:
@@ -22,56 +22,52 @@ services:
   api:
     build: .
     container_name: rag_api
-    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --no-proxy-headers
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Auth fails closed: without API_KEY the service refuses protected routes.
+      # The container bind is not loopback: unauthenticated mode is unsupported.
       - API_KEY=${API_KEY:-}
+      - ALLOW_UNAUTHENTICATED=false
+      - HOST=0.0.0.0
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8501}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - METRICS_ENABLED=true
+      - REQUEST_TIMEOUT_SECONDS=${REQUEST_TIMEOUT_SECONDS:-60}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-8}
     volumes:
       - ./data:/app/data
       - ./outputs:/app/outputs
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
-      interval: 30s
+      # Readiness, not liveness: compose gates dependents on this, and the UI must
+      # only start once the API can genuinely serve (models loaded, store present).
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz"]
+      interval: 15s
       timeout: 5s
-      retries: 3
-      start_period: 30s
+      retries: 10
+      start_period: 120s   # model + corpus load can take a while on first boot
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 30s   # allow in-flight requests to drain
     security_opt:
       - no-new-privileges:true
     read_only: false   # app writes to /app/data, /app/outputs
+    deploy:
+      resources:
+        limits:
+          memory: 6G
 
-  ui:
-    build: .
-    container_name: rag_ui
-    command: streamlit run app.py --server.address=0.0.0.0 --server.port=8501
-    ports:
-      - "127.0.0.1:8501:8501"
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - API_BASE_URL=http://api:8000
-    volumes:
-      - ./data:/app/data
-      - ./outputs:/app/outputs
-    depends_on:
-      redis:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+  # UI intentionally runs on the host's loopback only (make ui).
+  # Container port publication would require a non-loopback UI bind, which the
+  # unauthenticated application's runtime boundary correctly rejects.
 
 volumes:
   redis_data:

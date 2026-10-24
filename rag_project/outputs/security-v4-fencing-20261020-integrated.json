@@ -1,0 +1,36 @@
+{
+  "schema": "generation-fencing.validation/v1",
+  "status": "passed",
+  "redis_version": "7.2.16",
+  "assertions": 51,
+  "worker_count": 11,
+  "distinct_worker_pids": 11,
+  "concurrent_clears": 4,
+  "checks": [
+    "clear-during-generation-and-namespace-isolation",
+    "atomic-clear-between-last-python-read-and-lua-publication",
+    "snapshot-version-independent-of-revocation-epoch",
+    "instance-namespace-index-token-scope",
+    "overlapping-index-scopes-with-unrelated-work-preserved",
+    "four-barrier-synchronized-process-clears",
+    "lost-publication-and-clear-acknowledgments",
+    "outage-and-nonpersistent-restart-with-stale-process"
+  ],
+  "boundary": "Request-start token, Lua conditional publication, final response validation; clears ordered before final validation reject uncached responses too.",
+  "limitations": [
+    "Cannot retract responses linearized before clear or cancel provider work.",
+    "Legacy direct store and explicit legacy/local availability modes are outside this boundary.",
+    "Index/config identity providers must cover every relevant scope; serving remains stop-serving/restart, not hot swap.",
+    "Redis process is standalone; Redis Cluster Lua cross-slot operation is not supported."
+  ],
+  "python_version": "3.12.14",
+  "sources_sha256": {
+    "phase3/semantic_cache.py": "489685cc99f80d6666533c499bebc4134c88b66c3b9459695cb99f624d8016a9",
+    "phase3/cicd_pipeline.py": "bd52e97627cfc29efcfab57eec32e9cf696cc8e671da707e14a15f14a1a47590",
+    "api.py": "ca9a906cdfb66499a52456b0906e3f5c63e459a2759b12fdb4f6c816bf14a755",
+    "app.py": "447041ff57c628ef0c61a0e349203fc64902556587b3634c6cae2f57b5f3ccb4",
+    "serving.py": "5af3dee54570195b4a9fce045922c820582eb42f6bf6e51a92537a922291ffc4",
+    "scripts/validate_generation_fencing.py": "abf3edf52db22f08afe02c0bccd8dd087f0729ce13450e30e05da9dfba6c44c9",
+    "tests/test_generation_fencing.py": "4aaccce843c72dc5b3d0eb03891357e21cf088db630f7874db10162993112a8c"
+  }
+}

@@ -1,0 +1,318 @@
+% ═══════════════════════════════════════════════════════════════════════════════
+% Bibliography for the RAG evaluation framework capstone.
+%
+% Organised by the role each work plays in the project:
+%   1. Foundations (RAG itself, the dataset)
+%   2. Architectures implemented here
+%   3. Reranking / two-stage retrieval
+%   4. Evaluation methodology (RAGAS-style, LLM-as-judge)
+%   5. Statistical methodology for IR comparisons
+%   6. Failure taxonomy
+% ═══════════════════════════════════════════════════════════════════════════════
+
+% ── 1. Foundations ─────────────────────────────────────────────────────────────
+
+@inproceedings{lewis2020rag,
+  title     = {Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks},
+  author    = {Lewis, Patrick and Perez, Ethan and Piktus, Aleksandra and
+               Petroni, Fabio and Karpukhin, Vladimir and Goyal, Naman and
+               K{\"u}ttler, Heinrich and Lewis, Mike and Yih, Wen-tau and
+               Rockt{\"a}schel, Tim and Riedel, Sebastian and Kiela, Douwe},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2020},
+  note      = {The original RAG formulation: parametric + non-parametric memory}
+}
+
+@article{nguyen2016msmarco,
+  title   = {MS MARCO: A Human Generated MAchine Reading COmprehension Dataset},
+  author  = {Nguyen, Tri and Rosenberg, Mir and Song, Xia and Gao, Jianfeng and
+             Tiwary, Saurabh and Majumder, Rangan and Deng, Li},
+  journal = {arXiv preprint arXiv:1611.09268},
+  year    = {2016},
+  url     = {https://arxiv.org/abs/1611.09268},
+  note    = {Dataset used throughout this project; supplies the is\_selected
+             relevance judgements that make qrels-based evaluation possible}
+}
+
+@inproceedings{craswell2021msmarco,
+  title     = {MS MARCO: Benchmarking Ranking Models in the Large-Data Regime},
+  author    = {Craswell, Nick and Mitra, Bhaskar and Yilmaz, Emine and
+               Campos, Daniel and Lin, Jimmy},
+  booktitle = {Proceedings of SIGIR},
+  year      = {2021},
+  url       = {https://arxiv.org/abs/2105.04021},
+  note      = {Context for MS MARCO leaderboard metrics and their limitations}
+}
+
+@article{lin2021significant,
+  title   = {Significant Improvements over the State of the Art? A Case Study of
+             the MS MARCO Document Ranking Leaderboard},
+  author  = {Lin, Jimmy and Yang, Peilin},
+  journal = {arXiv preprint arXiv:2102.12887},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2102.12887},
+  note    = {Why single-metric leaderboard gains can be misleading without
+             significance testing}
+}
+
+% ── 2. Architectures implemented in module2 ────────────────────────────────────
+
+@inproceedings{sarthi2024raptor,
+  title     = {RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval},
+  author    = {Sarthi, Parth and Abdullah, Salman and Tuli, Aditi and
+               Khanna, Shubh and Goldie, Anna and Manning, Christopher D.},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  note      = {Hierarchical summarisation tree; the MULTIHOP route in GRACE-\Omega}
+}
+
+@article{gao2022hyde,
+  title   = {Precise Zero-Shot Dense Retrieval without Relevance Labels},
+  author  = {Gao, Luyu and Ma, Xueguang and Lin, Jimmy and Callan, Jamie},
+  journal = {arXiv preprint arXiv:2212.10496},
+  year    = {2022},
+  note    = {HyDE: generate a hypothetical answer, embed that instead of the query}
+}
+
+@inproceedings{jeong2024adaptive,
+  title     = {Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language
+               Models through Question Complexity},
+  author    = {Jeong, Soyeong and Baek, Jinheon and Cho, Sukmin and
+               Hwang, Sung Ju and Park, Jong C.},
+  booktitle = {Proceedings of NAACL},
+  year      = {2024},
+  note      = {Complexity-based routing; basis for AdaptiveRAG}
+}
+
+@article{yan2024crag,
+  title   = {Corrective Retrieval Augmented Generation},
+  author  = {Yan, Shi-Qi and Gu, Jia-Chen and Zhu, Yun and Ling, Zhen-Hua},
+  journal = {arXiv preprint arXiv:2401.15884},
+  year    = {2024},
+  url     = {https://arxiv.org/abs/2401.15884},
+  note    = {Retrieval evaluator triggers corrective action; basis for
+             CorrectiveRAG's LLM grading and rewrite-retry}
+}
+
+@article{asai2023selfrag,
+  title   = {Self-RAG: Learning to Retrieve, Generate, and Critique through
+             Self-Reflection},
+  author  = {Asai, Akari and Wu, Zeqiu and Wang, Yizhong and
+             Sil, Avirup and Hajishirzi, Hannaneh},
+  journal = {arXiv preprint arXiv:2310.11511},
+  year    = {2023},
+  url     = {https://arxiv.org/abs/2310.11511},
+  note    = {Reflection tokens critique retrieved passages; closest prior work to
+             the P\Omega quality gate}
+}
+
+@misc{rackauckas2024ragfusion,
+  title  = {RAG-Fusion: A New Take on Retrieval-Augmented Generation},
+  author = {Rackauckas, Zackary},
+  year   = {2024},
+  note   = {Multi-query generation + Reciprocal Rank Fusion; basis for RAGFusion}
+}
+
+@inproceedings{cormack2009rrf,
+  title     = {Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank
+               Learning Methods},
+  author    = {Cormack, Gordon V. and Clarke, Charles L. A. and Buettcher, Stefan},
+  booktitle = {Proceedings of SIGIR},
+  year      = {2009},
+  note      = {The RRF formula used to fuse dense and BM25 rankings}
+}
+
+@article{robertson2009bm25,
+  title   = {The Probabilistic Relevance Framework: BM25 and Beyond},
+  author  = {Robertson, Stephen and Zaragoza, Hugo},
+  journal = {Foundations and Trends in Information Retrieval},
+  volume  = {3},
+  number  = {4},
+  pages   = {333--389},
+  year    = {2009},
+  note    = {The sparse retrieval baseline used in every hybrid architecture here}
+}
+
+@inproceedings{edge2024graphrag,
+  title     = {From Local to Global: A Graph RAG Approach to Query-Focused
+               Summarization},
+  author    = {Edge, Darren and Trinh, Ha and Cheng, Newman and Bradley, Joshua and
+               Chao, Alex and Mody, Apurva and Truitt, Steven and Larson, Jonathan},
+  booktitle = {arXiv preprint arXiv:2404.16130},
+  year      = {2024},
+  note      = {Graph-structured retrieval; motivates the KnowledgeGraphBuilder}
+}
+
+% ── 3. Reranking / two-stage retrieval ─────────────────────────────────────────
+
+@article{nogueira2019passage,
+  title   = {Passage Re-ranking with BERT},
+  author  = {Nogueira, Rodrigo and Cho, Kyunghyun},
+  journal = {arXiv preprint arXiv:1901.04085},
+  year    = {2019},
+  url     = {https://arxiv.org/abs/1901.04085},
+  note    = {Foundational cross-encoder reranking result on MS MARCO; the design
+             RerankRAG follows}
+}
+
+@inproceedings{nogueira2020monot5,
+  title     = {Document Ranking with a Pretrained Sequence-to-Sequence Model},
+  author    = {Nogueira, Rodrigo and Jiang, Zhiying and Pradeep, Ronak and Lin, Jimmy},
+  booktitle = {Findings of EMNLP},
+  year      = {2020},
+  note      = {monoT5: sequence-to-sequence reranking}
+}
+
+@inproceedings{khattab2020colbert,
+  title     = {ColBERT: Efficient and Effective Passage Search via Contextualized
+               Late Interaction over BERT},
+  author    = {Khattab, Omar and Zaharia, Matei},
+  booktitle = {Proceedings of SIGIR},
+  year      = {2020},
+  note      = {Late-interaction alternative to full cross-encoding}
+}
+
+@article{xiao2024bge,
+  title   = {C-Pack: Packed Resources For General Chinese Embeddings},
+  author  = {Xiao, Shitao and Liu, Zheng and Zhang, Peitian and Muennighoff, Niklas
+             and Lian, Defu and Nie, Jian-Yun},
+  journal = {arXiv preprint arXiv:2309.07597},
+  year    = {2024},
+  note    = {Source of BAAI/bge-reranker-base, the cross-encoder used here}
+}
+
+@inproceedings{reimers2019sbert,
+  title     = {Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks},
+  author    = {Reimers, Nils and Gurevych, Iryna},
+  booktitle = {Proceedings of EMNLP-IJCNLP},
+  year      = {2019},
+  note      = {Bi-encoder embeddings (all-MiniLM-L6-v2) used for dense retrieval}
+}
+
+% ── 4. Evaluation methodology ──────────────────────────────────────────────────
+
+@inproceedings{es2024ragas,
+  title     = {RAGAs: Automated Evaluation of Retrieval Augmented Generation},
+  author    = {Es, Shahul and James, Jithin and Espinosa-Anke, Luis and
+               Schockaert, Steven},
+  booktitle = {Proceedings of EACL (System Demonstrations)},
+  year      = {2024},
+  url       = {https://aclanthology.org/2024.eacl-demo.16/},
+  note      = {Faithfulness / context precision / context recall / answer
+               relevance; the metric family RAGASEvaluator reimplements}
+}
+
+@article{saadfalcon2024ares,
+  title   = {ARES: An Automated Evaluation Framework for Retrieval-Augmented
+             Generation Systems},
+  author  = {Saad-Falcon, Jon and Khattab, Omar and Potts, Christopher and
+             Zaharia, Matei},
+  journal = {arXiv preprint arXiv:2311.09476},
+  year    = {2024},
+  note    = {Fine-tuned lightweight judges as an alternative to prompting}
+}
+
+@inproceedings{zheng2023judging,
+  title     = {Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena},
+  author    = {Zheng, Lianmin and Chiang, Wei-Lin and Sheng, Ying and
+               Zhuang, Siyuan and Wu, Zhanghao and Zhuang, Yonghao and
+               Lin, Zi and Li, Zhuohan and Li, Dacheng and Xing, Eric P. and
+               Zhang, Hao and Gonzalez, Joseph E. and Stoica, Ion},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023},
+  url       = {https://arxiv.org/abs/2306.05685},
+  note      = {Strong judges reach roughly human-level agreement; also documents
+               position and verbosity bias. Motivates decoupling judge from
+               generator, as done here}
+}
+
+@article{thakur2021beir,
+  title   = {BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of
+             Information Retrieval Models},
+  author  = {Thakur, Nandan and Reimers, Nils and R{\"u}ckl{\'e}, Andreas and
+             Srivastava, Abhishek and Gurevych, Iryna},
+  journal = {arXiv preprint arXiv:2104.08663},
+  year    = {2021},
+  note    = {nDCG@10 as the standard cross-dataset retrieval metric}
+}
+
+@article{jarvelin2002ndcg,
+  title   = {Cumulated Gain-Based Evaluation of IR Techniques},
+  author  = {J{\"a}rvelin, Kalervo and Kek{\"a}l{\"a}inen, Jaana},
+  journal = {ACM Transactions on Information Systems},
+  volume  = {20},
+  number  = {4},
+  pages   = {422--446},
+  year    = {2002},
+  note    = {Original definition of DCG / nDCG implemented in compute\_ndcg\_at\_k}
+}
+
+% ── 5. Statistical methodology ─────────────────────────────────────────────────
+
+@article{benjamini1995fdr,
+  title   = {Controlling the False Discovery Rate: A Practical and Powerful
+             Approach to Multiple Testing},
+  author  = {Benjamini, Yoav and Hochberg, Yosef},
+  journal = {Journal of the Royal Statistical Society: Series B},
+  volume  = {57},
+  number  = {1},
+  pages   = {289--300},
+  year    = {1995},
+  note    = {The FDR correction implemented in benjamini\_hochberg()}
+}
+
+@article{urbano2025reliable,
+  title   = {Towards Reliable Testing for Multiple Information Retrieval System
+             Comparisons},
+  author  = {Urbano, Juli{\'a}n and others},
+  journal = {arXiv preprint arXiv:2501.03930},
+  year    = {2025},
+  url     = {https://arxiv.org/abs/2501.03930},
+  note    = {Recommends Wilcoxon + Benjamini-Hochberg for multi-system comparisons;
+             the procedure adopted in test\_metric\_significance()}
+}
+
+@inproceedings{smucker2007comparison,
+  title     = {A Comparison of Statistical Significance Tests for Information
+               Retrieval Evaluation},
+  author    = {Smucker, Mark D. and Allan, James and Carterette, Ben},
+  booktitle = {Proceedings of CIKM},
+  year      = {2007},
+  note      = {Paired t-test vs Wilcoxon vs sign test in IR}
+}
+
+@article{efron1979bootstrap,
+  title   = {Bootstrap Methods: Another Look at the Jackknife},
+  author  = {Efron, Bradley},
+  journal = {The Annals of Statistics},
+  volume  = {7},
+  number  = {1},
+  pages   = {1--26},
+  year    = {1979},
+  note    = {Basis for the bootstrap confidence intervals in bootstrap\_ci()}
+}
+
+@article{cohen1960kappa,
+  title   = {A Coefficient of Agreement for Nominal Scales},
+  author  = {Cohen, Jacob},
+  journal = {Educational and Psychological Measurement},
+  volume  = {20},
+  number  = {1},
+  pages   = {37--46},
+  year    = {1960},
+  note    = {Chance-corrected agreement; the correct statistic for validating an
+             LLM judge against human labels}
+}
+
+% ── 6. Failure taxonomy ────────────────────────────────────────────────────────
+
+@inproceedings{barnett2024seven,
+  title     = {Seven Failure Points When Engineering a Retrieval Augmented
+               Generation System},
+  author    = {Barnett, Scott and Kurniawan, Stefanus and Thudumu, Srikanth and
+               Brannelly, Zach and Abdelrazek, Mohamed},
+  booktitle = {Proceedings of CAIN (IEEE/ACM International Conference on AI
+               Engineering)},
+  year      = {2024},
+  note      = {FP1--FP7 taxonomy used by module5/failure\_analysis.py}
+}

@@ -18,10 +18,13 @@ Metrics implemented:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
 import sys
+import tempfile
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -31,12 +34,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from configs.config import (  # noqa: E402
     ANSWER_RELEVANCE_THRESHOLD, CONTEXT_PRECISION_THRESHOLD, EVAL_BOOTSTRAP_ITERS,
     EVAL_RANDOM_SEED, EVAL_RESULTS_PATH, FAITHFULNESS_THRESHOLD, GROQ_API_KEY,
-    GROQ_MODEL, JUDGE_MODEL, JUDGE_PROVIDER, LLM_MODEL, MISTRAL_API_KEY,
-    NOISE_RATIO_MAX,
+    GROQ_MODEL, JUDGE_MODEL, JUDGE_PROVIDER, MISTRAL_API_KEY,
+    NOISE_RATIO_MAX, OPENROUTER_API_KEY, OPENROUTER_BASE_URL,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _safe_failure_message(exc: Exception) -> str:
+    """Keep per-sample diagnostics bounded and free of prompt/provider details."""
+    message = " ".join(str(exc).split())
+    message = re.sub(r"(?i)(bearer\s+|api[_ -]?key\s*[=:]\s*)\S+", r"\1[redacted]", message)
+    message = re.sub(r"(?i)sk-[A-Za-z0-9_-]+", "[redacted]", message)
+    return message[:240] or "operation failed"
+
+
+def _successful_rows(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return rows that completed the requested sample, including legacy frames."""
+    if "sample_status" not in frame.columns:
+        return frame
+    return frame.loc[frame["sample_status"] == "success"]
 
 # Common English stopwords for fairer token-overlap metrics.
 _STOPWORDS = frozenset({
@@ -155,17 +173,145 @@ def compute_hit_rate(retrieved_doc_ids: List[str], relevant_doc_ids: List[str]) 
     return float(any(d in relevant_set for d in retrieved_doc_ids))
 
 
-def compute_mrr(retrieved_doc_ids: List[str], relevant_doc_ids: List[str]) -> float:
+def compute_mrr(retrieved_doc_ids: List[str], relevant_doc_ids: List[str], k: Optional[int] = None) -> float:
+    """
+    Mean Reciprocal Rank of the first relevant document.
+
+    ``k`` truncates the ranked list (MS MARCO's official passage-ranking metric
+    is MRR@10, so pass ``k=10`` to match published leaderboard numbers).
+    """
+    ranked = retrieved_doc_ids[:k] if k else retrieved_doc_ids
     relevant_set = set(relevant_doc_ids)
-    for rank, d in enumerate(retrieved_doc_ids, start=1):
+    for rank, d in enumerate(ranked, start=1):
         if d in relevant_set:
             return 1.0 / rank
     return 0.0
 
 
+def compute_recall_at_k(retrieved_doc_ids: List[str], relevant_doc_ids: List[str], k: int) -> float:
+    """
+    Fraction of ALL known-relevant documents that appear in the top-k.
+
+    Unlike :func:`compute_answer_recall` (token overlap), this is graded against
+    human relevance judgements (qrels), so it is directly comparable to published
+    retrieval numbers.
+    """
+    relevant_set = set(relevant_doc_ids)
+    if not relevant_set or k <= 0:
+        return 0.0
+    top_k = set(retrieved_doc_ids[:k])
+    return len(top_k & relevant_set) / len(relevant_set)
+
+
+def compute_ndcg_at_k(retrieved_doc_ids: List[str], relevant_doc_ids: List[str], k: int = 10) -> float:
+    """
+    Normalised Discounted Cumulative Gain at k with binary relevance gains.
+
+    DCG@k  = Σ_{i=1..k} rel_i / log2(i + 1)
+    IDCG@k = the DCG of the best possible ranking (all relevant docs first)
+    nDCG@k = DCG@k / IDCG@k  ∈ [0, 1]
+
+    Rank-aware, so unlike Recall@k it rewards putting the relevant passage at
+    rank 1 rather than rank k — the property that makes it the standard headline
+    metric on MS MARCO / TREC Deep Learning and BEIR.
+    """
+    relevant_set = set(relevant_doc_ids)
+    if not relevant_set or k <= 0:
+        return 0.0
+
+    dcg = 0.0
+    for i, doc_id in enumerate(retrieved_doc_ids[:k], start=1):
+        if doc_id in relevant_set:
+            dcg += 1.0 / np.log2(i + 1)
+
+    # Ideal ranking: every relevant doc packed into the top positions.
+    ideal_hits = min(len(relevant_set), k)
+    idcg = sum(1.0 / np.log2(i + 1) for i in range(1, ideal_hits + 1))
+    if idcg == 0.0:
+        return 0.0
+    return float(dcg / idcg)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QRELS (ground-truth relevance judgements)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def doc_id_for(doc: Any) -> str:
+    """
+    Stable identity for a chunk/document, derived from its text.
+
+    Chunks are re-created on every run (and Chroma does not hand back the ids we
+    indexed with), so a content hash is the only identifier that survives the
+    round-trip from corpus → vector store → retrieved document. The first 200
+    characters are used because that is the same span the MS MARCO loader uses to
+    de-duplicate passages, so ids agree with the corpus-level dedup.
+    """
+    text = getattr(doc, "page_content", str(doc))
+    return hashlib.sha256(text.strip().lower().encode("utf-8")).hexdigest()[:20]
+
+
+def build_qrels(docs: List[Any]) -> Dict[str, set]:
+    """
+    Build ``{question: {relevant_doc_id, ...}}`` from MS MARCO document metadata.
+
+    MS MARCO ships human relevance labels: each passage carries ``is_selected``
+    (1 when the annotator judged it to contain the answer) alongside the ``query``
+    it was retrieved for. Those two fields are preserved through
+    ``load_msmarco_documents`` → ``chunk_documents``, so every chunk inherits its
+    parent passage's judgement and we can recover real qrels for free — no LLM and
+    no manual labelling.
+
+    Caveat: ``load_msmarco_documents`` de-duplicates passages globally, so a
+    passage that is relevant to query A but was first seen under query B appears
+    only once. Recall is therefore very slightly conservative.
+    """
+    qrels: Dict[str, set] = {}
+    try:
+        iterator = iter(docs)
+    except TypeError:
+        # Qrels are optional enrichment: a corpus we cannot iterate should degrade
+        # to "no relevance labels" (token-overlap + LLM metrics still run) rather
+        # than abort the whole evaluation.
+        logger.warning("build_qrels: documents are not iterable — no qrels built.")
+        return qrels
+
+    for doc in iterator:
+        meta = getattr(doc, "metadata", None) or {}
+        if not isinstance(meta, dict) or not meta.get("is_selected"):
+            continue
+        question = (meta.get("query") or "").strip()
+        if not question:
+            continue
+        qrels.setdefault(question, set()).add(doc_id_for(doc))
+    logger.info("Built qrels for %d questions with >=1 relevant chunk.", len(qrels))
+    return qrels
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # RAGAS-STYLE LLM-JUDGED METRICS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _judge_wait(provider: str) -> None:
+    """
+    Reserve one shared provider slot before a judge call.
+
+    The judge previously had its own un-paced client, so it fired ~4 calls per
+    evaluated sample back-to-back, exhausted the provider's rate budget (866
+    HTTP 429s in a 2026-10-18 Groq run) and nullified its own metrics. Judge
+    calls now go through the same scheduler as generator calls
+    (``module2._wait_for_provider``), pacing ALL LLM traffic per provider at
+    ``LLM_RATE_LIMIT_SECONDS``.
+
+    Resolved lazily so importing module3 does not pull module2's heavier
+    import graph, and kept as a module attribute so tests can monkeypatch it.
+    """
+    from module2.rag_architectures import _wait_for_provider
+
+    # max_wait=None: the judge waits for a slot instead of abstaining — a
+    # missing judge score silently degrades the metrics this whole module
+    # exists to produce.
+    _wait_for_provider(provider, max_wait=None)
+
 
 class RAGASEvaluator:
     """
@@ -173,6 +319,8 @@ class RAGASEvaluator:
     decoupled from the GENERATOR LLM to reduce self-preference bias.
 
     Provider priority for the judge:
+      0. JUDGE_PROVIDER='openrouter' and OPENROUTER_API_KEY set → OpenRouter (OpenAI-
+         compatible) with JUDGE_MODEL as the slug
       1. JUDGE_PROVIDER='groq' and GROQ_API_KEY set  → Groq with JUDGE_MODEL
       2. JUDGE_PROVIDER='mistral' and MISTRAL_API_KEY set → Mistral with JUDGE_MODEL
       3. Whichever provider has a key (with a warning that judge==generator)
@@ -219,13 +367,20 @@ class RAGASEvaluator:
         self.provider = (provider or JUDGE_PROVIDER or "").lower()
         self.model = model or JUDGE_MODEL
         self._client = None
-        self._mode = "extractive"  # "groq" | "mistral" | "extractive"
+        self._mode = "extractive"  # "openrouter" | "groq" | "mistral" | "extractive"
 
         # Prefer an explicit judge configuration to reduce self-eval bias.
-        if self.provider == "groq" and GROQ_API_KEY:
+        if self.provider == "openrouter" and OPENROUTER_API_KEY:
+            self._init_openrouter()
+        elif self.provider == "groq" and GROQ_API_KEY:
             self._init_groq()
         elif self.provider == "mistral" and MISTRAL_API_KEY:
             self._init_mistral()
+        elif OPENROUTER_API_KEY:
+            # A key is present without an explicit matching provider → route the
+            # judge through OpenRouter (OpenAI-compatible; JUDGE_MODEL is its slug).
+            self.provider = "openrouter"
+            self._init_openrouter()
         elif GROQ_API_KEY and GROQ_MODEL != self.model:
             # Different model on the same provider is acceptable.
             self.provider = "groq"
@@ -243,6 +398,22 @@ class RAGASEvaluator:
                 "Set one in your environment to enable LLM-judged metrics."
             )
 
+        # An explicit JUDGE_PROVIDER skips the fallback's "different model" check,
+        # so a .env that sets JUDGE_MODEL == GROQ_MODEL silently grades the
+        # generator with itself. Say so loudly: it invalidates the decoupling claim.
+        if self.provider in ("groq", "openrouter") and self.model == GROQ_MODEL:
+            logger.warning(
+                "Judge model %r is the same as the generator model (GROQ_MODEL). "
+                "LLM-judged metrics will carry self-preference bias; set JUDGE_MODEL "
+                "to a different model family.", self.model,
+            )
+
+    def _init_openrouter(self) -> None:
+        from openai import OpenAI
+        self._client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
+        self._mode = "openrouter"
+        logger.info("Judge LLM: OpenRouter / %s", self.model)
+
     def _init_groq(self) -> None:
         from groq import Groq
         self._client = Groq(api_key=GROQ_API_KEY)
@@ -256,20 +427,27 @@ class RAGASEvaluator:
         logger.info("Judge LLM: Mistral / %s", self.model)
 
     def _call(self, prompt: str) -> str:
-        if self._mode == "groq":
+        # The judge must WAIT rather than abstain — a missing judge score is
+        # worse than a slow one — hence max_wait=None (unlike the answer gate,
+        # which may return "" when the slot is busy).
+        if self._mode in ("groq", "openrouter"):
+            _judge_wait(self._mode)
+            # OpenRouter and Groq both expose the OpenAI-style chat.completions API.
+        if self._mode in ("groq", "openrouter"):
             resp = self._client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
-                max_tokens=8,
+                max_tokens=1024,  # headroom for reasoning models (gpt-oss/qwen); the score is parsed out via regex
             )
             return resp.choices[0].message.content or ""
         if self._mode == "mistral":
+            _judge_wait("mistral")
             resp = self._client.chat.complete(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
-                max_tokens=8,
+                max_tokens=1024,  # headroom for reasoning models (gpt-oss/qwen); the score is parsed out via regex
             )
             return resp.choices[0].message.content or ""
         return ""
@@ -285,6 +463,53 @@ class RAGASEvaluator:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Judge call failed: %s", exc)
         return None
+
+    def health_check(self) -> float:
+        """
+        Issue ONE trivial judge prompt and confirm a numeric score comes back.
+
+        This exercises the *real* judge call path (``self._call`` → ``self._client``
+        with ``self.model``), so a mis-set or retired judge model surfaces here,
+        once, before a long run — instead of being silently swallowed sample by
+        sample by :meth:`_score` (which returns ``None`` on any failure and made
+        BUG 1 indistinguishable from having no API key).
+
+        Returns
+        -------
+        float
+            The judge's numeric score (clamped to ``[0.0, 1.0]``) for a toy,
+            trivially grounded context/answer pair.
+
+        Raises
+        ------
+        RuntimeError
+            If the judge call errors (retired/mis-set model, auth or network
+            failure) or returns a non-numeric response. Raising — rather than
+            returning ``None`` like :meth:`_score` — is deliberate: this guard
+            must fail LOUDLY so a broken judge cannot degrade silently.
+        """
+        # A trivially grounded pair: the answer is fully supported by the
+        # context, so any working judge returns a numeric faithfulness score.
+        probe = self.FAITHFULNESS_PROMPT.format(
+            context="The Eiffel Tower is located in Paris, France.",
+            answer="The Eiffel Tower is in Paris.",
+        )
+        try:
+            text = self._call(probe).strip()
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                f"Judge health check failed: the judge call raised for "
+                f"provider={self.provider!r} model={self.model!r}: {exc}"
+            ) from exc
+
+        match = re.search(r"-?\d+(?:\.\d+)?", text)
+        if match is None:
+            raise RuntimeError(
+                f"Judge health check failed: judge (provider={self.provider!r}, "
+                f"model={self.model!r}) returned a non-numeric response "
+                f"{text[:80]!r}; the judge model may be mis-set or retired."
+            )
+        return max(0.0, min(1.0, float(match.group())))
 
     def evaluate(
         self,
@@ -328,10 +553,9 @@ def bootstrap_ci(
     arr = np.asarray([v for v in values if v is not None], dtype=np.float64)
     if arr.size == 0:
         return (0.0, 0.0)
-    means = np.empty(iters, dtype=np.float64)
-    for i in range(iters):
-        sample = rng.choice(arr, size=arr.size, replace=True)
-        means[i] = sample.mean()
+    # Vectorized: generate all bootstrap indices at once (T10 fix — was a loop).
+    indices = rng.choice(arr.size, size=(iters, arr.size), replace=True)
+    means = arr[indices].mean(axis=1)
     alpha = (1 - confidence) / 2
     lo, hi = np.quantile(means, [alpha, 1 - alpha])
     return float(lo), float(hi)
@@ -356,7 +580,7 @@ class EvaluationPipeline:
         self.ragas_evaluator = ragas_evaluator
         self.output_path = output_path
         self.seed = seed
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
     def evaluate_sample(
         self,
@@ -365,35 +589,69 @@ class EvaluationPipeline:
         retrieved_docs: List[Any],
         answer: str,
         architecture: str = "unknown",
+        relevant_doc_ids: Optional[set] = None,
+        use_judge: bool = True,
     ) -> Dict[str, Any]:
         retrieved_text = " ".join(getattr(d, "page_content", str(d)) for d in retrieved_docs)
 
-        result: Dict[str, Any] = {
-    "architecture": architecture,
-    "question": question,
-    "ground_truth": ground_truth,
-    "answer": answer,
-    "num_docs_retrieved": len(retrieved_docs),
-    "answer_recall": compute_answer_recall(retrieved_text, ground_truth),
-    "iou": compute_token_iou(retrieved_text, ground_truth),
-    "precision_omega": compute_precision_omega(retrieved_text, ground_truth),
-    "noise_ratio": compute_noise_ratio(retrieved_text, ground_truth),
-    # ADD THESE:
-    "paradox_flag": (
-        compute_precision_omega(retrieved_text, ground_truth) < 0.4
-    ),
-    "noise_fingerprint_topical": compute_noise_fingerprint(
-        retrieved_text, ground_truth, question
-    )["topical_noise"],
-    "noise_fingerprint_peripheral": compute_noise_fingerprint(
-        retrieved_text, ground_truth, question
-    )["peripheral_noise"],
-    "noise_fingerprint_random": compute_noise_fingerprint(
-        retrieved_text, ground_truth, question
-    )["random_noise"],
-    }
+        # Tokenize ONCE and reuse across all metrics (T9 fix — was 5-6×).
+        rt_tokens = _token_set(retrieved_text)
+        gt_tokens = _token_set(ground_truth)
 
-        if self.ragas_evaluator:
+        # ── Metrics using pre-computed token sets ────────────────────────────
+        if not gt_tokens:
+            answer_recall_val = 1.0
+        else:
+            answer_recall_val = len(gt_tokens & rt_tokens) / len(gt_tokens)
+
+        # Token IoU still needs frequency counts for the cap, so we call the
+        # function directly (it's already efficient with internal capping).
+        iou_val = compute_token_iou(retrieved_text, ground_truth)
+
+        if not rt_tokens:
+            pomega = 0.0
+            noise_val = 0.0
+        else:
+            p = len(rt_tokens & gt_tokens) / len(rt_tokens)
+            pomega = p * p
+            noise_val = 1.0 - len(rt_tokens & gt_tokens) / len(rt_tokens)
+
+        fingerprint = compute_noise_fingerprint(retrieved_text, ground_truth, question)
+
+        result: Dict[str, Any] = {
+            "architecture": architecture,
+            "question": question,
+            "ground_truth": ground_truth,
+            "answer": answer,
+            "num_docs_retrieved": len(retrieved_docs),
+            "answer_recall": answer_recall_val,
+            "iou": iou_val,
+            "precision_omega": pomega,
+            "noise_ratio": noise_val,
+            "paradox_flag": pomega < 0.4,
+            "noise_fingerprint_topical": fingerprint["topical_noise"],
+            "noise_fingerprint_peripheral": fingerprint["peripheral_noise"],
+            "noise_fingerprint_random": fingerprint["random_noise"],
+        }
+
+        # ── Rank-aware IR metrics graded against human relevance judgements ──
+        # Only emitted when qrels are supplied, so callers without labels keep the
+        # previous column set. These need no LLM, so they scale to thousands of
+        # queries at zero API cost.
+        if relevant_doc_ids:
+            retrieved_ids = [doc_id_for(d) for d in retrieved_docs]
+            result["recall_at_k"] = compute_recall_at_k(
+                retrieved_ids, relevant_doc_ids, k=len(retrieved_ids) or 1
+            )
+            result["precision_at_k"] = compute_precision_at_k(
+                retrieved_ids, relevant_doc_ids, k=len(retrieved_ids) or 1
+            )
+            result["hit_rate"] = compute_hit_rate(retrieved_ids, relevant_doc_ids)
+            result["mrr_at_10"] = compute_mrr(retrieved_ids, relevant_doc_ids, k=10)
+            result["ndcg_at_10"] = compute_ndcg_at_k(retrieved_ids, relevant_doc_ids, k=10)
+            result["num_relevant_known"] = len(relevant_doc_ids)
+
+        if self.ragas_evaluator and use_judge:
             ragas = self.ragas_evaluator.evaluate(
                 question=question, context=retrieved_text,
                 answer=answer, ground_truth=ground_truth,
@@ -411,7 +669,24 @@ class EvaluationPipeline:
         rag_system: Any,
         synthetic_dataset: List[Dict[str, Any]],
         max_samples: Optional[int] = None,
+        qrels: Optional[Dict[str, set]] = None,
+        retrieval_only: bool = False,
     ) -> pd.DataFrame:
+        """
+        Evaluate one architecture over the dataset.
+
+        Parameters
+        ----------
+        qrels
+            Optional ``{question: {relevant_doc_id}}`` map (see :func:`build_qrels`).
+            When supplied, rank-aware IR metrics (Recall@k, MRR@10, nDCG@10) are
+            added to every row.
+        retrieval_only
+            When True, skip answer generation and LLM judging and only exercise
+            ``rag_system.retrieve``. This makes the whole run LLM-free, so it can
+            scale to thousands of queries with no API cost or rate limiting —
+            the intended mode for large-n retrieval experiments.
+        """
         # Deterministic sampling via a seeded RNG.
         rng = np.random.default_rng(self.seed)
         samples = list(synthetic_dataset)
@@ -419,33 +694,87 @@ class EvaluationPipeline:
             idx = rng.choice(len(samples), size=max_samples, replace=False)
             samples = [samples[i] for i in idx]
 
+        expected_samples = len(samples)
         rows: List[Dict[str, Any]] = []
         for i, sample in enumerate(samples):
             question = sample.get("question", "")
             ground_truth = sample.get("ground_truth", "")
             if not question:
+                rows.append({
+                    "architecture": architecture_name,
+                    "sample_index": i,
+                    "question": question,
+                    "ground_truth": ground_truth,
+                    "query_type": sample.get("query_type", "unknown"),
+                    "sample_status": "skipped",
+                    "skip_reason": "missing_question",
+                    "failure_type": "",
+                    "failure_message": "",
+                    "expected_samples": expected_samples,
+                })
                 continue
             try:
-                result = rag_system.run(question)
+                if retrieval_only:
+                    # No generation, no judge — pure retrieval timing + metrics.
+                    t0 = time.time()
+                    docs = rag_system.retrieve(question)
+                    result = {
+                        "context_docs": docs,
+                        "answer": "",
+                        "latency_ms": round((time.time() - t0) * 1000, 2),
+                    }
+                else:
+                    result = rag_system.run(question)
+
                 metrics = self.evaluate_sample(
                     question=question,
                     ground_truth=ground_truth,
                     retrieved_docs=result.get("context_docs", []),
                     answer=result.get("answer", ""),
                     architecture=architecture_name,
+                    relevant_doc_ids=(qrels or {}).get(question),
+                    use_judge=not retrieval_only,
                 )
-                
+
                 metrics["latency_ms"] = result.get("latency_ms", 0)
                 metrics["query_type"] = sample.get("query_type", "unknown")
                 metrics["retrieval_path"] = getattr(rag_system, "_last_route", "N/A")
+                metrics["sample_index"] = i
+                metrics["sample_status"] = "success"
+                metrics["failure_type"] = ""
+                metrics["failure_message"] = ""
+                metrics["expected_samples"] = expected_samples
                 rows.append(metrics)
             except Exception as exc:  # noqa: BLE001 — keep evaluating other samples
-                logger.warning("Eval failed for sample %d (%s): %s", i, architecture_name, exc)
+                message = _safe_failure_message(exc)
+                logger.warning(
+                    "Eval failed for sample %d (%s): %s", i, architecture_name, message
+                )
+                rows.append({
+                    "architecture": architecture_name,
+                    "sample_index": i,
+                    "question": question,
+                    "ground_truth": ground_truth,
+                    "query_type": sample.get("query_type", "unknown"),
+                    "sample_status": "failed",
+                    "failure_type": type(exc).__name__,
+                    "failure_message": message,
+                    "expected_samples": expected_samples,
+                })
 
         df = pd.DataFrame(rows)
         if not df.empty:
-            mean_faith = df["faithfulness"].mean() if "faithfulness" in df.columns else float("nan")
-            logger.info("[%s] n=%d | faithfulness=%.3f", architecture_name, len(df), mean_faith)
+            valid = _successful_rows(df)
+            status = df["sample_status"] if "sample_status" in df else pd.Series(
+                "success", index=df.index
+            )
+            failed = int((status == "failed").sum())
+            skipped = int((status == "skipped").sum())
+            mean_faith = valid["faithfulness"].mean() if "faithfulness" in valid else float("nan")
+            logger.info(
+                "[%s] expected=%d successful=%d failed=%d skipped=%d | faithfulness=%.3f",
+                architecture_name, expected_samples, len(valid), failed, skipped, mean_faith,
+            )
         return df
 
     def compare_architectures(
@@ -457,16 +786,39 @@ class EvaluationPipeline:
         sample sizes. Persists to CSV.
         """
         metric_cols = [
+            # Rank-aware IR metrics (present only when qrels were supplied).
+            "recall_at_k", "precision_at_k", "hit_rate", "mrr_at_10", "ndcg_at_10",
+            # Token-overlap metrics.
             "answer_recall", "iou", "precision_omega", "noise_ratio",
+            # LLM-judged metrics.
             "faithfulness", "context_precision", "context_recall",
             "answer_relevance", "latency_ms",
         ]
         rows = []
         for arch_name, df in results.items():
-            row: Dict[str, Any] = {"architecture": arch_name, "n": int(len(df))}
+            valid = _successful_rows(df)
+            status = df["sample_status"] if "sample_status" in df else None
+            if status is None:
+                expected = len(df)
+                failed = skipped = 0
+            else:
+                expected = int(df["expected_samples"].max()) if "expected_samples" in df else len(df)
+                failed = int((status == "failed").sum())
+                skipped = int((status == "skipped").sum())
+            row: Dict[str, Any] = {
+                "architecture": arch_name,
+                "n": int(len(valid)),
+                "expected_samples": expected,
+                "successful_samples": int(len(valid)),
+                "failed_samples": failed,
+                "skipped_samples": skipped,
+                "failure_rate": round((failed + skipped) / expected, 4) if expected else 1.0,
+                "evaluation_valid": bool(expected and not failed and not skipped
+                                          and len(valid) == expected),
+            }
             for col in metric_cols:
-                if col in df.columns and not df[col].dropna().empty:
-                    vals = df[col].dropna().tolist()
+                if col in valid.columns and not valid[col].dropna().empty:
+                    vals = valid[col].dropna().tolist()
                     row[col] = round(float(np.mean(vals)), 4)
                     if col != "latency_ms":
                         lo, hi = bootstrap_ci(vals, seed=self.seed)
@@ -475,19 +827,45 @@ class EvaluationPipeline:
             rows.append(row)
 
         summary = pd.DataFrame(rows)
-        summary.to_csv(self.output_path, index=False)
+        if self.output_path != os.devnull:
+            parent = os.path.dirname(os.path.abspath(self.output_path)) or "."
+            fd, temporary = tempfile.mkstemp(
+                prefix=f".{os.path.basename(self.output_path)}.", suffix=".tmp", dir=parent
+            )
+            os.close(fd)
+            try:
+                summary.to_csv(temporary, index=False)
+                os.replace(temporary, self.output_path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
         logger.info("Evaluation summary saved to %s", self.output_path)
         return summary
 
 
-    def check_quality_gate(self, df: pd.DataFrame) -> Tuple[bool, Dict[str, float]]:
+    def check_quality_gate(self, df: pd.DataFrame) -> Tuple[bool, Dict[str, Any]]:
+        valid = _successful_rows(df)
         metrics = {
-            "faithfulness": float(df["faithfulness"].mean()) if "faithfulness" in df else 0.0,
-            "context_precision": float(df["context_precision"].mean()) if "context_precision" in df else 0.0,
-            "answer_relevance": float(df["answer_relevance"].mean()) if "answer_relevance" in df else 0.0,
-            "noise_ratio": float(df["noise_ratio"].mean()) if "noise_ratio" in df else 1.0,
+            "faithfulness": float(valid["faithfulness"].mean()) if "faithfulness" in valid else float("nan"),
+            "context_precision": float(valid["context_precision"].mean()) if "context_precision" in valid else float("nan"),
+            "answer_relevance": float(valid["answer_relevance"].mean()) if "answer_relevance" in valid else float("nan"),
+            "noise_ratio": float(valid["noise_ratio"].mean()) if "noise_ratio" in valid else float("nan"),
         }
+        expected = int(df["expected_samples"].max()) if "expected_samples" in df and not df.empty else len(df)
+        status = df["sample_status"] if "sample_status" in df else pd.Series(
+            "success", index=df.index
+        )
+        metrics.update({
+            "expected_samples": expected,
+            "successful_samples": len(valid),
+            "failed_samples": int((status == "failed").sum()),
+            "skipped_samples": int((status == "skipped").sum()),
+        })
         passed = (
+            len(valid) == expected
+            and expected > 0
+            and all(np.isfinite(value) for value in metrics.values() if isinstance(value, float))
+            and
             metrics["faithfulness"] >= FAITHFULNESS_THRESHOLD
             and metrics["context_precision"] >= CONTEXT_PRECISION_THRESHOLD
             and metrics["answer_relevance"] >= ANSWER_RELEVANCE_THRESHOLD
@@ -497,118 +875,236 @@ class EvaluationPipeline:
 
 # In module3/evaluation.py add:
 
-def compute_adaptive_threshold(query_type: str, 
+def compute_adaptive_threshold(query_type: str,
                                 architecture: str,
                                 chunk_size: int) -> float:
     """
     Novel: PΩ threshold adapts based on query difficulty
     and retrieval context.
-    
+
     Simple queries: higher threshold (easier to retrieve cleanly)
     Ambiguous queries: lower threshold (harder to get clean retrieval)
     Larger chunks: lower threshold (more noise expected)
     """
     base = 0.4
-    
+
     # Query type adjustment
     type_adj = {
         "simple": +0.1,       # expect cleaner retrieval
         "paraphrased": 0.0,   # neutral
         "ambiguous": -0.1,    # accept more noise
     }.get(query_type, 0.0)
-    
+
     # Chunk size adjustment
     size_adj = max(-0.1, min(0.1, (400 - chunk_size) / 4000))
-    
+
     threshold = base + type_adj + size_adj
     return max(0.2, min(0.7, threshold))
 
 # In module3/evaluation.py add:
 
-def compute_noise_fingerprint(retrieved_text: str, 
+def compute_noise_fingerprint(retrieved_text: str,
                                ground_truth: str,
                                query: str) -> Dict[str, float]:
     """
     Novel: Characterise the TYPE of noise, not just the amount.
-    
+
     Three noise types identified in this paper:
     1. Topical noise: retrieved content is on-topic but not answer-relevant
     2. Peripheral noise: retrieved content is tangentially related
     3. Random noise: retrieved content has no relation to query
-    
+
     This creates a noise fingerprint per architecture, enabling
     targeted noise reduction strategies.
     """
     rt = set(re.findall(r"\w+", retrieved_text.lower()))
     gt = set(re.findall(r"\w+", ground_truth.lower()))
     qt = set(re.findall(r"\w+", query.lower()))
-    
+
+    # Key names MUST match the extractors used in evaluate_sample
+    # ("topical_noise" / "peripheral_noise" / "random_noise"). The earlier
+    # {"topical": ..} spelling caused a KeyError there, which silently dropped
+    # every sample whose retrieval returned nothing.
     if not rt:
-        return {"topical": 0, "peripheral": 0, "random": 0}
-    
+        return {"topical_noise": 0.0, "peripheral_noise": 0.0, "random_noise": 0.0}
+
     # Tokens in retrieved but NOT in answer
     noise_tokens = rt - gt
-    
+
     # Topical noise: noise tokens that ARE in query
     # (retrieved query-related content that isn't the answer)
-    topical = len(noise_tokens & qt) / len(rt) if rt else 0
-    
+    topical = len(noise_tokens & qt) / len(rt)
+
     # Peripheral noise: noise tokens related to query terms
     # (one-hop from query terms — approximated by partial match)
     query_stems = {t[:4] for t in qt if len(t) > 4}
     peripheral_tokens = {
-        t for t in noise_tokens 
+        t for t in noise_tokens
         if any(t.startswith(s) for s in query_stems)
     } - qt
-    peripheral = len(peripheral_tokens) / len(rt) if rt else 0
-    
+    peripheral = len(peripheral_tokens) / len(rt)
+
     # Random noise: everything else
-    random_noise = max(0, (len(noise_tokens) / len(rt)) 
+    random_noise = max(0, (len(noise_tokens) / len(rt))
                        - topical - peripheral)
-    
+
     return {
         "topical_noise": round(topical, 4),
         "peripheral_noise": round(peripheral, 4),
         "random_noise": round(random_noise, 4),
     }
 
+def benjamini_hochberg(p_values: List[float], alpha: float = 0.05) -> Tuple[List[float], List[bool]]:
+    """
+    Benjamini-Hochberg FDR correction for multiple comparisons.
+
+    Comparing k architectures against one baseline means k hypothesis tests, so at
+    alpha=0.05 roughly one in twenty "findings" is noise. BH controls the false
+    discovery rate while retaining more power than Bonferroni, and is the
+    correction recommended for multi-system IR comparisons.
+
+    Returns ``(adjusted_p_values, reject_flags)`` in the caller's original order.
+    """
+    n = len(p_values)
+    if n == 0:
+        return [], []
+    order = sorted(range(n), key=lambda i: p_values[i])
+    adjusted = [1.0] * n
+    running_min = 1.0
+    # Walk from the largest p-value down, enforcing monotonicity.
+    for rank_idx in range(n - 1, -1, -1):
+        i = order[rank_idx]
+        rank = rank_idx + 1
+        value = p_values[i] * n / rank
+        running_min = min(running_min, value)
+        adjusted[i] = min(1.0, running_min)
+    return adjusted, [adj < alpha for adj in adjusted]
+
+
+def test_metric_significance(
+    df: pd.DataFrame,
+    baseline_arch: str = "Naive RAG",
+    metric: str = "precision_omega",
+    alpha: float = 0.05,
+    min_pairs: int = 5,
+) -> pd.DataFrame:
+    """
+    Paired significance tests of each architecture against a baseline.
+
+    Three corrections over the previous implementation:
+
+    1. **Genuine pairing.** Samples are joined on ``question`` so each pair is the
+       same query under two architectures. The old version truncated both series to
+       a common length and zipped them positionally, which silently mismatched
+       pairs whenever any sample errored out and made the "paired" test invalid.
+    2. **Wilcoxon signed-rank** alongside the t-test. Metric distributions here are
+       bounded and skewed, so a nonparametric test is the safer primary; the
+       t-statistic is still reported for continuity.
+    3. **Benjamini-Hochberg correction**, because one baseline versus k
+       architectures is a multiple-comparison problem.
+
+    Effect size is Cohen's d_z for paired samples: mean(diff) / sd(diff).
+    """
+    from scipy import stats
+
+    if "question" not in df.columns or metric not in df.columns:
+        logger.warning(
+            "Significance test skipped: need 'question' and %r columns.", metric
+        )
+        return pd.DataFrame()
+
+    base_df = df[df["architecture"] == baseline_arch][["question", metric]].dropna()
+    if base_df.empty:
+        logger.warning("Baseline %r not found — skipping significance tests.", baseline_arch)
+        return pd.DataFrame()
+    # Average duplicate questions so the join is one row per question.
+    base_map = base_df.groupby("question")[metric].mean()
+
+    rows = []
+    for arch in df["architecture"].unique():
+        if arch == baseline_arch:
+            continue
+        arch_df = df[df["architecture"] == arch][["question", metric]].dropna()
+        if arch_df.empty:
+            continue
+        arch_map = arch_df.groupby("question")[metric].mean()
+
+        common = base_map.index.intersection(arch_map.index)
+        if len(common) < min_pairs:
+            logger.info(
+                "Skipping %s: only %d paired questions (min %d).",
+                arch, len(common), min_pairs,
+            )
+            continue
+
+        treat = arch_map.loc[common].to_numpy(dtype=float)
+        base = base_map.loc[common].to_numpy(dtype=float)
+        diff = treat - base
+
+        # All-zero differences mean the architectures returned identical context —
+        # a real finding (the variant is a no-op), not something to test.
+        if np.allclose(diff, 0.0):
+            rows.append({
+                "architecture": arch, "metric": metric, "n_pairs": len(common),
+                "mean": round(float(treat.mean()), 6),
+                "baseline_mean": round(float(base.mean()), 6),
+                "mean_diff": 0.0, "t_statistic": np.nan, "p_value": 1.0,
+                "wilcoxon_p": 1.0, "effect_size_dz": 0.0,
+                "identical_to_baseline": True,
+            })
+            continue
+
+        t_stat, t_p = stats.ttest_rel(treat, base)
+        try:
+            _, w_p = stats.wilcoxon(treat, base)
+        except Exception:  # noqa: BLE001 — e.g. too few non-zero differences
+            w_p = float("nan")
+
+        sd = float(np.std(diff, ddof=1))
+        rows.append({
+            "architecture": arch,
+            "metric": metric,
+            "n_pairs": int(len(common)),
+            "mean": round(float(treat.mean()), 6),
+            "baseline_mean": round(float(base.mean()), 6),
+            "mean_diff": round(float(diff.mean()), 6),
+            "t_statistic": round(float(t_stat), 4),
+            # Keep full precision through FDR correction and serialization. Tiny
+            # but nonzero p-values must not be rounded to zero before BH.
+            "p_value": float(t_p),
+            "wilcoxon_p": float(w_p) if w_p == w_p else np.nan,
+            "effect_size_dz": round(float(diff.mean() / sd), 4) if sd > 0 else 0.0,
+            "identical_to_baseline": False,
+        })
+
+    if not rows:
+        return pd.DataFrame()
+
+    out = pd.DataFrame(rows)
+    # Correct across the family of comparisons, preferring Wilcoxon where available.
+    primary = [
+        r["wilcoxon_p"] if r["wilcoxon_p"] == r["wilcoxon_p"] else r["p_value"]
+        for r in rows
+    ]
+    adjusted, reject = benjamini_hochberg(primary, alpha=alpha)
+    out["p_value_bh"] = adjusted
+    out[f"significant_p{str(alpha).split('.')[-1]}_bh"] = reject
+    return out.sort_values("p_value_bh").reset_index(drop=True)
+
+
 def test_pomega_significance(
     df: pd.DataFrame,
     baseline_arch: str = "Naive RAG",
 ) -> pd.DataFrame:
     """
-    Paired t-test: each architecture vs Naive RAG baseline on PΩ.
-    Required for journal publication.
+    Backward-compatible wrapper: paired significance tests on PΩ.
+
+    Delegates to :func:`test_metric_significance`, which fixes the pairing and adds
+    multiple-comparison correction.
     """
-    from scipy import stats
-    results = []
-    baseline = df[df["architecture"] == baseline_arch]["precision_omega"].dropna()
-
-    for arch in df["architecture"].unique():
-        if arch == baseline_arch:
-            continue
-        arch_scores = df[df["architecture"] == arch]["precision_omega"].dropna()
-        min_len = min(len(baseline), len(arch_scores))
-        if min_len < 5:
-            continue
-        t_stat, p_value = stats.ttest_rel(
-            arch_scores.values[:min_len],
-            baseline.values[:min_len]
-        )
-        effect_size = (
-            arch_scores.mean() - baseline.mean()
-        ) / (arch_scores.std() + 1e-9)
-        results.append({
-            "architecture": arch,
-            "pomega_mean": arch_scores.mean(),
-            "baseline_pomega_mean": baseline.mean(),
-            "t_statistic": round(t_stat, 4),
-            "p_value": round(p_value, 4),
-            "significant_p05": p_value < 0.05,
-            "effect_size": round(effect_size, 4),
-        })
-
-    return pd.DataFrame(results)
+    return test_metric_significance(
+        df, baseline_arch=baseline_arch, metric="precision_omega"
+    )
 
 if __name__ == "__main__":
     print("Module 3 loaded. Use EvaluationPipeline and RAGASEvaluator.")

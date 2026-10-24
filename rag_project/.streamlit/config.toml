@@ -1,0 +1,13 @@
+# The UI calls Python directly: the FastAPI API key does not protect this port.
+# Keep the entry point local-only. app.py rejects non-loopback overrides.
+# Loopback is not authentication: do not tunnel or remotely proxy this UI.
+[server]
+address = "127.0.0.1"
+headless = true
+enableCORS = true
+enableXsrfProtection = true
+maxUploadSize = 20
+
+[browser]
+serverAddress = "localhost"
+gatherUsageStats = false

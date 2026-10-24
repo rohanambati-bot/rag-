@@ -1,0 +1,472 @@
+[
+  {
+    "architecture": "Naive RAG",
+    "question": "the indigo girl by natasha boyd",
+    "ground_truth": "Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney.",
+    "answer": "The Indigo Girl by Natasha Boyd book review.",
+    "contexts": [
+      "The Indigo Girl by Natasha Boyd book review. Click to read the full review of The Indigo Girl in New York Journal of Books. Review written by D. R. Meredith.",
+      "''Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney, a sixteen-year-old girl left in charge of her absent father's three South Carolina plantations in 1739 and who became the first person to produce commercial-grade indigo in the American colonies.",
+      "The Indigo Girl is a riveting narrative about a woman who defied convention to become one of the country's first women entrepreneurs.'' --Foreword Reviews ''Boyd excels in her descriptions of coastal South Carolina and its climate, in the intricacies of eighteenth-century colonial society, and in her strong characters.",
+      "Available October 3, 2017 http://www.blackstonepublishing.com/indigo-girl-natasha-boyd http://www.natashaboyd.com/the-indigo-girl.html The year is 1739. Eliz... Available October 3, 2017 http://www.blackstonepublishing.com/indigo-girl-natasha-boyd http://www.natashaboyd.com/the-indigo-girl.html The year is 1739. Eliz... Skip navigation",
+      "This book is set between 1739 and 1744, with romance, intrigue, forbidden friendships, and political and financial threats weaving together to form the story of a remarkable young woman whose actions were before their time: the story of the indigo girl. Book details: http://www.blackstonepublishing.com/i... Audiobook (Read by Saskia Maarleveld):"
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.nyjournalofbooks.com/book-review/indigo",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.amazon.com/Indigo-Girl-Natasha-Boyd/dp/1455137111",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.amazon.com/Indigo-Girl-Natasha-Boyd/dp/1455137111",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.youtube.com/watch?v=sEn5FOPw42g",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.youtube.com/watch?v=sEn5FOPw42g",
+        "query": "the indigo girl by natasha boyd"
+      }
+    ],
+    "retrieval_ms": 15.153499989537522,
+    "generation_ms": 0.33066701143980026
+  },
+  {
+    "architecture": "Naive RAG",
+    "question": "average salary for chief operating officer medical group",
+    "ground_truth": "$85,000",
+    "answer": "Insights about Chief Operating Officer - United Health Group members on LinkedIn.",
+    "contexts": [
+      ". The median salary for a chief medical officer in most states is $340,000 annually, and this position is expecting to see an 11% growth rate over the next ten years.",
+      "As an executive career option in public health, the job of chief medical officer is in one of the higher salary ranges for public health employees. The low end of this field is around $250,000 and can go as high as $470,000 depending upon education, experience, and scope of specialties",
+      "Insights about Chief Operating Officer - United Health Group members on LinkedIn. 1  Median salary $85,000. 2  Top companies UnitedHealth Group - 7. 3  Top universities University of Phoenix 4  - 4. Top industries Hospital & Health Care 5  - 51. Top locations United States  - 131.",
+      "Chief Operating Officer - United Health Group Jobs, companies, people, and articles for LinkedIn\u2019s Chief Operating Officer - United Health Group members. Insights about Chief Operating Officer - United Health Group members on LinkedIn. Median salary $85,000.",
+      "The base pay of insurance executives, hospital executives and even hospital administrators often far outstrips doctors\u2019 salaries, according to an analysis performed for The New York Times by Compdata Surveys: $584,000 on average for an insurance chief executive officer, $386,000 for a hospital C.E.O. and $237,000 for a hospital administrator, ..."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.careersinpublichealth.net/careers/chief-medical-officer",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.careersinpublichealth.net/careers/chief-medical-officer",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.linkedin.com/title/chief-operating-officer-at-united-health-group",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.linkedin.com/title/chief-operating-officer-at-united-health-group",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.nytimes.com/2014/05/18/sunday-review/doctors-salaries-are-not-the-big-cost.html",
+        "query": "do physicians pay for insurance from their salaries?"
+      }
+    ],
+    "retrieval_ms": 18.412667006487027,
+    "generation_ms": 0.11979098781011999
+  },
+  {
+    "architecture": "Naive RAG",
+    "question": "temperature sigonella sicily",
+    "ground_truth": "The average maximum temperature in July and August is 32 \u00b0C in sigonella, sicily.",
+    "answer": "Temperature, rainfall, prevailing weather conditions, when to go Map from Google - Sicily In Sicily, the largest island in Italy and the Mediterranean with its 25,711 square kilometres (9,927 square miles), the climate is Mediterranean along the coasts and in the smaller islands, with mild and moderately rainy winters, and hot and sunny summers.",
+    "contexts": [
+      ". The current temperatures in Sicily are around 13\u00b0C and the weather right now defined as Clear, for detailed information including humidity, wind, chance for rain and more go to the Sicily current weather page.",
+      "Temperature, rainfall, prevailing weather conditions, when to go Map from Google - Sicily In Sicily, the largest island in Italy and the Mediterranean with its 25,711 square kilometres (9,927 square miles), the climate is Mediterranean along the coasts and in the smaller islands, with mild and moderately rainy winters, and hot and sunny summers.",
+      "Temperatures between Western and Eastern Sicily are not sufficiently significant to alter itineraries. Travel in elevated area (mostly in the interior) could impact itineraries. The interior has lower temperatures. Weather forecasts are only reliable within 72 hours. April, May, June, September, and October are your optimal months to visit Sicily.",
+      "The sea in Sicily is warm enough for swimming from July to September. In June, the sea is still a bit cool, while in October, after the summer, the water temperature is still decent, around 23 \u00b0C (73 \u00b0F): on fine days, perhaps with the sirocco, locals go to the beach.",
+      "The current temperatures in Sicily are around and the weather right now defined as , for detailed information including humidity, wind, chance for rain and more go to the Sicily current weather page. If you are about to travel to Sicily Italy in a specific month we recommend to check that page and see the average weather in that month, for example Sicily in January"
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.viamoro.com/Europe/Italy/Sicily/weather/",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.climatestotravel.com/climate/italy/sicily",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.tripadvisor.com/Travel-g187886-s208/Sicily:Italy:Weather.And.When.To.Go.html",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.climatestotravel.com/climate/italy/sicily",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.viamoro.com/Europe/Italy/Sicily/weather/",
+        "query": "temperature sigonella sicily"
+      }
+    ],
+    "retrieval_ms": 7.878291013184935,
+    "generation_ms": 0.10850001126527786
+  },
+  {
+    "architecture": "Naive RAG",
+    "question": "definition of jape",
+    "ground_truth": "It is a configurable, graphical proof assistant, originally developed at the University of Oxford.",
+    "answer": "Freebase(0.00 / 0 votes)Rate this definition: Jape.",
+    "contexts": [
+      "Freebase(0.00 / 0 votes)Rate this definition: Jape. Jape is a configurable, graphical proof assistant, originally developed at the University of Oxford. It allows user to define a logic, decide how to view proofs, and much more. It works with variants of the sequent calculus and natural deduction.",
+      "Freebase(0.00 / 0 votes)Rate this definition: Jape is a configurable, graphical proof assistant, originally developed at the University of Oxford. It allows user to define a logic, decide how to view proofs, and much more. It works with variants of the sequent calculus and natural deduction.",
+      "Word Origin and History for jape Expand. v. late 14c., to trick, beguile, jilt, perhaps from Old French japer to howl, bawl, scream, of echoic origin, or from Old French gaber to mock, deride.. Phonetics suits the former, but sense the latter explanation. Took on a slang sense mid-15c. of have sex with, and disappeared from polite usage.",
+      "A jape is a joke. The highlight of your family get-togethers might be your funny uncle's japes. You can tell a jape, or play a jape \u2014 or a practical joke \u2014 on someone. An older sister might tell her little brother, I'm not interested in your silly childish japes when he shows her his whoopie cushion, for example.",
+      "You could also say that you love your annual holiday party at work, because instead of the usual stress, it's all laughing and japes. The word jape most likely comes from the Old French verb japer, to howl, bawl, or scream.."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.definitions.net/definition/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.definitions.net/definition/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.dictionary.com/browse/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.vocabulary.com/dictionary/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.vocabulary.com/dictionary/jape",
+        "query": "definition of jape"
+      }
+    ],
+    "retrieval_ms": 7.454459002474323,
+    "generation_ms": 0.12187502579763532
+  },
+  {
+    "architecture": "Naive RAG",
+    "question": "how long do peppers take to grow",
+    "ground_truth": "Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days.",
+    "answer": "Most of the hot peppers I grow take a minimum of 120 days to produce ripe pods, most take more than 150 days.",
+    "contexts": [
+      "Growing peppers indoors for the first few months is required in my part of the country because of the long growing cycles needed. Most of the hot peppers I grow take a minimum of 120 days to produce ripe pods, most take more than 150 days. Tips for Growing Peppers from Seed. I wish I could say that I follow all of this advice but I don\u2019t.",
+      "Bell peppers growing in a container image by byrdiegyrl, flickr.com. Bell pepper plants take from 70 to 90 days to produce peppers, depending on the type of pepper planted. New in Planting & Growing Vegetables.",
+      "Depending on the size of the pepper varieties planted, spacing should be 12-18 inches apart. Peppers can double as ornamentals, so tuck some into flowerbeds and borders. Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days",
+      "This will depend on the variety of pepper you are growing and the weather, but most begin producing within 65 to 75 days from transplant. Harvest sweet peppers when they reach the preferred size or color. If you like green peppers, go ahead and pick them at any time. The more you pick, the more the plant will set.",
+      "Only gardeners who enjoy long growing seasons in the Deep South should attempt to sow pepper seed directly in the garden. Most of us must start our own plants indoors about 8-10 weeks before transplanting, which should be done 2-3 weeks after the expected last frost."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://thepepperseed.com/growing-peppers/growing-peppers-from-seed/",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.gardenguides.com/67814-long-bell-pepper-plants-grow.html",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.burpee.com/gardenadvicecenter/areas-of-interest/seed-starting/growing-peppers/article10252.html",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.thespruce.com/growing-peppers-in-the-vegetable-garden-1403465",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.burpee.com/gardenadvicecenter/areas-of-interest/seed-starting/growing-peppers/article10252.html",
+        "query": "how long do peppers take to grow"
+      }
+    ],
+    "retrieval_ms": 7.912291999673471,
+    "generation_ms": 0.11637501302175224
+  },
+  {
+    "architecture": "Rerank RAG",
+    "question": "the indigo girl by natasha boyd",
+    "ground_truth": "Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney.",
+    "answer": "The Indigo Girl by Natasha Boyd book review.",
+    "contexts": [
+      "''Indigo Girl by Natasha Boyd is a lively historical novel about Eliza Lucas Pinckney, a sixteen-year-old girl left in charge of her absent father's three South Carolina plantations in 1739 and who became the first person to produce commercial-grade indigo in the American colonies.",
+      "The Indigo Girl is a riveting narrative about a woman who defied convention to become one of the country's first women entrepreneurs.'' --Foreword Reviews ''Boyd excels in her descriptions of coastal South Carolina and its climate, in the intricacies of eighteenth-century colonial society, and in her strong characters.",
+      "''Based on a true story, The Indigo Girl is an outstanding example of historical fiction...Through Eliza's strong internal voice and excerpts from actual letters, Boyd effortlessly brings this character to life. Readers will love discovering the amazing story of a virtually unknown girl who changed the course of history.'' --Booklist (starred review)",
+      "The Indigo Girl by Natasha Boyd book review. Click to read the full review of The Indigo Girl in New York Journal of Books. Review written by D. R. Meredith.",
+      "Available October 3, 2017 http://www.blackstonepublishing.com/indigo-girl-natasha-boyd http://www.natashaboyd.com/the-indigo-girl.html The year is 1739. Eliz... Available October 3, 2017 http://www.blackstonepublishing.com/indigo-girl-natasha-boyd http://www.natashaboyd.com/the-indigo-girl.html The year is 1739. Eliz... Skip navigation"
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.amazon.com/Indigo-Girl-Natasha-Boyd/dp/1455137111",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.amazon.com/Indigo-Girl-Natasha-Boyd/dp/1455137111",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.amazon.com/Indigo-Girl-Natasha-Boyd/dp/1455137111",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.nyjournalofbooks.com/book-review/indigo",
+        "query": "the indigo girl by natasha boyd"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.youtube.com/watch?v=sEn5FOPw42g",
+        "query": "the indigo girl by natasha boyd"
+      }
+    ],
+    "retrieval_ms": 2860.419250006089,
+    "generation_ms": 0.24833300267346203
+  },
+  {
+    "architecture": "Rerank RAG",
+    "question": "average salary for chief operating officer medical group",
+    "ground_truth": "$85,000",
+    "answer": "Insights about Chief Operating Officer - United Health Group members on LinkedIn.",
+    "contexts": [
+      ". The median salary for a chief medical officer in most states is $340,000 annually, and this position is expecting to see an 11% growth rate over the next ten years.",
+      "Chief Operating Officer - United Health Group Jobs, companies, people, and articles for LinkedIn\u2019s Chief Operating Officer - United Health Group members. Insights about Chief Operating Officer - United Health Group members on LinkedIn. Median salary $85,000.",
+      "Insights about Chief Operating Officer - United Health Group members on LinkedIn. 1  Median salary $85,000. 2  Top companies UnitedHealth Group - 7. 3  Top universities University of Phoenix 4  - 4. Top industries Hospital & Health Care 5  - 51. Top locations United States  - 131.",
+      "As an executive career option in public health, the job of chief medical officer is in one of the higher salary ranges for public health employees. The low end of this field is around $250,000 and can go as high as $470,000 depending upon education, experience, and scope of specialties",
+      "The base pay of insurance executives, hospital executives and even hospital administrators often far outstrips doctors\u2019 salaries, according to an analysis performed for The New York Times by Compdata Surveys: $584,000 on average for an insurance chief executive officer, $386,000 for a hospital C.E.O. and $237,000 for a hospital administrator, ..."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.careersinpublichealth.net/careers/chief-medical-officer",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.linkedin.com/title/chief-operating-officer-at-united-health-group",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.linkedin.com/title/chief-operating-officer-at-united-health-group",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.careersinpublichealth.net/careers/chief-medical-officer",
+        "query": "average salary for chief operating officer medical group"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.nytimes.com/2014/05/18/sunday-review/doctors-salaries-are-not-the-big-cost.html",
+        "query": "do physicians pay for insurance from their salaries?"
+      }
+    ],
+    "retrieval_ms": 1261.771833000239,
+    "generation_ms": 0.13783399481326342
+  },
+  {
+    "architecture": "Rerank RAG",
+    "question": "temperature sigonella sicily",
+    "ground_truth": "The average maximum temperature in July and August is 32 \u00b0C in sigonella, sicily.",
+    "answer": "This is the wind, wave and weather forecast for Catania-Sigonella Aeroporto in Sicily, Italy.",
+    "contexts": [
+      "While in Catania, which lies on the coast, the average maximum temperature in July and August is 32 \u00b0C (90 \u00b0F), in Sigonella, 15 km (9 mi) from the coast, it arrives at 33 \u00b0C (91 \u00b0F), and in Lentini at 34 \u00b0C (93 \u00b0F).",
+      ". The current temperatures in Sicily are around 13\u00b0C and the weather right now defined as Clear, for detailed information including humidity, wind, chance for rain and more go to the Sicily current weather page.",
+      "This is the wind, wave and weather forecast for Catania-Sigonella Aeroporto in Sicily, Italy. Windfinder specializes in wind, waves, tides and weather reports & forecasts for wind related sports like kitesurfing, windsurfing, surfing, sailing or paragliding. The Forecast is based on the GFS model. Forecasts are available worldwide.",
+      "temperature ranges from -3\u00b0 C (27\u00b0 F ), the average low, to an average high of 7\u00b0 C (45\u00b0 F ) in January, and from an average minimum of 22\u00b0 C (72\u00b0 F ) to an average maximum of 37\u00b0 C (99\u00b0 F ) in July.<br /><br /><br />Hope this helps!!",
+      "In Enna, the highest provincial capital of Italy, located in the centre of Sicily and at about 900 metres (3,000 feet) of altitude, fog often forms in autumn and winter, while in summer the heat is generally bearable, althoug with the sirocco, the temperature can reach 35/36 \u00b0C (95/97 \u00b0F)."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.climatestotravel.com/climate/italy/sicily",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.viamoro.com/Europe/Italy/Sicily/weather/",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.windfinder.com/forecast/catania-sigonella_aeroporto",
+        "query": "temperature sigonella sicily"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.answers.com/Q/What_is_the_average_temperature_in_Iran",
+        "query": "average summer temps in iran"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.climatestotravel.com/climate/italy/sicily",
+        "query": "temperature sigonella sicily"
+      }
+    ],
+    "retrieval_ms": 1465.358291985467,
+    "generation_ms": 0.1396249863319099
+  },
+  {
+    "architecture": "Rerank RAG",
+    "question": "definition of jape",
+    "ground_truth": "It is a configurable, graphical proof assistant, originally developed at the University of Oxford.",
+    "answer": "Freebase(0.00 / 0 votes)Rate this definition: Jape.",
+    "contexts": [
+      "Freebase(0.00 / 0 votes)Rate this definition: Jape. Jape is a configurable, graphical proof assistant, originally developed at the University of Oxford. It allows user to define a logic, decide how to view proofs, and much more. It works with variants of the sequent calculus and natural deduction.",
+      "Freebase(0.00 / 0 votes)Rate this definition: Jape is a configurable, graphical proof assistant, originally developed at the University of Oxford. It allows user to define a logic, decide how to view proofs, and much more. It works with variants of the sequent calculus and natural deduction.",
+      "A jape is a joke. The highlight of your family get-togethers might be your funny uncle's japes. You can tell a jape, or play a jape \u2014 or a practical joke \u2014 on someone. An older sister might tell her little brother, I'm not interested in your silly childish japes when he shows her his whoopie cushion, for example.",
+      "Hypernyms (jape is a kind of...): humor; humour; wit; witticism; wittiness (a message whose ingenuity or verbal skill or incongruity has the power to evoke laughter) Meronyms (parts of jape): gag line; laugh line; punch line; tag line (the point of a joke or humorous story) Hyponyms (each of the following is a kind of jape): belly laugh; howler; riot; scream; sidesplitter; thigh-slapper; wow (a",
+      "You could also say that you love your annual holiday party at work, because instead of the usual stress, it's all laughing and japes. The word jape most likely comes from the Old French verb japer, to howl, bawl, or scream.."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.definitions.net/definition/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.definitions.net/definition/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.vocabulary.com/dictionary/jape",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.audioenglish.org/dictionary/jape.htm",
+        "query": "definition of jape"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.vocabulary.com/dictionary/jape",
+        "query": "definition of jape"
+      }
+    ],
+    "retrieval_ms": 1406.1992499919143,
+    "generation_ms": 0.11920800898224115
+  },
+  {
+    "architecture": "Rerank RAG",
+    "question": "how long do peppers take to grow",
+    "ground_truth": "Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days.",
+    "answer": "Most of the hot peppers I grow take a minimum of 120 days to produce ripe pods, most take more than 150 days.",
+    "contexts": [
+      "Bell peppers growing in a container image by byrdiegyrl, flickr.com. Bell pepper plants take from 70 to 90 days to produce peppers, depending on the type of pepper planted. New in Planting & Growing Vegetables.",
+      "Growing peppers indoors for the first few months is required in my part of the country because of the long growing cycles needed. Most of the hot peppers I grow take a minimum of 120 days to produce ripe pods, most take more than 150 days. Tips for Growing Peppers from Seed. I wish I could say that I follow all of this advice but I don\u2019t.",
+      "Depending on the size of the pepper varieties planted, spacing should be 12-18 inches apart. Peppers can double as ornamentals, so tuck some into flowerbeds and borders. Most sweet peppers mature in 60-90 days; hot peppers can take up to 150 days",
+      "Best Answer: Banana peppers or hungarian wax peppers usually take about 60 days before you have peppers ripe for picking. All others usually take about 75 to 80 days. Remember for a good crop of peppers keep them weed free, plant in a sunny northern section of the garden and give them lots of water because they can get very thirsty. Watch out for the tomato horn worm. It loves to eat the leaves.",
+      "This will depend on the variety of pepper you are growing and the weather, but most begin producing within 65 to 75 days from transplant. Harvest sweet peppers when they reach the preferred size or color. If you like green peppers, go ahead and pick them at any time. The more you pick, the more the plant will set."
+    ],
+    "citations": [
+      {
+        "context_index": 1,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.gardenguides.com/67814-long-bell-pepper-plants-grow.html",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 2,
+        "source": "ms_marco_v2.1",
+        "url": "http://thepepperseed.com/growing-peppers/growing-peppers-from-seed/",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 3,
+        "source": "ms_marco_v2.1",
+        "url": "http://www.burpee.com/gardenadvicecenter/areas-of-interest/seed-starting/growing-peppers/article10252.html",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 4,
+        "source": "ms_marco_v2.1",
+        "url": "https://answers.yahoo.com/question/index?qid=20090404094654AAIABc1",
+        "query": "how long do peppers take to grow"
+      },
+      {
+        "context_index": 5,
+        "source": "ms_marco_v2.1",
+        "url": "https://www.thespruce.com/growing-peppers-in-the-vegetable-garden-1403465",
+        "query": "how long do peppers take to grow"
+      }
+    ],
+    "retrieval_ms": 1460.4966250190046,
+    "generation_ms": 0.1714999962132424
+  }
+]

@@ -1,0 +1,389 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Load the project-root `.env` at the top of `configs/config.py`": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721436
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168759677
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169133642
+      }
+    ],
+    "1.2 Write property test for `.env` fill-only-missing precedence": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721574
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169160861
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169667091
+      }
+    ],
+    "1.3 Smoke-check version-control hygiene for env files (regression)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721626
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168760980
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169135084
+      }
+    ],
+    "2.1 Change the judge default to a live, cross-family Groq model": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721669
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169158526
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169665149
+      }
+    ],
+    "2.2 Write example test for the corrected defaults": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721713
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170270725
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171047130
+      }
+    ],
+    "3. Checkpoint — configuration foundation": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721759
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788174824664
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788175213433
+      }
+    ],
+    "4.1 Widen the evaluator construction guard": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721789
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169159469
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169665690
+      }
+    ],
+    "4.2 Write property test for the RAGAS construction predicate": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721838
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170271673
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171048538
+      }
+    ],
+    "4.3 Write property test that token-overlap metrics stay LLM-free and bounded (regression)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721878
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170272975
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171050711
+      }
+    ],
+    "5.1 Register `parent_child` on chunks, keep ablations on the KG builder": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721913
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168761904
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169136489
+      }
+    ],
+    "5.2 Write property test for input-driven architecture registration": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168721948
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169161830
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169668065
+      }
+    ],
+    "6.1 Build eval-mode chunks from MS MARCO to match the vectorstore": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722006
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170269362
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171046204
+      }
+    ],
+    "6.2 Write integration test for the eval-mode corpus wiring": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722043
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171120456
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788174504765
+      }
+    ],
+    "6.3 (deferred) Confirm single-corpus retrieval on the live runtime": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722077
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171122662
+      }
+    ],
+    "7.1 Delete the stale bottom block and duplicated imports": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722111
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168763327
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169137441
+      }
+    ],
+    "7.2 Write static + smoke test for the trimmed script": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722140
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169162960
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169669317
+      }
+    ],
+    "8.1 Source the dataset path from config instead of the hard-coded filename": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722179
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168764260
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169138626
+      }
+    ],
+    "8.2 Write smoke test for dataset discovery": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722213
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169679805
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170259097
+      }
+    ],
+    "9. Checkpoint — all fixes and offline tests": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722252
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788174825963
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788175214458
+      }
+    ],
+    "10.1 Add a one-call judge health-check guard": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722293
+      },
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171121329
+      },
+      {
+        "executionId": "1879871a-e921-4aa4-9357-dd454e9a5c52",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788174823277
+      }
+    ],
+    "10.2 (deferred) Run the full pipeline end-to-end on the live runtime": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788168722353
+      }
+    ],
+    "1. BUG 6 — Load `.env` before configuration is read (`configs/config.py`)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169667166
+      }
+    ],
+    "5. BUG 2 — Un-gate Parent-Child in `build_all_architectures` (`module2/rag_architectures.py`)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169668106
+      }
+    ],
+    "7. BUG 5a — Remove the dead summary re-read in `paradox_analysis.py`": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788169669363
+      }
+    ],
+    "8. BUG 5b — Read `SYNTHETIC_DATA_PATH` in `chunk_ablation_experiment.py`": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788170259137
+      }
+    ],
+    "2. BUG 1 — Correct the judge model default (`configs/config.py`, `.env.example`)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171047173
+      }
+    ],
+    "4. BUG 3 — Construct RAGAS on a Groq **or** Mistral key (`main.py._run_evaluation`)": [
+      {
+        "executionId": "e4d3d2f9-1de6-4c1f-9939-fda971789273",
+        "chatSessionId": "sess_959dfe13-ecff-4025-ba9b-66ff94a2ab2a",
+        "timestamp": 1788171050749
+      }
+    ]
+  }
+}

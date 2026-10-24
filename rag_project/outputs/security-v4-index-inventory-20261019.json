@@ -1,0 +1,1417 @@
+{
+  "schema": "index-lifecycle-inventory/v1",
+  "files_sha256": {
+    "analyze_results.py": "f82ec56d6a353a6c66841e884561579cb0e4c730149ab39050c47e8a823bb03e",
+    "api.py": "3298760a29b43ceff0102bf385ab867f1f1c27b42e44680a7530c91aaf963f59",
+    "app.py": "4c4fb051f1542413386b4e5bedcf81f2132a0220a4fd1d154b1a1246e4c83636",
+    "chunk_ablation_experiment.py": "be75e4a99b698fa2045e43a0bcc6263c18ccf289339d0ae35900c45920aed09f",
+    "load_test.py": "0adbcb8626fd844cd89b4fa372512863dcbd042f18e57cedf434f0762e5a1492",
+    "main.py": "373f652cd949b10ee0edb79c09c82a7e93aca9b6a40c3999955f1fa6c3447c54",
+    "observability.py": "29fcb828f797e74fb700fd45464d2875bba63420cf1dc59279eba4843c2ab94c",
+    "paradox_analysis.py": "9ebfb5cce0a702c0a5f51a41aaf8620744122360959b7afea7bb367d481f4654",
+    "preprocess_full.py": "4efa2a382f1853c24c4d9d30f5beaed4ebd50206b6d0598e071ca545333fbaa1",
+    "preprocess_train.py": "505ac8f29dffbd22cd0a915578add1429963c87004411c09bf159a36fcb31567",
+    "query.py": "5adaf7de39ddc181d21bc95a112d1e5c15c5b9fd594757bf65db54d2366d50ec",
+    "security_boundary.py": "fb3a1e4a71d41402f3e789459b99c07f850e99b3ef592ff0cd85404c6be9713b",
+    "serving.py": "38f004a9f7d39bf70e1167060198e6c40d276d32196a9d11023701e76be80e90",
+    "train_in_shards.py": "f2055e1c6f47385db4600ad0145fb2d287a1ecda3513f738d1dae386e4984509",
+    "configs/__init__.py": "f07d27bea4fa3b75030773f5c29b6cf506b759d3bc29b10ab20aaee6e4796210",
+    "configs/config.py": "d43e161afce7116797d2d437c27271b8dcfe10c58ae585d1043dbc7f77084043",
+    "module1/__init__.py": "49e2ad8de30c739222e28cd992231e66399a928bed8fb99d21d9d65b743f8948",
+    "module1/data_preprocessing.py": "378eff5db1ea37ce3b40316cc2a435ef16af42ca5b7888bddae4d3c7d7fe09d6",
+    "module2/__init__.py": "8f085525f6362d255215bab3442a5ef6d03f6f8a1f12a9d34c4ab937d9330ef5",
+    "module2/answer_validation.py": "4d4759dd13f349f92239873578cb497c0860c223d573e13496bf894ad940e446",
+    "module2/rag_architectures.py": "632ce7a4f64739becae76a858b80e772ed35c0326ed47de6e11030988f43bb92",
+    "module3/__init__.py": "4287aaef80f558f3bbeda0aad5db30a25969c5ff733e377ebb08c95b6f311f9d",
+    "module3/evaluation.py": "8d047a31fa855a477aaf5be840f2ed8b091bb8650013ee6a5b6843947b46366e",
+    "module4/__init__.py": "58976645c9bcfccaa387f2e2a2f55fecf47bc5d35932d3e2f82858719ae54967",
+    "module4/visualization.py": "c5299611a9d236875e863a91d152eb3369c0b036edfebddea3010403968a1e09",
+    "module5/__init__.py": "dd8104cf646d41866b43e8e67bb0859d11b6ebe3537aac79eb5db2bfb2689a8d",
+    "module5/comparison.py": "88c69ff7226dfd64e3bc8e16c4a54d75a5b1b0fde7c2424ef7f4d4c3ffda45ad",
+    "module5/confidence.py": "d4e19344d6d9abe42f4e31653c7d4c4ff441cdc6c7a063a988ba4da4a81d2515",
+    "module5/document_upload.py": "4e97d22990c6cdee3628ed8fa36f11c97b10b769a3b2412916470358be14f1ad",
+    "module5/failure_analysis.py": "7d92a6d7f05195587dd96c93ffd513f1b289106d199d63cdcab0d0af115f1a65",
+    "module5/parser_isolation.py": "75f169f3bc9a28562cf3c3eaaabc1368816ec446278adee677e28c59b3a46c04",
+    "module5/parser_worker.py": "febf3138eff799ad5aaef0affae3cef271d6b85d9b45183a7f6d0a9a5929d6fb",
+    "phase3/__init__.py": "23dd8f2cc5e096c152a81858e6d65bb9a569220d696a1c9b5d988f277c52654d",
+    "phase3/cicd_pipeline.py": "45f0c31823117d6d92d4cc378e8c089b4fda1db3ccd46f526176f074d795b1f1",
+    "phase3/semantic_cache.py": "489685cc99f80d6666533c499bebc4134c88b66c3b9459695cb99f624d8016a9",
+    "scripts/dependency_security_report.py": "41399382fcc3e51d34ae866587f1688eed1e255f1f1fd916b43b7db4bea40e5a",
+    "scripts/evaluate_answer_boundaries.py": "464cc722f531d4e72f031a30b7db6751f7a2fcad8a499e4e18bfdd96816d546d",
+    "scripts/evaluate_answer_quality_v2.py": "70ed72f9f21eed3b5331b6b33ce9becbc426a6910db678708c2fd50866b47c57",
+    "scripts/index_lifecycle_inventory.py": "98d89baae15ff3526d97fdaa8b432bbbb7c7344de9ef51497e473618784e47b5",
+    "scripts/optimize_retrieval.py": "6524d3a1708354eff56b721bf6f1bfcf58a810d4d0e4c2e26c8e1340e6c8bb43",
+    "scripts/retrieval_ablation.py": "179cf116f0068378e17dbf365b370df44d3b7234f4364344ced407e1021219ca",
+    "scripts/run_retrieval_ablation_local.py": "b8d4fcc072497a4517c23c39a79a68d1bb4ebcc76c82f453548b0c899b50ea52",
+    "scripts/security_validation_evidence.py": "008e66841e810dc11311cb514f7e55310461cc835729a0bf875369e19dae56d4",
+    "scripts/summarize_validation.py": "2efef4046c442803579c01b64d82e48f95893b0e59de3dc6bd640ffd005c2639",
+    "scripts/validate_generation_fencing.py": "abf3edf52db22f08afe02c0bccd8dd087f0729ce13450e30e05da9dfba6c44c9",
+    "scripts/validate_live_lifecycle.py": "d96421489af99d10dcdd301ebec337204ca2800dcc20f8a99b853aded71f5d08",
+    "scripts/validate_parser_isolation.py": "557e56e5d68c879f4f27c5cf07916668fcbb9f1c36de1897e829330263e6a228",
+    "scripts/validate_research.py": "0c7d1113bbfcf47337764e119fd375bfd84049940e83a181c42db69f2b28271e",
+    "scripts/validate_serving.py": "6d7aae0529f94a0894ffaa056bff7158e84e3ddd1d966daedc8f22c9b5b405eb",
+    "scripts/verify_saved_retrieval.py": "1d7e385a6ba13a0c25bf9651f4f36243b30578d05228a7c2b3d9ac9a76487475",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/conftest.py": "ceddb892dda39504711a2fd55500243e49b09b97d966d2b0970349d65c6db529",
+    "tests/test_additional_integrity.py": "a0f664a28bb1a8314226272975bb82058d6121b863d81bc92d0d850013ee0ee9",
+    "tests/test_answer_boundaries_eval.py": "2582a45cd1cae9dc9d036ee9b249c1b57216b389349a9a53704fd7f266027e25",
+    "tests/test_answer_validation.py": "c4685c423115a2763a65581556c463f7a9113767e5f7633d09a5d6dcb41a5ed2",
+    "tests/test_api_production.py": "d7c26a6b094efd11c4c55bc46e156b727a84f48c3e6ef621969c5c4443174642",
+    "tests/test_api_security.py": "9200b887cb63fb323dd4dbe413e0cb3a2084e9fa8176d505464b268dd00974f3",
+    "tests/test_architecture_registration.py": "98abc83997b9eae03ec75da5893f8a871abcb2673599ba716f8a99edae68f273",
+    "tests/test_audit_regressions.py": "b77daf50a10de0ec3b33697bb98af6ff01fcfc95110d799d9d9a9b8b4fccba52",
+    "tests/test_cache_index_lifecycle.py": "cef3fd6daa4a60efbeca302d6c890313af72fdc77c71a82d1893b2efed2a9764",
+    "tests/test_cache_namespaces.py": "52216a5739b8b2139a70d6bb57b4d776b69539d2ed98c26c7ef4f84b4fcb9183",
+    "tests/test_chunk_ablation.py": "8e6d02e5c868f5289ad76551172d7161dd6a66ea75be9acbfdf4255b2b3a0887",
+    "tests/test_config_judge.py": "806557ddcd590efe281f0c3577879aa7cec47beee93188651159a1fc68e16d44",
+    "tests/test_dependency_security_report.py": "012f0aca5afd2e1431f0c61315fbb5f3dbf82d900a0f044b36d4d9979b6b0e6a",
+    "tests/test_deployment_boundary.py": "a8b0d8ccf0cee8f68f69fe33205116cd68190a089b63ccf11940ba19a03af458",
+    "tests/test_document_ingestion_security.py": "f7cf3cdd4759243f224626ca27a368d4f83ef7c8016f0b8f1cf8757badf08706",
+    "tests/test_document_upload.py": "49514e178f186e0f89a8d98b4aea9734516c2b46337e43f078fb215e42148e43",
+    "tests/test_env_loading.py": "b1ee1b6fbd59311a35104a0618b6febd197c7fa3b8c7c1bc4a1ee543a8966ce2",
+    "tests/test_eval_mode_corpus.py": "b34a47557ecf926749a439c324d01c3ac56232e38ca1735fdba6ade5ab203074",
+    "tests/test_exposure_security.py": "8398d91dea188885db5ca1cb01adf93bfb860252aa7f007eccd3059192bf8243",
+    "tests/test_generation_boundaries.py": "a8129f0f62539e56e86141a5fe1fb8e1b1c5626f9eb1f821eb9df564c53407c6",
+    "tests/test_generation_fencing.py": "5815c464ae27cf859a1cea40ea99a731341d6399bed54838c370814ec9e0f5a5",
+    "tests/test_gitignore_env.py": "744c021057c89ea3520ae3d65689fe96fc7b8ae5814822825cd53ca4e199e850",
+    "tests/test_index_lifecycle_coverage.py": "547d20248dd1b631ed4248be452b15d90d0567d4afdbd02cfdb3d77d2c40909f",
+    "tests/test_ir_metrics.py": "3af38176eb59aa1010dcba4a1d6cf59ca400a00d2c8294647948b7bc50e94684",
+    "tests/test_judge_health_check.py": "557d18b7f3fade1233c1c072d6b0b782f445eceb76e88479700c8f60992dfb40",
+    "tests/test_live_lifecycle.py": "6c0b20a73c6469be6703e8c85a7efee0b879781dc6a024d76f8d903da14445b3",
+    "tests/test_metric_properties.py": "7a6edcd75889fcf3cb0548256589e508c80aefd70e6082e8719814a8fcd55ab5",
+    "tests/test_metrics.py": "25dbd32d7bdca64419c20cc17a5783bf364e576e84b45615cdcad67473283274",
+    "tests/test_paradox_analysis.py": "6b765728048a8494d67c47f5327a2cdd2405153140c79b4880a46f6fd2503381",
+    "tests/test_parser_isolation.py": "4e285fad94a3f29e5d426bb304bdf44e91a3a9305b4d848d5c0f3752078eae84",
+    "tests/test_preprocess_full_persistence.py": "3fa89c6e4a5e421bf2e35a85bb995bc454be39f7d1d3a329e52d8b77d8a0fc47",
+    "tests/test_ragas_gate.py": "04b22f2d17afdfcc2425b4351fca67251175a454c4187c687f49e09b780f5aae",
+    "tests/test_reranking_and_fidelity.py": "60d20357ed64e61ab9e0d60606d3d28413ac8b9f9bd563c6fb9db2904bb16b00",
+    "tests/test_retrieval_ablation.py": "88e98a3833bee296a3ecefe1d2e5f2c8d811903c6afb3c7f7e9f78816729d9cb",
+    "tests/test_saved_retrieval_verification.py": "6dd7361db3d753483eaaf2caf64d7e4c6625e9c60e3692f8066528233c610839",
+    "tests/test_semantic_cache.py": "597c91e30723fef715147dc925268aea1e7a1ff3ee7afdd9aa0e00096241e662",
+    "tests/test_serving_api_regressions.py": "37396a8ab2e70336dc74817de38f0b1aaea26022a56d7d0c31f3723bdb890f0b",
+    "tests/test_significance.py": "1d0c56e34462e845c1deec5b43884b226a3c95ca433469c7386a21a148a551b3",
+    "tests/test_ui_local_boundary.py": "996df4a753086ea2cce9b182522034839402c1d2bf7f992cf62ee9426e72a212",
+    "tests/test_upload_isolation.py": "e970f62c954b80f13dfe248b8702e4aae45d796cfe97e0ed901aaaf9eb5d9484"
+  },
+  "supported_entrypoints": [
+    "chunk_ablation_experiment.py",
+    "main.py",
+    "module1/data_preprocessing.py",
+    "preprocess_full.py",
+    "preprocess_train.py",
+    "query.py",
+    "scripts/optimize_retrieval.py",
+    "scripts/run_retrieval_ablation_local.py",
+    "scripts/validate_live_lifecycle.py",
+    "scripts/validate_research.py",
+    "scripts/validate_serving.py",
+    "serving.py",
+    "train_in_shards.py"
+  ],
+  "entries": [
+    {
+      "path": "chunk_ablation_experiment.py",
+      "line": 59,
+      "scope": "",
+      "call": "module1.data_preprocessing.build_vector_store",
+      "operation": "first-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "main.py",
+      "line": 209,
+      "scope": "run_full_pipeline",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "main.py",
+      "line": 212,
+      "scope": "run_full_pipeline",
+      "call": "module1.data_preprocessing.rebuild_vector_store_safely",
+      "operation": "build-publish-reopen",
+      "boundary": "participating"
+    },
+    {
+      "path": "main.py",
+      "line": 263,
+      "scope": "run_eval_mode",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "main.py",
+      "line": 438,
+      "scope": "run_cicd_mode",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 74,
+      "scope": "_recover_previous_vector_store",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 75,
+      "scope": "_recover_previous_vector_store",
+      "call": "_recover_previous_vector_store",
+      "operation": "recovery",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 77,
+      "scope": "_recover_previous_vector_store",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 77,
+      "scope": "_recover_previous_vector_store",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 78,
+      "scope": "_recover_previous_vector_store",
+      "call": "_recover_previous_vector_store_without_readers",
+      "operation": "recovery-guarded-internal",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 98,
+      "scope": "_recover_previous_vector_store_without_readers",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 130,
+      "scope": "_cleanup_staged_vector_stores",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 131,
+      "scope": "_cleanup_staged_vector_stores",
+      "call": "_cleanup_staged_vector_stores",
+      "operation": "clear-private-stage",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 141,
+      "scope": "_cleanup_staged_vector_stores",
+      "call": "module1.data_preprocessing.cleanup_stale_staging_dirs",
+      "operation": "clear-private-stage",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 151,
+      "scope": "_publish_vector_store_locked",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 152,
+      "scope": "_publish_vector_store_locked",
+      "call": "_publish_vector_store_without_readers",
+      "operation": "publish-guarded-internal",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 168,
+      "scope": "_publish_vector_store_without_readers",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 168,
+      "scope": "_publish_vector_store_without_readers",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 169,
+      "scope": "_publish_vector_store_without_readers",
+      "call": "_promote_vector_store_without_readers",
+      "operation": "publish-guarded-internal",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 186,
+      "scope": "_promote_vector_store_without_readers",
+      "call": "_recover_previous_vector_store_without_readers",
+      "operation": "recovery-guarded-internal",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 190,
+      "scope": "_promote_vector_store_without_readers",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 195,
+      "scope": "_promote_vector_store_without_readers",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 197,
+      "scope": "_promote_vector_store_without_readers",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 200,
+      "scope": "_promote_vector_store_without_readers",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 220,
+      "scope": "_publish_vector_store",
+      "call": "_publish_vector_store_locked",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 223,
+      "scope": "_publish_vector_store",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 224,
+      "scope": "_publish_vector_store",
+      "call": "_publish_vector_store_locked",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 232,
+      "scope": "main",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 368,
+      "scope": "_run_locked",
+      "call": "_cleanup_staged_vector_stores",
+      "operation": "clear-private-stage",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 374,
+      "scope": "_run_locked",
+      "call": "_recover_previous_vector_store",
+      "operation": "recovery",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 385,
+      "scope": "_run_locked",
+      "call": "module1.data_preprocessing.run_isolated_index_builder",
+      "operation": "isolated-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 390,
+      "scope": "_run_locked",
+      "call": "_publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 442,
+      "scope": "_embed_full_index",
+      "call": "module1.data_preprocessing.persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 476,
+      "scope": "_add_full_batches",
+      "call": "vectorstore.add_documents",
+      "operation": "mutate-or-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_full.py",
+      "line": 490,
+      "scope": "_add_full_batches",
+      "call": "vectorstore.add_documents",
+      "operation": "mutate-or-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_train.py",
+      "line": 195,
+      "scope": "phase_embed",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_train.py",
+      "line": 197,
+      "scope": "phase_embed",
+      "call": "module1.data_preprocessing.run_isolated_index_builder",
+      "operation": "isolated-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "preprocess_train.py",
+      "line": 201,
+      "scope": "phase_embed",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "query.py",
+      "line": 46,
+      "scope": "main",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "serving.py",
+      "line": 119,
+      "scope": "vectorstore",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 140,
+      "scope": "process_shard",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 175,
+      "scope": "_process_shard_locked",
+      "call": "module1.data_preprocessing.run_isolated_index_builder",
+      "operation": "isolated-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 176,
+      "scope": "_process_shard_locked",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 190,
+      "scope": "_embed_shard_stage",
+      "call": "module1.data_preprocessing.persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 192,
+      "scope": "_embed_shard_stage",
+      "call": "store.add_documents",
+      "operation": "mutate-or-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 203,
+      "scope": "merge_shards",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 205,
+      "scope": "merge_shards",
+      "call": "module1.data_preprocessing.run_isolated_index_builder",
+      "operation": "isolated-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 206,
+      "scope": "merge_shards",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 215,
+      "scope": "_merge_shards_stage",
+      "call": "module1.data_preprocessing.persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 249,
+      "scope": "_merge_shards_into",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 252,
+      "scope": "_merge_shards_into",
+      "call": "shard_vs.get",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "train_in_shards.py",
+      "line": 268,
+      "scope": "_merge_shards_into",
+      "call": "final_vs._collection.add",
+      "operation": "mutate-or-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 184,
+      "scope": "copy_vector_store",
+      "call": "build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 184,
+      "scope": "copy_vector_store",
+      "call": "index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 187,
+      "scope": "copy_vector_store",
+      "call": "build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 187,
+      "scope": "copy_vector_store",
+      "call": "index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 188,
+      "scope": "copy_vector_store",
+      "call": "shutil.copytree",
+      "operation": "filesystem-snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 253,
+      "scope": "atomic_write_json",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 324,
+      "scope": "acquire",
+      "call": "os.replace",
+      "operation": "filesystem-rename-rollback",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 406,
+      "scope": "create_staging_dir",
+      "call": "shutil.rmtree",
+      "operation": "filesystem-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 471,
+      "scope": "cleanup_stale_staging_dirs",
+      "call": "index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 839,
+      "scope": "build_vector_store",
+      "call": "persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 840,
+      "scope": "build_vector_store",
+      "call": "vectorstore.add_documents",
+      "operation": "mutate-or-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 859,
+      "scope": "persistent_index_writer",
+      "call": "build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 860,
+      "scope": "persistent_index_writer",
+      "call": "persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 867,
+      "scope": "persistent_index_writer",
+      "call": "index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 875,
+      "scope": "persistent_index_writer",
+      "call": "langchain_chroma.Chroma",
+      "operation": "raw-persistent-open",
+      "boundary": "guarded-shared-implementation"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 889,
+      "scope": "_build_frozen_index",
+      "call": "build_vector_store",
+      "operation": "first-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 894,
+      "scope": "_build_frozen_index",
+      "call": "store.get",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 913,
+      "scope": "rebuild_vector_store_safely",
+      "call": "build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 913,
+      "scope": "rebuild_vector_store_safely",
+      "call": "index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 920,
+      "scope": "rebuild_vector_store_safely",
+      "call": "run_isolated_index_builder",
+      "operation": "isolated-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 924,
+      "scope": "rebuild_vector_store_safely",
+      "call": "preprocess_full._publish_vector_store_without_readers",
+      "operation": "publish-guarded-internal",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 927,
+      "scope": "rebuild_vector_store_safely",
+      "call": "langchain_chroma.Chroma",
+      "operation": "raw-persistent-open",
+      "boundary": "guarded-shared-implementation"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 929,
+      "scope": "rebuild_vector_store_safely",
+      "call": "shutil.rmtree",
+      "operation": "filesystem-clear",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 948,
+      "scope": "load_vector_store",
+      "call": "langchain_chroma.Chroma",
+      "operation": "raw-persistent-open",
+      "boundary": "guarded-shared-implementation"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1190,
+      "scope": "run_module1",
+      "call": "load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1197,
+      "scope": "run_module1",
+      "call": "rebuild_vector_store_safely",
+      "operation": "build-publish-reopen",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1204,
+      "scope": "run_module1",
+      "call": "build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1207,
+      "scope": "run_module1",
+      "call": "load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1212,
+      "scope": "run_module1",
+      "call": "build_vector_store",
+      "operation": "first-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "module1/data_preprocessing.py",
+      "line": 1214,
+      "scope": "run_module1",
+      "call": "rebuild_vector_store_safely",
+      "operation": "build-publish-reopen",
+      "boundary": "participating"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 397,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 471,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 518,
+      "scope": "retrieve",
+      "call": "self.child_vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 531,
+      "scope": "retrieve",
+      "call": "self.fallback_vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 642,
+      "scope": "_retrieve_and_grade",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 666,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 712,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 859,
+      "scope": "_first_stage",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 926,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 934,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 941,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1057,
+      "scope": "_build_raptor",
+      "call": "langchain_community.vectorstores.Chroma.from_documents",
+      "operation": "ephemeral-open",
+      "boundary": "ephemeral-no-persistent-path"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1099,
+      "scope": "_build_raptor",
+      "call": "langchain_community.vectorstores.Chroma.from_documents",
+      "operation": "ephemeral-open",
+      "boundary": "ephemeral-no-persistent-path"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1164,
+      "scope": "_retrieve_simple",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1179,
+      "scope": "_retrieve_raptor",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1182,
+      "scope": "_retrieve_raptor",
+      "call": "self._summary_store.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1198,
+      "scope": "_retrieve_graph",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1201,
+      "scope": "_retrieve_graph",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module2/rag_architectures.py",
+      "line": 1364,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module5/document_upload.py",
+      "line": 165,
+      "scope": "index_documents",
+      "call": "langchain_community.vectorstores.Chroma",
+      "operation": "ephemeral-open",
+      "boundary": "ephemeral-no-persistent-path"
+    },
+    {
+      "path": "module5/document_upload.py",
+      "line": 169,
+      "scope": "index_documents",
+      "call": "vectorstore.add_documents",
+      "operation": "mutate-or-clear",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module5/document_upload.py",
+      "line": 188,
+      "scope": "_delete_owned_collection",
+      "call": "vectorstore.delete_collection",
+      "operation": "mutate-or-clear",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module5/document_upload.py",
+      "line": 193,
+      "scope": "search",
+      "call": "self._vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "module5/document_upload.py",
+      "line": 196,
+      "scope": "search_with_scores",
+      "call": "self._vectorstore.similarity_search_with_score",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "scripts/optimize_retrieval.py",
+      "line": 56,
+      "scope": "bootstrap",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/optimize_retrieval.py",
+      "line": 97,
+      "scope": "mode_diagnosis",
+      "call": "vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/retrieval_ablation.py",
+      "line": 543,
+      "scope": "retrieve",
+      "call": "self.vectorstore.similarity_search",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "scripts/run_retrieval_ablation_local.py",
+      "line": 277,
+      "scope": "_load_local_components",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/run_retrieval_ablation_local.py",
+      "line": 278,
+      "scope": "_load_local_components",
+      "call": "vectorstore.get",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/run_retrieval_ablation_local.py",
+      "line": 279,
+      "scope": "_load_local_components",
+      "call": "stored.get",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/run_retrieval_ablation_local.py",
+      "line": 343,
+      "scope": "run",
+      "call": "module1.data_preprocessing.copy_vector_store",
+      "operation": "snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 89,
+      "scope": "_worker",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 90,
+      "scope": "_worker",
+      "call": "module1.data_preprocessing.build_vector_store",
+      "operation": "first-build",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 95,
+      "scope": "_worker",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 101,
+      "scope": "_worker",
+      "call": "module1.data_preprocessing.rebuild_vector_store_safely",
+      "operation": "build-publish-reopen",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 107,
+      "scope": "_worker",
+      "call": "preprocess_full._recover_previous_vector_store",
+      "operation": "recovery",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 111,
+      "scope": "_worker",
+      "call": "module1.data_preprocessing.copy_vector_store",
+      "operation": "snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 299,
+      "scope": "_paused_publisher",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_live_lifecycle.py",
+      "line": 330,
+      "scope": "validate_index_readers",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_research.py",
+      "line": 156,
+      "scope": "run",
+      "call": "module1.data_preprocessing.copy_vector_store",
+      "operation": "snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_research.py",
+      "line": 158,
+      "scope": "run",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_research.py",
+      "line": 160,
+      "scope": "run",
+      "call": "store.get",
+      "operation": "read-consumer",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_serving.py",
+      "line": 85,
+      "scope": "profile_stages",
+      "call": "module1.data_preprocessing.copy_vector_store",
+      "operation": "snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_serving.py",
+      "line": 88,
+      "scope": "profile_stages",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "participating"
+    },
+    {
+      "path": "scripts/validate_serving.py",
+      "line": 161,
+      "scope": "run",
+      "call": "module1.data_preprocessing.copy_vector_store",
+      "operation": "snapshot",
+      "boundary": "participating"
+    },
+    {
+      "path": "tests/test_additional_integrity.py",
+      "line": 27,
+      "scope": "test_rebuild_rejects_stale_chroma_handles_and_retains_last_store",
+      "call": "module1.data_preprocessing.build_vector_store",
+      "operation": "first-build",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_additional_integrity.py",
+      "line": 29,
+      "scope": "test_rebuild_rejects_stale_chroma_handles_and_retains_last_store",
+      "call": "module1.data_preprocessing.rebuild_vector_store_safely",
+      "operation": "build-publish-reopen",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_additional_integrity.py",
+      "line": 33,
+      "scope": "test_rebuild_rejects_stale_chroma_handles_and_retains_last_store",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_additional_integrity.py",
+      "line": 38,
+      "scope": "test_loading_an_empty_directory_does_not_create_a_store",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 344,
+      "scope": "test_builder_lock_wait_is_bounded_and_file_is_cleaned.holder",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 352,
+      "scope": "test_builder_lock_wait_is_bounded_and_file_is_cleaned",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 363,
+      "scope": "test_builder_lock_releases_after_exception",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 372,
+      "scope": "test_staging_cleanup_removes_only_dead_marked_stages",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 382,
+      "scope": "test_staging_cleanup_removes_only_dead_marked_stages",
+      "call": "preprocess_full._cleanup_staged_vector_stores",
+      "operation": "clear-private-stage",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_cache_index_lifecycle.py",
+      "line": 432,
+      "scope": "test_failed_publication_restores_previous_store_and_releases_lock",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_exposure_security.py",
+      "line": 162,
+      "scope": "test_actual_ui_resource_functions_keep_cache_and_uploads_in_session",
+      "call": "chromadb.EphemeralClient",
+      "operation": "ephemeral-open",
+      "boundary": "test-fixture"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 54,
+      "scope": "_paused_first_builder",
+      "call": "module1.data_preprocessing.build_vector_store",
+      "operation": "first-build",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 55,
+      "scope": "_paused_first_builder",
+      "call": "store.get",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 59,
+      "scope": "_paused_first_builder",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 166,
+      "scope": "test_internal_publish_and_recovery_fail_closed_without_guard",
+      "call": "preprocess_full._publish_vector_store_without_readers",
+      "operation": "publish-guarded-internal",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 168,
+      "scope": "test_internal_publish_and_recovery_fail_closed_without_guard",
+      "call": "preprocess_full._recover_previous_vector_store_without_readers",
+      "operation": "recovery-guarded-internal",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 169,
+      "scope": "test_internal_publish_and_recovery_fail_closed_without_guard",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 171,
+      "scope": "test_internal_publish_and_recovery_fail_closed_without_guard",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 182,
+      "scope": "test_publish_retains_each_last_good_corpus",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 192,
+      "scope": "_crash_during_publication",
+      "call": "module1.data_preprocessing.build_lock_for",
+      "operation": "builder-lock",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 192,
+      "scope": "_crash_during_publication",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 192,
+      "scope": "_crash_during_publication",
+      "call": "module1.data_preprocessing.index_publication_guard",
+      "operation": "reader-barrier",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 295,
+      "scope": "test_real_shard_merge_writer_and_source_reader_sessions",
+      "call": "module1.data_preprocessing.build_vector_store",
+      "operation": "first-build",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 301,
+      "scope": "test_real_shard_merge_writer_and_source_reader_sessions",
+      "call": "module1.data_preprocessing.persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 303,
+      "scope": "test_real_shard_merge_writer_and_source_reader_sessions",
+      "call": "store.get",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 317,
+      "scope": "test_full_batch_builder_with_real_store_and_deterministic_vectors",
+      "call": "module1.data_preprocessing.persistent_index_writer",
+      "operation": "open-writer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_index_lifecycle_coverage.py",
+      "line": 321,
+      "scope": "test_full_batch_builder_with_real_store_and_deterministic_vectors",
+      "call": "store.get",
+      "operation": "read-consumer",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_preprocess_full_persistence.py",
+      "line": 29,
+      "scope": "test_published_store_and_manifest_can_be_loaded",
+      "call": "langchain_community.vectorstores.Chroma.from_documents",
+      "operation": "raw-persistent-open",
+      "boundary": "test-fixture"
+    },
+    {
+      "path": "tests/test_preprocess_full_persistence.py",
+      "line": 36,
+      "scope": "test_published_store_and_manifest_can_be_loaded",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_preprocess_full_persistence.py",
+      "line": 39,
+      "scope": "test_published_store_and_manifest_can_be_loaded",
+      "call": "module1.data_preprocessing.load_vector_store",
+      "operation": "open-reader",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_preprocess_full_persistence.py",
+      "line": 67,
+      "scope": "test_publish_failure_restores_previous_store",
+      "call": "preprocess_full._publish_vector_store",
+      "operation": "publish",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_preprocess_full_persistence.py",
+      "line": 83,
+      "scope": "test_interrupted_publish_backup_is_recovered",
+      "call": "preprocess_full._recover_previous_vector_store",
+      "operation": "recovery",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_upload_isolation.py",
+      "line": 39,
+      "scope": "chroma_client",
+      "call": "chromadb.EphemeralClient",
+      "operation": "ephemeral-open",
+      "boundary": "test-fixture"
+    },
+    {
+      "path": "tests/test_upload_isolation.py",
+      "line": 44,
+      "scope": "chroma_client",
+      "call": "client.delete_collection",
+      "operation": "mutate-or-clear",
+      "boundary": "review-caller"
+    },
+    {
+      "path": "tests/test_upload_isolation.py",
+      "line": 174,
+      "scope": "test_unowned_default_and_external_collections_are_preserved",
+      "call": "langchain_community.vectorstores.Chroma.from_documents",
+      "operation": "ephemeral-open",
+      "boundary": "test-fixture"
+    }
+  ],
+  "unguarded_raw_opens": [],
+  "restrictions": [
+    "Participating POSIX/local-filesystem lifetime leases; stop-serving rebuild, no hot swap.",
+    "Staging native writers exit (spawn/join) before publication; cached paths cannot be rebuilt in-process.",
+    "External clients, network filesystems, dynamic imports and arbitrary Python alias/dataflow are outside this AST proof.",
+    "module2 RAPTOR constructors are ephemeral in this tree; module5 injected clients are a separate uploader boundary.",
+    "Legacy partial train/shard indexes are preserved, not resumed in place; embedding restarts in a new stage."
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "ranked_metric_max_recompute_error": 1.1102230246251565e-16,
+  "historical_paired_rows": 2000,
+  "historical_max_per_query_metric_difference": {
+    "ndcg_at_10": 0.0,
+    "mrr_at_10": 0.0,
+    "recall_at_k": 0.0,
+    "hit_rate": 0.0
+  },
+  "queries_returning_duplicate_ids": {
+    "Naive RAG": 1
+  },
+  "answer_proxies_NOT_semantic_quality": [
+    {
+      "architecture": "Naive RAG",
+      "n": 50,
+      "normalized_exact_match": 0.02,
+      "reference_token_f1": 0.2726266279186269,
+      "citation_indices_valid": 250,
+      "citation_count": 250,
+      "nonabstaining_answers_found_as_context_span": 50,
+      "abstentions": 0,
+      "mean_retrieval_ms": 8.399434060556814,
+      "mean_extractive_generation_ms": 0.11218171915970743
+    },
+    {
+      "architecture": "Rerank RAG",
+      "n": 50,
+      "normalized_exact_match": 0.02,
+      "reference_token_f1": 0.2602433689146022,
+      "citation_indices_valid": 250,
+      "citation_count": 250,
+      "nonabstaining_answers_found_as_context_span": 50,
+      "abstentions": 0,
+      "mean_retrieval_ms": 1149.4382024824154,
+      "mean_extractive_generation_ms": 0.15374418115243316
+    }
+  ],
+  "retrieval_latency": [
+    {
+      "architecture": "CRAG",
+      "n": 500,
+      "first_query_ms": 7.664208998903632,
+      "mean_ms": 7.690630335710011,
+      "p50_ms": 7.085625009494834,
+      "p95_ms": 13.356618728721507
+    },
+    {
+      "architecture": "Naive RAG",
+      "n": 500,
+      "first_query_ms": 11.87783299246803,
+      "mean_ms": 7.425184102787171,
+      "p50_ms": 7.138646018574946,
+      "p95_ms": 8.851689891889691
+    },
+    {
+      "architecture": "Parent-Child RAG",
+      "n": 500,
+      "first_query_ms": 7.572417001938447,
+      "mean_ms": 8.395839672302827,
+      "p50_ms": 7.542374994955026,
+      "p95_ms": 12.45819825417129
+    },
+    {
+      "architecture": "Rerank RAG",
+      "n": 500,
+      "first_query_ms": 2250.8621659944765,
+      "mean_ms": 1370.5733099903446,
+      "p50_ms": 1286.1625204968732,
+      "p95_ms": 1939.6645610584526
+    }
+  ],
+  "limitations": [
+    "No human/LLM judgement or semantic citation precision",
+    "Single reference, lexical proxies only",
+    "Process/disk warmness and host contention affect latency"
+  ]
+}

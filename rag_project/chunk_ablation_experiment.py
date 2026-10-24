@@ -16,22 +16,21 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, ".")
 
+from configs.config import SYNTHETIC_DATA_PATH
 from module1.data_preprocessing import (
-    chunk_documents, build_vector_store, get_embedding_model, load_squad_documents
+    chunk_documents, build_vector_store, get_embedding_model, load_msmarco_documents
 )
 from module2.rag_architectures import NaiveRAG
 from module3.evaluation import (
-    compute_precision_omega, compute_answer_recall, compute_token_iou
+    compute_precision_omega
 )
-from langchain_chroma import Chroma
 
 # Load synthetic data
-SYNTHETIC_PATH = "outputs/synthetic_data.json"
-if not os.path.exists(SYNTHETIC_PATH):
-    print(f"ERROR: {SYNTHETIC_PATH} not found. Run main.py --mode full first.")
+if not os.path.exists(SYNTHETIC_DATA_PATH):
+    print(f"ERROR: {SYNTHETIC_DATA_PATH} not found. Run main.py --mode full first.")
     sys.exit(1)
 
-with open(SYNTHETIC_PATH) as f:
+with open(SYNTHETIC_DATA_PATH) as f:
     data = json.load(f)
 
 # Use 50 samples for speed
@@ -41,17 +40,21 @@ print(f"Running ablation on {len(samples)} samples...")
 chunk_sizes = [100, 200, 400, 600, 800, 1000]
 results = []
 
-# Load documents once
-docs = load_squad_documents(max_samples=500)
+# Load the same MS MARCO corpus family as the synthetic questions and production
+# validation store. Mixing MS MARCO queries with SQuAD contexts would make the
+# chunk-size comparison a corpus mismatch rather than an ablation.
+docs = load_msmarco_documents(max_samples=1000)
 embedding_model = get_embedding_model()
 
 for size in chunk_sizes:
-    print(f"\nChunk size: {size} tokens...")
+    print(f"\nChunk size: {size} characters...")
 
     # Re-chunk with this size
     chunks = chunk_documents(docs, chunk_size=size, chunk_overlap=min(50, size//4))
 
-    # Build temp vectorstore
+    # Each variant owns a unique temporary path. The shared builder guards its
+    # first native open and pins it for this process; paths are never reused or
+    # published. Only this owned TemporaryDirectory is cleaned afterwards.
     with tempfile.TemporaryDirectory() as tmpdir:
         vectorstore = build_vector_store(chunks, embedding_model, persist_dir=tmpdir)
         rag = NaiveRAG(vectorstore=vectorstore, top_k=5)
@@ -102,7 +105,7 @@ for size in chunk_sizes:
 df = pd.DataFrame(results)
 os.makedirs("outputs", exist_ok=True)
 df.to_csv("outputs/chunk_ablation_results.csv", index=False)
-print(f"\nResults saved to outputs/chunk_ablation_results.csv")
+print("\nResults saved to outputs/chunk_ablation_results.csv")
 
 # Generate THE KEY GRAPH
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -113,11 +116,11 @@ ax.plot(df.chunk_size, df.pomega,
 ax.fill_between(
     df.chunk_size, df.precision_k, df.pomega,
     alpha=0.15, color='red',
-    label=f'Misleading zone (Precision@K overestimates quality)'
+    label='Misleading zone (Precision@K overestimates quality)'
 )
 ax.axvline(x=400, color='green', linestyle='--', linewidth=1.5,
-           label='Optimal chunk size (400 tokens)')
-ax.set_xlabel('Chunk Size (tokens)', fontsize=13)
+           label='Reference chunk size (400 characters)')
+ax.set_xlabel('Chunk Size (characters)', fontsize=13)
 ax.set_ylabel('Score (0–1)', fontsize=13)
 ax.set_title(
     'Precision@K Inflates as PΩ Drops with Increasing Chunk Size\n'

@@ -1,0 +1,52 @@
+{
+  "runtime": "3.12.14",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "dataset": "microsoft/ms_marco",
+  "config": "v2.1",
+  "split": "validation",
+  "dataset_rows": 101093,
+  "dataset_fingerprint": "ec570a8962845fb8",
+  "dataset_cache_revisions": [
+    "a47ee7aae8d7d466ba15f9f0bfac3b3681087b3a"
+  ],
+  "passages": 9858,
+  "chunks": 11510,
+  "qrels_queries": 994,
+  "chunk_size_characters": 400,
+  "overlap_characters": 50,
+  "top_k": 5,
+  "candidates_per_source": 50,
+  "query_selection": "numpy.default_rng(42).choice(first 1000 answerable QA, N, replace=False)",
+  "subset_sha256": "e4e18734f375ed214f18cd33f3a374527d48763d9d3e3f25c00442f0b877f101",
+  "answer_subset_v1_sha256": "e4e18734f375ed214f18cd33f3a374527d48763d9d3e3f25c00442f0b877f101",
+  "missing_qrels": [],
+  "exact_duplicate_chunks": 74,
+  "prefix_id_duplicates": 74,
+  "store_has_manifest": false,
+  "models": {
+    "sentence-transformers/all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "BAAI/bge-reranker-base": "2cfc18c9415c912f9d8155881c133215df768a70"
+  },
+  "timings_seconds": {
+    "embedding_load": 1.317440082988469,
+    "store_load": 0.04524483400746249,
+    "architecture_construction": 0.17446504198596813,
+    "reranker_load": 0.639648375014076,
+    "startup_to_models_ready": 3.320819290995132
+  },
+  "packages": {
+    "sentence-transformers": "3.3.1",
+    "transformers": "4.46.3",
+    "torch": "2.5.1",
+    "chromadb": "1.5.9",
+    "rank-bm25": "0.2.2"
+  },
+  "corpus_multiset_equal": true,
+  "corpus_missing_chunks": 0,
+  "corpus_extra_chunks": 0,
+  "corpus_text_multiset_sha256": "d59c7fa5dd1134055915da41a1d1762a004e881e883259a0618afcaeea846938",
+  "reranker_device": "mps",
+  "peak_rss_mib": 1505.8125,
+  "total_seconds": 13.148086915985914,
+  "provider_calls": 0
+}

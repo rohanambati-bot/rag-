@@ -1,0 +1,49 @@
+{
+  "schema": "reranker-depth-benchmark/v1",
+  "status": "passed",
+  "protocol_valid": false,
+  "manifest_present": false,
+  "store": "/Users/rohanambati/Projects/cap/rag_project/data/chroma_db_full",
+  "query_count": 4,
+  "candidate_depths": [
+    20,
+    50
+  ],
+  "top_k": 5,
+  "reranker_model": "BAAI/bge-reranker-base",
+  "device": "cpu",
+  "peak_rss_mib": 2406.33,
+  "results": [
+    {
+      "candidate_depth": 20,
+      "mean_pool_size": 32.0,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.875,
+      "ndcg_at_5": 0.6769,
+      "ndcg_at_10": 0.728,
+      "median_total_ms": 645.94,
+      "p95_total_ms": 650.3,
+      "median_pool_ms": 10.69,
+      "median_rerank_ms": 623.52,
+      "p95_rerank_ms": 633.26
+    },
+    {
+      "candidate_depth": 50,
+      "mean_pool_size": 89.5,
+      "hit_rate_at_5": 1.0,
+      "hit_rate_at_10": 1.0,
+      "mrr_at_10": 0.875,
+      "ndcg_at_5": 0.6769,
+      "ndcg_at_10": 0.728,
+      "median_total_ms": 1837.73,
+      "p95_total_ms": 2122.09,
+      "median_pool_ms": 10.78,
+      "median_rerank_ms": 1816.81,
+      "p95_rerank_ms": 2091.44
+    }
+  ],
+  "limitations": [
+    "Legacy store has no index manifest; metrics are not release-valid corpus evidence."
+  ]
+}

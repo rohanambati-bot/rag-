@@ -11,8 +11,9 @@ Usage:
   python main.py --mode demo          # Demo plots with benchmark data (no API needed)
   python main.py --mode cache-demo    # Demonstrate semantic caching
 
-Env vars required for full pipeline:
-  MISTRAL_API_KEY — Mistral API key
+Env vars for the full/eval/cicd pipelines (at least ONE LLM key is required):
+  GROQ_API_KEY    — Groq API key (free tier, recommended)
+  MISTRAL_API_KEY — Mistral API key (optional fallback)
   REDIS_HOST      — Redis hostname (optional, defaults to localhost)
   REDIS_PORT      — Redis port    (optional, defaults to 6379)
 """
@@ -26,7 +27,8 @@ import sys
 import pandas as pd
 
 from configs.config import (
-    SYNTHETIC_DATA_PATH, EVAL_RESULTS_PATH, OUTPUTS_DIR, MISTRAL_API_KEY
+    SYNTHETIC_DATA_PATH, EVAL_RESULTS_PATH, OUTPUTS_DIR, MISTRAL_API_KEY, GROQ_API_KEY,
+    OPENROUTER_API_KEY, DATA_DIR, EMBEDDING_MODEL, CHILD_CHUNK_SIZE, CHUNK_OVERLAP,
 )
 
 logging.basicConfig(
@@ -41,14 +43,117 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _require_api_key() -> None:
-    from configs.config import GROQ_API_KEY
-    if not MISTRAL_API_KEY and not GROQ_API_KEY:
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if not MISTRAL_API_KEY and not GROQ_API_KEY and not OPENROUTER_API_KEY:
         logger.error(
-            "Neither GROQ_API_KEY nor MISTRAL_API_KEY is set. Export one before running:\n"
+            "No LLM API key found (GROQ_API_KEY, MISTRAL_API_KEY, or OPENROUTER_API_KEY). "
+            "Export one before running:\n"
             "  export GROQ_API_KEY=your_key_here   (free, recommended)\n"
+            "  export OPENROUTER_API_KEY=your_key_here\n"
             "  export MISTRAL_API_KEY=your_key_here"
         )
         sys.exit(1)
+
+
+def _store_dir(args) -> str:
+    """
+    Resolve which Chroma store to evaluate against.
+
+    ``--store`` accepts a shorthand (``full`` / ``train``) or an explicit path, so
+    the large train-split index built by ``preprocess_train.py`` is reachable
+    without editing config.
+    """
+    from configs.config import DATA_DIR, VECTOR_STORE_DIR
+
+    choice = getattr(args, "store", None)
+    if not choice:
+        return VECTOR_STORE_DIR
+    # The shorthands must be distinct regardless of the VECTOR_STORE_DIR default or
+    # env-override: README documents `full` → data/chroma_db_full and
+    # `train` → data/chroma_db_train. (Previously `full` mapped to
+    # VECTOR_STORE_DIR, which by default resolved to the *train* store — so
+    # `--store full` and `--store train` silently both selected the train corpus.)
+    shorthand = {
+        "full": os.path.join(DATA_DIR, "chroma_db_full"),
+        "train": os.path.join(DATA_DIR, "chroma_db_train"),
+    }
+    path = shorthand.get(choice, choice)
+    if not os.path.exists(path):
+        logger.error("Vector store not found: %s", path)
+        logger.error(
+            "Build it with `python preprocess_full.py` (full) or "
+            "`python train_in_shards.py --all --merge` (train)."
+        )
+        sys.exit(1)
+    logger.info("Using vector store: %s", path)
+    return path
+
+
+def _filter_llm_free(architectures: dict) -> dict:
+    """
+    Keep only architectures whose retrieval path makes no LLM API calls.
+
+    ``--retrieval-only`` removes answer generation and LLM judging, but several
+    architectures call the LLM *inside* retrieval (HyDE expansion, multi-query
+    rewriting, complexity classification, CRAG relevance grading), and GRACE-Ω also
+    summarises RAPTOR clusters when constructed. Those runs are therefore NOT free.
+    This filter selects the genuinely zero-cost subset so a large-n sweep can run
+    without API spend or rate limits.
+    """
+    kept, dropped = {}, []
+    for key, arch in architectures.items():
+        is_free = getattr(arch, "llm_free_retrieval", False)
+        (kept.__setitem__(key, arch) if is_free else dropped.append(key))
+
+    logger.info(
+        "LLM-free filter: keeping %d architecture(s) %s; excluding %d that call the "
+        "LLM during retrieval %s.",
+        len(kept), sorted(kept), len(dropped), sorted(dropped),
+    )
+    if not kept:
+        logger.error("No LLM-free architectures available — nothing to evaluate.")
+        sys.exit(1)
+    return kept
+
+
+def _load_eval_dataset(requested: int) -> list:
+    """
+    Return an evaluation set of at least ``requested`` questions where possible.
+
+    The committed synthetic dataset holds only 50 questions, which is far below the
+    ~50+ topics IR practice expects for a meaningful comparison and was the binding
+    constraint on statistical power (not the ``--samples`` flag). MS MARCO already
+    ships real user queries paired with human-written answers, so when more samples
+    are requested than the synthetic file contains we draw straight from the dataset
+    instead. That needs no LLM, so scaling up costs nothing.
+    """
+    synthetic = _load_synthetic_data()
+
+    # Anything that is not a sized list (or is already big enough) passes straight
+    # through unchanged.
+    if not isinstance(synthetic, list) or len(synthetic) >= requested:
+        return synthetic
+
+    try:
+        from module1.data_preprocessing import load_msmarco_qa_pairs
+    except ImportError:
+        logger.warning(
+            "load_msmarco_qa_pairs unavailable — evaluating on the %d available "
+            "synthetic questions.", len(synthetic),
+        )
+        return synthetic
+
+    logger.info(
+        "Synthetic set has %d questions but %d requested — drawing real MS MARCO "
+        "query/answer pairs instead (no LLM needed).",
+        len(synthetic), requested,
+    )
+    pairs = load_msmarco_qa_pairs(max_samples=max(requested, 1000))
+    if len(pairs) < requested:
+        logger.warning(
+            "Only %d MS MARCO pairs available; evaluating on those.", len(pairs)
+        )
+    return pairs or synthetic
 
 
 def _load_synthetic_data():
@@ -71,24 +176,42 @@ def run_full_pipeline(args) -> None:
     artifacts = run_module1(generate_synthetic=True)
 
     # Module 2 — build all architectures
-    from module2.rag_architectures import build_all_architectures, NaiveRAG
-    from langchain_community.vectorstores import Chroma
+    from module2.rag_architectures import build_all_architectures
+    from module1.data_preprocessing import load_vector_store, rebuild_vector_store_safely
 
-    # Build child vectorstore for Parent-Child RAG — persist + reuse across runs
+    # Build child vectorstore for Parent-Child RAG — persist + reuse across runs.
+    # Path is anchored to DATA_DIR, not CWD, so the pipeline behaves identically
+    # when launched from another working directory.
     pc = artifacts["parent_child"]
-    _child_dir = os.path.join("data", "chroma_db_children")
-    if os.path.exists(os.path.join(_child_dir, "chroma.sqlite3")):
+    _child_dir = os.path.join(DATA_DIR, "chroma_db_children")
+    child_manifest = os.path.join(_child_dir, "_index_manifest.json")
+
+    def _child_store_is_reusable() -> bool:
+        if not (
+            os.path.exists(os.path.join(_child_dir, "chroma.sqlite3"))
+            and os.path.exists(child_manifest)
+        ):
+            return False
+        try:
+            with open(child_manifest, encoding="utf-8") as manifest_file:
+                manifest = json.load(manifest_file)
+            return (
+                manifest.get("embedding_model") == EMBEDDING_MODEL
+                and manifest.get("chunk_size") == CHILD_CHUNK_SIZE
+                and manifest.get("chunk_overlap") == CHUNK_OVERLAP
+                and manifest.get("num_chunks") == len(pc["children"])
+            )
+        except (OSError, AttributeError, TypeError, json.JSONDecodeError):
+            return False
+
+    if _child_store_is_reusable():
         logger.info("Found existing child vector store at %s — loading instead of rebuilding.", _child_dir)
-        child_vectorstore = Chroma(
-            persist_directory=_child_dir,
-            embedding_function=artifacts["embedding_model"],
-        )
+        child_vectorstore = load_vector_store(artifacts["embedding_model"], _child_dir)
     else:
-        os.makedirs(_child_dir, exist_ok=True)
-        child_vectorstore = Chroma.from_documents(
-            documents=pc["children"],
-            embedding=artifacts["embedding_model"],
-            persist_directory=_child_dir,
+        logger.warning("Child vector store is missing or stale; rebuilding %s.", _child_dir)
+        child_vectorstore = rebuild_vector_store_safely(
+            pc["children"], artifacts["embedding_model"], _child_dir,
+            chunk_size=CHILD_CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP,
         )
 
     # Build knowledge graph for GRACE-Ω
@@ -113,6 +236,7 @@ def run_full_pipeline(args) -> None:
         parent_child=pc,
         child_vectorstore=child_vectorstore,
         kg_builder=kg_builder,
+        embedding_model=artifacts.get("embedding_model"),
     )
 
     # Module 3 — evaluate
@@ -127,27 +251,153 @@ def run_full_pipeline(args) -> None:
 
 def run_eval_mode(args) -> None:
     """Load pre-built vectorstore and evaluate all architectures."""
-    _require_api_key()
-    from module1.data_preprocessing import load_vector_store, get_embedding_model, chunk_documents, load_squad_documents
-    from module2.rag_architectures import build_all_architectures
+    retrieval_only = getattr(args, "retrieval_only", False)
+    # Retrieval-only runs never call an LLM, so they need no API key at all.
+    if not retrieval_only:
+        _require_api_key()
 
-    embedding_model = get_embedding_model()
-    vectorstore = load_vector_store(embedding_model)
-    docs = load_squad_documents()
-    chunks = chunk_documents(docs)
-
-    architectures = build_all_architectures(
-        vectorstore=vectorstore, chunks=chunks
+    # ── Eval-mode overrides ─────────────────────────────────────────────────
+    # The serving default (2 s) causes the answer gate to abstain on almost
+    # every query, making faithfulness / answer_relevance measure silence.
+    # Evaluation must wait for a real answer, not shed load.
+    import configs.config as _cfg
+    _cfg.LLM_ANSWER_MAX_WAIT_SECONDS = float(
+        os.environ.get("LLM_ANSWER_MAX_WAIT_SECONDS", "30")
+    )
+    logger.info(
+        "Eval mode: LLM_ANSWER_MAX_WAIT_SECONDS overridden to %.0f s.",
+        _cfg.LLM_ANSWER_MAX_WAIT_SECONDS,
     )
 
-    synthetic_data = _load_synthetic_data()
-    _run_evaluation(architectures, synthetic_data)
+    from module1.data_preprocessing import (
+        chunk_documents, get_embedding_model, load_msmarco_documents,
+        load_vector_store,
+    )
+    from module2.rag_architectures import build_all_architectures
+    from module3.evaluation import build_qrels
+
+    embedding_model = get_embedding_model()
+    store_path = _store_dir(args)
+    vectorstore = load_vector_store(embedding_model, persist_dir=store_path)
+
+    # Keep the historical development protocol (MS MARCO's configured subset),
+    # but never pair it with a full dense store. Full indexes reconstruct their
+    # exact chunk view from the persisted store instead of silently using 1,000
+    # freshly loaded passages as BM25/graph side data.
+    docs = load_msmarco_documents()
+    loaded_chunks = chunk_documents(docs)
+    from module1 import data_preprocessing as preprocessing
+    read_manifest = getattr(preprocessing, "read_index_manifest", None)
+    dense_chunks = getattr(preprocessing, "documents_from_vector_store", None)
+    manifest = read_manifest(store_path) if read_manifest else None
+    if manifest is None:
+        chunks = loaded_chunks
+    elif manifest["scope"] == "full":
+        if dense_chunks is None:
+            raise RuntimeError("Full index requires its persisted chunk corpus for side-data construction")
+        chunks = dense_chunks(vectorstore)
+    elif manifest["scope"] == "dev":
+        chunks = loaded_chunks
+    else:
+        raise RuntimeError(f"Unsupported evaluation corpus scope: {manifest['scope']!r}")
+    if manifest is not None:
+        from module1.data_preprocessing import verify_corpus_side_data
+        verify_corpus_side_data(manifest, chunks, required=("bm25", "graph", "qrels"))
+
+    # Human relevance judgements (MS MARCO is_selected) → rank-aware IR metrics.
+    qrels = build_qrels(chunks)
+
+    # ── Build child vectorstore for Parent-Child RAG ────────────────────────
+    # Without this, ParentChildRAG falls back to the main vectorstore and
+    # produces results identical to NaiveRAG.
+    build_pc = getattr(preprocessing, "build_parent_child_chunks", None)
+    pc = build_pc(docs) if build_pc is not None else None
+    child_vectorstore = None
+    if pc and pc.get("children"):
+        from langchain_chroma import Chroma as _ChildChroma
+        logger.info(
+            "Building in-memory child vector store (%d children)…",
+            len(pc["children"]),
+        )
+        child_vectorstore = _ChildChroma.from_documents(
+            pc["children"], embedding_model,
+            collection_name="eval_parent_child_children",
+        )
+
+    llm_free = getattr(args, "llm_free", False)
+    architectures = build_all_architectures(
+        vectorstore=vectorstore, chunks=chunks,
+        parent_child=pc, child_vectorstore=child_vectorstore,
+        embedding_model=embedding_model,
+        llm_free_only=llm_free,
+    )
+    if llm_free:
+        # Constructed selectively (GRACE-Ω's RAPTOR build costs LLM calls), then
+        # asserted so a future architecture cannot silently reintroduce API spend.
+        architectures = _filter_llm_free(architectures)
+
+    requested = getattr(args, "samples", None) or 200
+    eval_set = _load_eval_dataset(requested)
+    _run_evaluation(
+        architectures,
+        eval_set,
+        qrels=qrels,
+        max_samples=requested,
+        retrieval_only=retrieval_only,
+    )
 
 
-def _run_evaluation(architectures: dict, synthetic_data: list) -> None:
+def _run_evaluation(
+    architectures: dict,
+    synthetic_data: list,
+    qrels: dict | None = None,
+    max_samples: int = 200,
+    retrieval_only: bool = False,
+) -> None:
     from module3.evaluation import EvaluationPipeline, RAGASEvaluator
+    import configs.config as _cfg
+    _cfg.LLM_ANSWER_MAX_WAIT_SECONDS = float(
+        os.environ.get("LLM_ANSWER_MAX_WAIT_SECONDS", "30")
+    )
 
-    ragas_evaluator = RAGASEvaluator() if MISTRAL_API_KEY else None
+    # Retrieval-only runs are LLM-free by design: no generator, no judge. This is
+    # what makes large-n (n>=500) experiments free and rate-limit-proof.
+    if retrieval_only:
+        logger.info(
+            "RETRIEVAL-ONLY mode: skipping generation and LLM judging. "
+            "Rank-aware IR metrics only (no API calls)."
+        )
+        ragas_evaluator = None
+    else:
+        ragas_evaluator = RAGASEvaluator() if (
+            OPENROUTER_API_KEY or GROQ_API_KEY or MISTRAL_API_KEY
+        ) else None
+
+    # One-call judge health check before the long evaluation run. Runs ONLY when
+    # an evaluator was actually constructed (a key was present); the no-key path
+    # (regression 3.2) leaves ragas_evaluator as None and is skipped entirely, so
+    # extractive answering + token-overlap metrics still run without a judge and
+    # without crashing. A mis-set/retired judge model now fails loudly here rather
+    # than silently dropping every LLM-judged metric across the whole run.
+    if ragas_evaluator is not None:
+        try:
+            probe_score = ragas_evaluator.health_check()
+            logger.info("Judge health check passed (probe score=%.3f).", probe_score)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "\n"
+                "════════════════════════════════════════════════════════════════\n"
+                " JUDGE HEALTH CHECK FAILED — LLM-judged metrics will be MISSING.\n"
+                " %s\n"
+                " Fix JUDGE_PROVIDER / JUDGE_MODEL (see .env.example) before trusting\n"
+                " these results; the judge model may be mis-set or retired.\n"
+                "════════════════════════════════════════════════════════════════",
+                exc,
+            )
+            raise RuntimeError(
+                "Judge health check failed; refusing to spend the evaluation budget."
+            ) from exc
+
     pipeline = EvaluationPipeline(ragas_evaluator=ragas_evaluator)
 
     all_results: dict = {}
@@ -160,7 +410,9 @@ def _run_evaluation(architectures: dict, synthetic_data: list) -> None:
             architecture_name=arch_display,
             rag_system=rag,
             synthetic_dataset=synthetic_data,
-            max_samples=200,
+            max_samples=max_samples,
+            qrels=qrels,
+            retrieval_only=retrieval_only,
         )
         all_results[arch_display] = df
         all_raw_rows.append(df)
@@ -174,7 +426,7 @@ def _run_evaluation(architectures: dict, synthetic_data: list) -> None:
     summary = pipeline.compare_architectures(all_results)
     print("\n=== EVALUATION SUMMARY ===")
     print(summary.to_string(index=False))
-    
+
     from module4.visualization import generate_summary_report
     generate_summary_report(summary)
 
@@ -199,21 +451,44 @@ def _run_visualization() -> None:
 
 
 def _run_significance_tests(raw_csv_path: str) -> None:
-    """Run statistical significance tests and save results."""
+    """
+    Paired significance tests vs the Naive baseline, across every available metric.
+
+    Tests are question-paired and Benjamini-Hochberg corrected within each metric
+    family (see module3.evaluation.test_metric_significance).
+    """
     if not os.path.exists(raw_csv_path):
         logger.warning("No raw results found for significance testing.")
         return
-    
-    from module3.evaluation import test_pomega_significance
+
+    from module3.evaluation import test_metric_significance
     df = pd.read_csv(raw_csv_path)
-    sig_df = test_pomega_significance(df, baseline_arch="Naive RAG")
-    
-    if not sig_df.empty:
-        sig_path = os.path.join(OUTPUTS_DIR, "significance_tests.csv")
-        sig_df.to_csv(sig_path, index=False)
-        logger.info("Significance tests saved to %s", sig_path)
-        print("\n=== STATISTICAL SIGNIFICANCE (vs Naive RAG baseline) ===")
-        print(sig_df.to_string(index=False))
+
+    # Rank-aware IR metrics first (they exist only when qrels were supplied), then
+    # the token-overlap and LLM-judged metrics.
+    candidate_metrics = [
+        "ndcg_at_10", "mrr_at_10", "recall_at_k", "hit_rate",
+        "precision_omega", "answer_recall", "iou",
+        "faithfulness", "context_precision", "context_recall", "answer_relevance",
+    ]
+    frames = []
+    for metric in candidate_metrics:
+        if metric not in df.columns or df[metric].dropna().empty:
+            continue
+        out = test_metric_significance(df, baseline_arch="Naive RAG", metric=metric)
+        if not out.empty:
+            frames.append(out)
+
+    if not frames:
+        logger.warning("No metrics available for significance testing.")
+        return
+
+    sig_df = pd.concat(frames, ignore_index=True)
+    sig_path = os.path.join(OUTPUTS_DIR, "significance_tests.csv")
+    sig_df.to_csv(sig_path, index=False)
+    logger.info("Significance tests saved to %s", sig_path)
+    print("\n=== STATISTICAL SIGNIFICANCE (paired, BH-corrected, vs Naive RAG) ===")
+    print(sig_df.to_string(index=False))
 
 
 def run_cicd_mode(args) -> None:
@@ -262,13 +537,13 @@ def run_cache_demo(args) -> None:
     from phase3.cicd_pipeline import SemanticCache
 
     print("\n=== Semantic Cache Demo ===\n")
-    cache = SemanticCache()  # uses in-memory fallback if Redis not available
+    cache = SemanticCache(namespace="cli-cache-demo-v1")  # availability fallback, never a serving namespace
 
     queries = [
         ("What is the capital of France?", "The capital of France is Paris.", ["Paris is the capital..."]),
-        ("Tell me the capital city of France.", None, None),      # should cache hit
+        ("What's the capital of France?", None, None),   # should cache hit (sim 0.99)
         ("What is deep learning?", "Deep learning uses neural networks.", ["Neural networks..."]),
-        ("Explain deep learning briefly.", None, None),           # should cache hit
+        ("What exactly is deep learning?", None, None),  # should cache hit (sim 0.98)
         ("What is the weather today?", "It's sunny.", ["Weather data..."]),
     ]
 
@@ -281,7 +556,7 @@ def run_cache_demo(args) -> None:
             print(f"  CACHE MISS → {query[:50]}")
             if answer:
                 cache.store(query, answer, contexts or [])
-                print(f"             ↳ Stored in cache\n")
+                print("             ↳ Stored in cache\n")
 
     print("Cache stats:", cache.stats())
 
@@ -300,7 +575,28 @@ def main() -> None:
     )
     parser.add_argument(
         "--samples", type=int, default=30,
-        help="Number of synthetic samples for CI/CD gate (default: 30)",
+        help="Number of samples (CI/CD gate default 30; eval mode default 200)",
+    )
+    parser.add_argument(
+        "--store", default=None,
+        help="Vector store to evaluate: 'full', 'train', or an explicit path",
+    )
+    parser.add_argument(
+        "--retrieval-only", action="store_true", dest="retrieval_only",
+        help=(
+            "Skip answer generation and LLM judging; report rank-aware IR metrics "
+            "only. NOTE: some architectures still call the LLM during retrieval "
+            "(HyDE, query rewriting, routing, CRAG grading) — add --llm-free for a "
+            "genuinely zero-cost run."
+        ),
+    )
+    parser.add_argument(
+        "--llm-free", action="store_true", dest="llm_free",
+        help=(
+            "Evaluate only architectures whose retrieval makes no LLM API calls "
+            "(naive, parent_child, rerank). Combine with --retrieval-only for a "
+            "large-n sweep at zero API cost."
+        ),
     )
     args = parser.parse_args()
 

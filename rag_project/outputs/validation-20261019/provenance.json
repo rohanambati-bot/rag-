@@ -1,0 +1,57 @@
+{
+  "runtime": "3.12.14",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "dataset": "microsoft/ms_marco",
+  "config": "v2.1",
+  "split": "validation",
+  "dataset_rows": 101093,
+  "dataset_fingerprint": "ec570a8962845fb8",
+  "dataset_cache_revisions": [
+    "a47ee7aae8d7d466ba15f9f0bfac3b3681087b3a"
+  ],
+  "passages": 9858,
+  "chunks": 11510,
+  "qrels_queries": 994,
+  "chunk_size_characters": 400,
+  "overlap_characters": 50,
+  "top_k": 5,
+  "candidates_per_source": 50,
+  "query_selection": "numpy.default_rng(42).choice(first 1000 answerable QA, N, replace=False)",
+  "subset_sha256": "70e4a602af0025ce61b72cfe335ec85ac1dd1155413c4403a936130b6fff05fd",
+  "answer_subset_v1_sha256": "dee91026ad53d1699df69eabc6a6c1aaf6e8bb314d1910fbba6eb10c993bdd15",
+  "missing_qrels": [
+    "how old do you have to be to be a server",
+    "how to bake 2 5lb chickens",
+    "temperature in clearwater, fl",
+    "temperature by cricket chirps"
+  ],
+  "exact_duplicate_chunks": 74,
+  "prefix_id_duplicates": 74,
+  "store_has_manifest": false,
+  "models": {
+    "sentence-transformers/all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "BAAI/bge-reranker-base": "2cfc18c9415c912f9d8155881c133215df768a70"
+  },
+  "timings_seconds": {
+    "embedding_load": 1.0928120409953408,
+    "store_load": 0.0454230839968659,
+    "architecture_construction": 0.17211412501637824,
+    "reranker_load": 0.6320988330116961,
+    "startup_to_models_ready": 2.822843166999519
+  },
+  "packages": {
+    "sentence-transformers": "3.3.1",
+    "transformers": "4.46.3",
+    "torch": "2.5.1",
+    "chromadb": "1.5.9",
+    "rank-bm25": "0.2.2"
+  },
+  "corpus_multiset_equal": true,
+  "corpus_missing_chunks": 0,
+  "corpus_extra_chunks": 0,
+  "corpus_text_multiset_sha256": "d59c7fa5dd1134055915da41a1d1762a004e881e883259a0618afcaeea846938",
+  "reranker_device": "mps",
+  "peak_rss_mib": 1536.125,
+  "total_seconds": 702.6460784169903,
+  "provider_calls": 0
+}

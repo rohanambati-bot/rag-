@@ -25,15 +25,10 @@ ENV/
 *.key
 secrets/
 
+.hypothesis/
+
 # ── Data / artifacts (large or sensitive) ─────────────────────────────────
-data/chroma_db/
-data/chroma_db_full/
-data/chroma_db_train/
-data/train_shards/
-data/shard_checkpoints/
-data/_*.jsonl
-data/_*.json
-data/synthetic_dataset.json
+data/
 
 # ── Outputs / logs ────────────────────────────────────────────────────────
 outputs/cicd_report.json
@@ -57,3 +52,8 @@ dist/
 # ── Jupyter ───────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+
+# ── Local AI-tool workspaces ──────────────────────────────────────────────
+.opencode/
+.omnirush/
+node_modules/

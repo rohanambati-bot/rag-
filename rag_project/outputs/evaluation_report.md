@@ -1,53 +1,16 @@
 # RAG System Evaluation Report
 
-> _Status: Preliminary results — full benchmark in progress._
->
-> The numbers below are an honest report of the most recent evaluation run on a
-> small SQuAD subset (n=50 per architecture). They are NOT yet representative of
-> the system's final performance because:
->
-> 1. **Sample size is too small** for statistically meaningful comparison
->    (95% CI half-width on a mean of 0.3 with n=50 is ≈ ±0.13, which is wider
->    than the gap between any two architectures here).
-> 2. **The judge LLM was the same family as the generator LLM**, which biases
->    faithfulness scores. We have since decoupled the judge (see
->    `module3/evaluation.py`).
-> 3. **The retrieval metrics (IoU, noise ratio) had a definitional flaw** — they
->    compared the entire retrieved context against a 1-3 token gold answer, so
->    noise ratio was structurally near-1.0. The metrics are now bounded
->    correctly (see `compute_token_iou`, `compute_noise_ratio`).
->
-> Re-run targets after the fixes land: `n=200` per architecture, 95% bootstrap
-> CIs, separate judge LLM, MS MARCO test split.
+## Architecture Comparison
 
-## Architecture Comparison (preliminary, n=50, SQuAD subset)
+| architecture     |   n |   expected_samples |   successful_samples |   failed_samples |   skipped_samples |   failure_rate | evaluation_valid   |   recall_at_k |   recall_at_k_ci_lo |   recall_at_k_ci_hi |   precision_at_k |   precision_at_k_ci_lo |   precision_at_k_ci_hi |   hit_rate |   hit_rate_ci_lo |   hit_rate_ci_hi |   mrr_at_10 |   mrr_at_10_ci_lo |   mrr_at_10_ci_hi |   ndcg_at_10 |   ndcg_at_10_ci_lo |   ndcg_at_10_ci_hi |   answer_recall |   answer_recall_ci_lo |   answer_recall_ci_hi |    iou |   iou_ci_lo |   iou_ci_hi |   precision_omega |   precision_omega_ci_lo |   precision_omega_ci_hi |   noise_ratio |   noise_ratio_ci_lo |   noise_ratio_ci_hi |   latency_ms |
+|:-----------------|----:|-------------------:|---------------------:|-----------------:|------------------:|---------------:|:-------------------|--------------:|--------------------:|--------------------:|-----------------:|-----------------------:|-----------------------:|-----------:|-----------------:|-----------------:|------------:|------------------:|------------------:|-------------:|-------------------:|-------------------:|----------------:|----------------------:|----------------------:|-------:|------------:|------------:|------------------:|------------------------:|------------------------:|--------------:|--------------------:|--------------------:|-------------:|
+| Naive RAG        | 500 |                500 |                  500 |                0 |                 0 |              0 | True               |        0.7998 |              0.7688 |              0.8307 |           0.1976 |                 0.1899 |                 0.206  |     0.8891 |           0.8629 |           0.9173 |      0.6114 |            0.5803 |            0.6441 |       0.6324 |             0.6038 |             0.6622 |          0.8942 |                0.8745 |                0.9133 | 0.155  |      0.1473 |      0.1639 |            0.0152 |                  0.0128 |                  0.0182 |        0.9023 |              0.896  |              0.9087 |       6.445  |
+| CRAG             | 500 |                500 |                  500 |                0 |                 0 |              0 | True               |        0.7016 |              0.6669 |              0.7386 |           0.2424 |                 0.2253 |                 0.2613 |     0.7863 |           0.752  |           0.8226 |      0.5703 |            0.5378 |            0.606  |       0.575  |             0.5446 |             0.6101 |          0.8241 |                0.8003 |                0.8489 | 0.1593 |      0.1503 |      0.1695 |            0.0233 |                  0.0195 |                  0.0275 |        0.8827 |              0.8742 |              0.8908 |       6.4262 |
+| Parent-Child RAG | 500 |                500 |                  500 |                0 |                 0 |              0 | True               |        0.6786 |              0.6391 |              0.7204 |           0.1435 |                 0.1347 |                 0.1524 |     0.6956 |           0.6552 |           0.7379 |      0.4799 |            0.4441 |            0.5168 |       0.523  |             0.4895 |             0.5581 |          0.9114 |                0.8944 |                0.9307 | 0.152  |      0.1444 |      0.1605 |            0.0131 |                  0.0111 |                  0.0154 |        0.9097 |              0.9037 |              0.9155 |       6.178  |
+| Rerank RAG       | 500 |                500 |                  500 |                0 |                 0 |              0 | True               |        0.8567 |              0.8326 |              0.8813 |           0.2121 |                 0.2052 |                 0.2194 |     0.9496 |           0.9274 |           0.9677 |      0.6889 |            0.6602 |            0.7186 |       0.699  |             0.674  |             0.7254 |          0.931  |                0.9154 |                0.9479 | 0.1649 |      0.1567 |      0.1751 |            0.0175 |                  0.0144 |                  0.0212 |        0.8967 |              0.8891 |              0.9036 |    7554.43   |
 
-| Architecture       | Faithfulness | Context Precision | Answer Recall | Noise Ratio | Latency (ms) |
-|:-------------------|-------------:|------------------:|--------------:|------------:|-------------:|
-| Naive RAG          |        0.330 |             0.234 |         0.158 |       0.965 |          469 |
-| Hybrid Multi-Query |        0.210 |             0.110 |         0.154 |       0.990 |        1 109 |
-| Parent-Child RAG   |        0.272 |             0.372 |         0.120 |       0.991 |          489 |
-| CRAG               |        0.372 |             0.276 |         0.026 |       0.963 |          959 |
+## Best Architecture
 
-## Quality Gate Status (current thresholds)
+Highest mean **ndcg_at_10**: **Rerank RAG** (0.6990), n=500.
 
-| Metric             | Threshold | Naive | Hybrid | P-C   | CRAG  |
-|:-------------------|----------:|------:|-------:|------:|------:|
-| Faithfulness ≥     |     0.75  |   ✗   |   ✗    |   ✗   |   ✗   |
-| Context Precision ≥|     0.70  |   ✗   |   ✗    |   ✗   |   ✗   |
-| Answer Relevance ≥ |     0.80  |   ✗   |   ✗    |   ✗   |   ✗   |
-| Noise Ratio ≤      |     0.25  |   ✗   |   ✗    |   ✗   |   ✗   |
-
-All four architectures currently fail the quality gate. This report exists
-to document the baseline before fixes; it should be regenerated after the
-metric repair, judge decoupling, and larger sample run.
-
-## Reproduction
-
-```bash
-python main.py --mode eval --samples 200
-python main.py --mode visualize
-```
-
-The command above will overwrite this file with up-to-date results from
-`outputs/eval_results.csv` via `module4.visualization.generate_summary_report`.
+> Ranking by mean alone does not establish a difference. See `significance_tests.csv` for question-paired, Benjamini-Hochberg corrected comparisons against the Naive baseline.

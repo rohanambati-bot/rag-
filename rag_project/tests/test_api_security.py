@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import importlib
-import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,14 +22,38 @@ def client_with_auth(monkeypatch):
 
 @pytest.fixture
 def client_open(monkeypatch):
-    """API client in open dev mode (API_KEY unset)."""
-    monkeypatch.delenv("API_KEY", raising=False)
+    """
+    API client in *explicit* dev mode.
+
+    Auth now fails closed, so an unset ``API_KEY`` no longer means "serve everything"
+    — it means "refuse protected routes". Opting out is deliberate via
+    ``ALLOW_UNAUTHENTICATED=true``, which is what this fixture does so the input
+    validation assertions below still reach the handlers.
+
+    The retrieval stack is stubbed because these tests are about request validation,
+    not retrieval, and building the real stack needs a persisted vector store.
+    """
+    monkeypatch.setenv("API_KEY", "")
+    monkeypatch.setenv("HOST", "127.0.0.1")
+    monkeypatch.setenv("ALLOW_UNAUTHENTICATED", "true")
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:8501")
     import configs.config
     importlib.reload(configs.config)
+    import serving
+    importlib.reload(serving)
     import api as api_mod
     importlib.reload(api_mod)
-    return TestClient(api_mod.app)
+
+    class _Arch:
+        name = "Naive RAG"
+        llm_free_retrieval = True
+
+        def run(self, q):
+            return {"answer": "a", "contexts": [], "latency_ms": 1.0}
+
+    monkeypatch.setattr(api_mod.CONTEXT, "architectures", lambda: {"naive": _Arch()})
+    monkeypatch.setattr(api_mod.CONTEXT, "is_ready", lambda: True)
+    return TestClient(api_mod.app, client=("127.0.0.1", 50000))
 
 
 class TestApiAuth:
@@ -70,11 +93,15 @@ class TestInputValidation:
         assert r.status_code == 422
 
     def test_query_rejects_unknown_architecture(self, client_open):
+        # 400 rather than 422: the valid set is now the live architecture registry
+        # rather than a hardcoded enum, so this is checked in the handler and the
+        # error message lists what is actually available.
         r = client_open.post(
             "/query",
             json={"question": "hi", "architecture": "magic"},
         )
-        assert r.status_code == 422
+        assert r.status_code == 400
+        assert "Unknown architecture" in r.json()["detail"]
 
     def test_evaluate_caps_samples(self, client_open):
         r = client_open.post("/evaluate", json={"samples": 100_000})

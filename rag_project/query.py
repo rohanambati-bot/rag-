@@ -12,7 +12,6 @@ Usage:
 
 import argparse
 import logging
-import os
 import sys
 
 logging.disable(logging.CRITICAL)  # suppress all INFO/WARNING noise
@@ -23,27 +22,40 @@ def main():
                         default="crag", help="RAG architecture to use (default: crag)")
     args = parser.parse_args()
 
-    # Check API key
-    if not os.environ.get("MISTRAL_API_KEY"):
-        print("ERROR: MISTRAL_API_KEY is not set.")
-        print("Run: $env:MISTRAL_API_KEY = 'your_key_here'")
+    # Check API key — the RAG architectures resolve keys via configs.config
+    # (Groq → Mistral → extractive fallback), so accept EITHER key here.
+    from configs.config import GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY
+    if not (GROQ_API_KEY or MISTRAL_API_KEY or OPENROUTER_API_KEY):
+        print("ERROR: No LLM API key set (GROQ_API_KEY, MISTRAL_API_KEY, or OPENROUTER_API_KEY).")
+        print("Set one before running:")
+        print("  export GROQ_API_KEY=your_key_here     (free, recommended)")
+        print("  export MISTRAL_API_KEY=your_key_here")
         sys.exit(1)
 
     print("Loading RAG system, please wait...")
 
-    from module1.data_preprocessing import load_vector_store, get_embedding_model, chunk_documents, load_squad_documents
+    from module1.data_preprocessing import (
+        load_vector_store, get_embedding_model, chunk_documents,
+        load_msmarco_documents,
+    )
     from module2.rag_architectures import NaiveRAG, HybridMultiQueryRAG, ParentChildRAG, CorrectiveRAG
-    from langchain_community.vectorstores import Chroma
 
     embedding_model = get_embedding_model()
+    # The shared loader pins the persistent path until this process exits.
+    # Do not replace it with a raw constructor or rebuild inside this session.
     vectorstore = load_vector_store(embedding_model)
+
+    # One corpus everywhere: the BM25 index for hybrid/parent-child must cover the
+    # same MS MARCO chunks as the dense store. (Previously this bootstrapped from
+    # SQuAD, so sparse retrieval searched a different corpus than dense.)
+    chunks = chunk_documents(load_msmarco_documents())
 
     arch_map = {
         "naive":       ("Naive RAG",          NaiveRAG(vectorstore=vectorstore)),
         "hybrid":      ("Hybrid Multi-Query",  HybridMultiQueryRAG(vectorstore=vectorstore,
-                            chunks=chunk_documents(load_squad_documents()))),
+                            chunks=chunks)),
         "parentchild": ("Parent-Child RAG",    ParentChildRAG(vectorstore=vectorstore,
-                            chunks=chunk_documents(load_squad_documents()))),
+                            chunks=chunks)),
         "crag":        ("Corrective RAG (CRAG)", CorrectiveRAG(vectorstore=vectorstore)),
     }
 
